@@ -50,7 +50,7 @@ def boolean_method_filter(method):
     First check for old style (pre version 1 Django Filters)
     """
     if hasattr(django_filters, 'MethodFilter'):
-        return django_filters.MethodFilter(action=method)
+        return django_filters.MethodFilter(action=method)  # pylint: disable=no-member
     else:
         return django_filters.BooleanFilter(method=method)
 
