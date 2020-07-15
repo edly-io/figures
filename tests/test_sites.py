@@ -29,9 +29,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 
 import organizations
+from organizations.tests.factories import OrganizationFactory
+from courseware.tests.factories import StudentModuleFactory
 
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
+)
+from openedx.features.edly.tests.factories import (
+    EdlySubOrganizationFactory,
+    EdlyUserProfileFactory,
 )
 
 import figures.helpers
@@ -40,10 +46,8 @@ import figures.sites
 from tests.factories import (
     CourseEnrollmentFactory,
     CourseOverviewFactory,
-    OrganizationFactory,
     OrganizationCourseFactory,
     SiteFactory,
-    StudentModuleFactory,
     UserFactory,
 )
 from tests.helpers import organizations_support_sites
@@ -117,8 +121,6 @@ class TestHandlersForStandaloneMode(object):
                        [ce.id for ce in expected_ce])
 
 
-@pytest.mark.skipif(not organizations_support_sites(),
-                    reason='Organizations support sites')
 @pytest.mark.django_db
 class TestHandlersForMultisiteMode(object):
     """
@@ -134,9 +136,16 @@ class TestHandlersForMultisiteMode(object):
         settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         is_multisite = figures.helpers.is_multisite()
         assert is_multisite
+        assert Site.objects.count() == 1
+
         self.site = SiteFactory(domain='foo.test')
-        self.organization = OrganizationFactory(sites=[self.site])
-        assert Site.objects.count() == 2
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization
+        )
+        # Now verify that "EdlySubOrganizationFactory" has created a studio site along with the lms site
+        assert Site.objects.count() == 3
         self.features = {'FIGURES_IS_MULTISITE': True}
 
     def test_get_site_for_courses(self):
@@ -213,13 +222,15 @@ class TestHandlersForMultisiteMode(object):
 
         assert get_user_model().objects.count() == 0
         user = UserFactory()
-        UserOrganizationMappingFactory(user=user,
-                                       organization=self.organization)
+        EdlyUserProfileFactory(
+            user=user,
+            edly_sub_organizations=[self.edly_sub_organization]
+        )
 
-        sm_count = 2
-        sm_expected = [StudentModuleFactory(course_id=course_overviews[0].id,
+        student_module_count = 1
+        student_module_expected = [StudentModuleFactory(course_id=course_overviews[0].id,
                                             student=user
-                                            ) for i in range(sm_count)]
+                                            ) for i in range(student_module_count)]
 
         # StudentModule for other course
         StudentModuleFactory(course_id=course_overviews[1].id)
@@ -227,23 +238,21 @@ class TestHandlersForMultisiteMode(object):
         # StudentModule for course not in organization
         StudentModuleFactory(course_id=course_overviews[2].id)
 
-        sm = figures.sites.get_student_modules_for_course_in_site(
+        student_module = figures.sites.get_student_modules_for_course_in_site(
             site=self.site, course_id=course_overviews[0].id)
 
-        assert sm.count() == len(sm_expected)
+        assert student_module.count() == len(student_module_expected)
 
         # test that course id as a string works
-        sm = figures.sites.get_student_modules_for_course_in_site(
+        student_module = figures.sites.get_student_modules_for_course_in_site(
             site=self.site, course_id=str(course_overviews[0].id))
 
-        assert sm.count() == len(sm_expected)
+        assert student_module.count() == len(student_module_expected)
 
-        sm = figures.sites.get_student_modules_for_site(site=self.site)
-        assert sm.count() == len(sm_expected) + 1
+        student_module = figures.sites.get_student_modules_for_site(site=self.site)
+        assert student_module.count() == len(student_module_expected) + 1
 
 
-@pytest.mark.skipif(not organizations_support_sites(),
-                    reason='Organizations support sites')
 @pytest.mark.django_db
 class TestUserHandlersForMultisiteMode(object):
     """
@@ -261,16 +270,23 @@ class TestUserHandlersForMultisiteMode(object):
         settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         is_multisite = figures.helpers.is_multisite()
         assert is_multisite
+        assert Site.objects.count() == 1
+
         self.site = SiteFactory(domain='foo.test')
-        self.organization = OrganizationFactory(
-            sites=[self.site],
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization
         )
         assert get_user_model().objects.count() == 0
         self.users = [UserFactory() for i in range(3)]
         for user in self.users:
-            UserOrganizationMappingFactory(user=user,
-                                           organization=self.organization)
-        assert Site.objects.count() == 2
+            EdlyUserProfileFactory(
+                user=user,
+                edly_sub_organizations=[self.edly_sub_organization]
+            )
+        # Now verify that "EdlySubOrganizationFactory" has created a studio site along with the lms site
+        assert Site.objects.count() == 3
         self.features = {'FIGURES_IS_MULTISITE': True}
 
     def test_get_user_ids_for_site(self):
