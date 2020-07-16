@@ -18,6 +18,10 @@ from django.conf import settings
 import organizations
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from openedx.features.edly.models import (
+    EdlySubOrganization,
+    EdlyUserProfile,
+)  # pylint: disable=import-error
 from courseware.models import StudentModule  # pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 
@@ -117,7 +121,10 @@ def get_site_for_course(course_id):
                 assert first_org.sites.count() == 1, msg.format(first_org.name)
                 site = first_org.sites.first()
             else:
-                site = None
+                try:
+                    site = first_org.edlysuborganization.lms_site
+                except EdlySubOrganization.DoesNotExist:
+                    site = None
         else:
             # We don't want to make assumptions of who our consumers are
             # TODO: handle no organizations found for the course
@@ -132,12 +139,12 @@ def get_organizations_for_site(site):
     """
     TODO: Refactor the functions in this module that make this call
     """
-    return organizations.models.Organization.objects.filter(sites__in=[site])
+    return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
 
 
 def get_course_keys_for_site(site):
     if figures.helpers.is_multisite():
-        orgs = organizations.models.Organization.objects.filter(sites__in=[site])
+        orgs = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
         org_courses = organizations.models.OrganizationCourse.objects.filter(
             organization__in=orgs)
         course_ids = org_courses.values_list('course_id', flat=True)
@@ -161,10 +168,9 @@ def get_courses_for_site(site):
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
-        orgs = organizations.models.Organization.objects.filter(sites__in=[site])
-        mappings = organizations.models.UserOrganizationMapping.objects.filter(
-            organization__in=orgs)
-        user_ids = mappings.values_list('user', flat=True)
+        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+        edly_user_profiles = EdlyUserProfile.objects.filter(edly_sub_organizations__edx_organization__in=edx_organizations)
+        user_ids = edly_user_profiles.values_list('user', flat=True)
     else:
         user_ids = get_user_model().objects.all().values_list('id', flat=True)
     return user_ids
