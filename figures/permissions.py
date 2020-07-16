@@ -12,6 +12,9 @@ try:
 except ImportError:
     pass
 
+from openedx.features.edly.models import EdlyUserProfile
+from openedx.features.edly.utils import edly_panel_user_has_edly_org_access
+
 import figures.helpers
 import figures.sites
 
@@ -41,23 +44,13 @@ def is_site_admin_user(request):
     3. Get the user org mappings for the orgs and user in the request
     4. Check the uom record if user is admin and active
     """
-    has_permission = is_active_staff_or_superuser(request)
-    if not has_permission:
-        if figures.helpers.is_multisite():
-            if request.user.is_active:
-                current_site = django.contrib.sites.shortcuts.get_current_site(request)
-                org_ids = Organization.objects.filter(
-                    sites__in=[current_site]).values_list('id',
-                                                          flat=True)
-                return UserOrganizationMapping.objects.filter(
-                    organization_id__in=org_ids,
-                    user=request.user,
-                    is_active=True,
-                    is_amc_admin=True).exists()
-            else:
-                return False
+    if figures.helpers.is_multisite():
+        if request.user.is_active:
+            has_permission = is_active_staff_or_superuser(request) or edly_panel_user_has_edly_org_access(request)
         else:
-            has_permission = is_active_staff_or_superuser(request)
+            has_permission = False
+    else:
+        has_permission = is_active_staff_or_superuser(request)
     return has_permission
 
 
