@@ -16,14 +16,15 @@ import logging
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
+from django.utils.timezone import utc
 
-from common.djangoapps.student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
+from courseware.models import StudentModule  # pylint: disable=import-error
+from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from student.models import CourseEnrollment  # pylint: disable=import-error
+from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 
-from figures.compat import (CourseEnrollment,
-                            CourseOverview,
-                            GeneratedCertificate,
-                            StudentModule)
-from figures.helpers import as_course_key, as_datetime, is_past_date, next_day
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day
 import figures.metrics
 from figures.models import CourseDailyMetrics
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -105,34 +106,21 @@ def get_days_to_complete(course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
-    certificates = GeneratedCertificate.objects.filter(
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lte=as_datetime(date_for))
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for),
+    ).values('user_id', 'passed_timestamp')
 
     days = []
-    errors = []
-    for cert in certificates:
-        ce = CourseEnrollment.objects.filter(
+    for grade in grades:
+        course_enrollment = CourseEnrollment.objects.filter(
             course_id=as_course_key(course_id),
-            user=cert.user)
-        # How do we want to handle multiples?
-        if ce.count() > 1:
-            errors.append(
-                dict(msg='Multiple CE records',
-                     course_id=course_id,
-                     user_id=cert.user.id,
-                     ))
-        try:
-            days.append((cert.created_date - ce[0].created).days)
-        except IndexError:
-            # sometimes a course enrollment is deleted after the cert is generated.  why, who knows?
-            # in which case just leave out that data
-            errors.append(
-                dict(msg='No CourseEnrollment matching user course certificate',
-                     course_id=course_id,
-                     user_id=cert.user.id,
-                     ))
-    return dict(days=days, errors=errors)
+            user__id=grade.get('user_id')
+        ).first()
+        days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
+
+    return dict(days=days)
 
 
 def calc_average_days_to_complete(days):
@@ -162,10 +150,13 @@ def get_num_learners_completed(course_id, date_for):
 
     We may want to get the number of certificates granted in the given day
     """
-    certificates = GeneratedCertificate.objects.filter(
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lt=as_datetime(next_day(date_for)))
-    return certificates.count()
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for),
+    )
+
+    return grades.count()
 
 # Formal extractor classes
 

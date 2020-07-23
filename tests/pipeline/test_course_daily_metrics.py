@@ -10,6 +10,11 @@ import pytest
 
 from dateutil.relativedelta import relativedelta
 
+from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
+from openedx.features.edly.tests.factories import (
+    EdlySubOrganizationFactory,
+    EdlyUserProfileFactory,
+)
 from django.core.exceptions import ValidationError
 
 from figures.compat import CourseAccessRole, CourseEnrollment
@@ -84,7 +89,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.today = datetime.date(2018, 6, 1)
+        self.today = datetime.date.today()
         self.enrollment_dates = [
             '2018-04-27', '2018-04-28', '2018-04-29', '2018-04-30'
         ]
@@ -97,41 +102,45 @@ class TestCourseDailyMetricsPipelineFunctions(object):
                 ) for dt in self.enrollment_dates]
         else:
             self.course_enrollments = [CourseEnrollmentFactory(
-                course=self.course_overview,
-                created=as_datetime(dt)
-                ) for dt in self.enrollment_dates]
+                course=self.course_overview) for i in range(4)]
 
-        if organizations_support_sites():
-            self.my_site = SiteFactory(domain='my-site.test')
-            self.my_site_org = OrganizationFactory(sites=[self.my_site])
-            OrganizationCourseFactory(organization=self.my_site_org,
-                                      course_id=str(self.course_overview.id))
-            for ce in self.course_enrollments:
-                UserOrganizationMappingFactory(user=ce.user,
-                                               organization=self.my_site_org)
+        self.site = SiteFactory(domain='my-site.test')
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site
+        )
+        OrganizationCourseFactory(
+            organization=self.edly_sub_organization.edx_organization,
+            course_id=str(self.course_overview.id)
+        )
+        for course_enrollment in self.course_enrollments:
+            EdlyUserProfileFactory(
+                user=course_enrollment.user,
+                edly_sub_organizations=[self.edly_sub_organization]
+            )
 
         self.course_access_roles = [CourseAccessRoleFactory(
             user=self.course_enrollments[i].user,
             course_id=self.course_enrollments[i].course_id,
             role=role,
+            org=self.course_enrollments[i].course_id.org,
             ) for i, role in enumerate(self.COURSE_ROLES)]
 
         # create student modules for yesterday and today
-        for day in [prev_day(self.today), self.today]:
-            self.student_modules = [StudentModuleFactory(
-                course_id=ce.course_id,
-                student=ce.user,
-                created=ce.created,
-                modified=as_datetime(day)
-                ) for ce in self.course_enrollments]
+        self.student_modules = [StudentModuleFactory(
+            course_id=ce.course_id,
+            student=ce.user,
+            created=ce.created,
+            modified=as_datetime(self.today)
+            ) for ce in self.course_enrollments]
 
         self.cert_days_to_complete = [10, 20, 30]
         self.expected_avg_cert_days_to_complete = 20
-        self.generated_certificates = [
-            GeneratedCertificateFactory(
-                user=self.course_enrollments[i].user,
+        self.passed_grades = [
+            PersistentCourseGrade.objects.create(
+                user_id=self.course_enrollments[i].user.id,
                 course_id=self.course_enrollments[i].course_id,
-                created_date=(
+                percent_grade=80.5,
+                passed_timestamp=(
                     self.course_enrollments[i].created + datetime.timedelta(
                         days=days)
                     ),
@@ -154,10 +163,6 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
         assert learners.count() == expected_count
 
-        learners = pipeline_cdm.get_enrolled_in_exclude_admins(
-            course_id=str(self.course_overview.id), date_for=self.today)
-        assert learners.count() == expected_count
-
     def test_get_active_learner_ids_today(self):
         """
 
@@ -168,12 +173,52 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             course_id=self.course_overview.id, date_for=self.today)
         assert recs.count() == len(self.course_enrollments)
 
+    def test_get_average_progress_deprecated(self):
+        """
+        [John] This test needs work. The function it is testing needs work too
+        for testability. We don't want to reproduce the function's behavior, we
+        just want to be able to set up the source data with expected output and
+        go.
+        """
+        course_enrollments = CourseEnrollment.objects.filter(
+            course_id=self.course_overview.id)
+        actual = pipeline_cdm.get_average_progress_deprecated(
+            course_id=self.course_overview.id,
+            date_for=self.today,
+            course_enrollments=course_enrollments
+            )
+        # See tests/mocks/lms/djangoapps/grades/course_grade.py for
+        # the source subsection grades that
+
+        # TODO: make the mock data more configurable so we don't have to
+        # hardcode the expected value
+        assert actual == 0.0
+
+    @mock.patch(
+        'figures.metrics.LearnerCourseGrades.course_progress',
+        side_effect=PermissionDenied('mock-failure')
+    )
+    def test_get_average_progress_deprecated_has_error(self, mock_lcg):
+
+        assert PipelineError.objects.count() == 0
+        course_enrollments = CourseEnrollment.objects.filter(
+            course_id=self.course_overview.id)
+
+        results = pipeline_cdm.get_average_progress_deprecated(
+                course_id=self.course_overview.id,
+                date_for=self.today,
+                course_enrollments=course_enrollments
+                )
+        assert results == pytest.approx(0.0)
+        assert PipelineError.objects.count() == course_enrollments.count()
+
     def test_get_days_to_complete(self):
-        expected = dict(days=self.cert_days_to_complete,
-                        errors=[])
+        expected = dict(days=self.cert_days_to_complete)
         actual = pipeline_cdm.get_days_to_complete(
             course_id=self.course_overview.id,
-            date_for=self.today)
+            date_for=self.today + datetime.timedelta(
+                days=1 + max(self.cert_days_to_complete))
+        )
         assert actual == expected
 
     def test_calc_average_days_to_complete(self):
@@ -184,14 +229,18 @@ class TestCourseDailyMetricsPipelineFunctions(object):
     def test_get_average_days_to_complete(self):
         actual = pipeline_cdm.get_average_days_to_complete(
             course_id=self.course_overview.id,
-            date_for=self.today)
+            date_for=self.today + datetime.timedelta(
+                days=1 + max(self.cert_days_to_complete))
+        )
         assert actual == self.expected_avg_cert_days_to_complete
 
     def test_get_num_learners_completed(self):
         actual = pipeline_cdm.get_num_learners_completed(
             course_id=self.course_overview.id,
-            date_for=self.today)
-        assert actual == len(self.generated_certificates)
+            date_for=self.today + datetime.timedelta(
+                days=1 + max(self.cert_days_to_complete))
+        )
+        assert actual == len(self.passed_grades)
 
 
 @pytest.mark.django_db
@@ -271,14 +320,20 @@ class TestCourseDailyMetricsLoader(object):
     def setup(self, db):
         self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
 
-        if organizations_support_sites():
-            self.my_site = SiteFactory(domain='my-site.test')
-            self.my_site_org = OrganizationFactory(sites=[self.my_site])
-            for ce in self.course_enrollments:
-                OrganizationCourseFactory(organization=self.my_site_org,
-                                          course_id=str(ce.course.id))
-                UserOrganizationMappingFactory(user=ce.user,
-                                               organization=self.my_site_org)
+        self.site = SiteFactory(domain='my-site.test')
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site
+        )
+        for course_enrollment in self.course_enrollments:
+            OrganizationCourseFactory(
+                organization=self.edly_sub_organization.edx_organization,
+                course_id=str(course_enrollment.course.id),
+            )
+
+            EdlyUserProfileFactory(
+                user=course_enrollment.user,
+                edly_sub_organizations=[self.edly_sub_organization]
+            )
 
         self.student_module = StudentModuleFactory()
 
