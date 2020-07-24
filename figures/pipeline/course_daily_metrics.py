@@ -19,6 +19,7 @@ from django.db import transaction
 from django.utils.timezone import utc
 
 from courseware.models import StudentModule  # pylint: disable=import-error
+from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
@@ -145,25 +146,21 @@ def get_days_to_complete(course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
-    certificates = GeneratedCertificate.objects.filter(
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lte=as_datetime(date_for))
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for),
+    ).values('user_id', 'passed_timestamp')
 
     days = []
-    errors = []
-    for cert in certificates:
-        ce = CourseEnrollment.objects.filter(
+    for grade in grades:
+        course_enrollment = CourseEnrollment.objects.filter(
             course_id=as_course_key(course_id),
-            user=cert.user)
-        # How do we want to handle multiples?
-        if ce.count() > 1:
-            errors.append(
-                dict(msg='Multiple CE records',
-                     course_id=course_id,
-                     user_id=cert.user.id,
-                     ))
-        days.append((cert.created_date - ce[0].created).days)
-    return dict(days=days, errors=errors)
+            user__id=grade.get('user_id')
+        ).first()
+        days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
+
+    return dict(days=days)
 
 
 def calc_average_days_to_complete(days):
@@ -185,10 +182,13 @@ def get_average_days_to_complete(course_id, date_for):
 
 
 def get_num_learners_completed(course_id, date_for):
-    certificates = GeneratedCertificate.objects.filter(
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lt=as_datetime(next_day(date_for)))
-    return certificates.count()
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for),
+    )
+
+    return grades.count()
 
 # Formal extractor classes
 
