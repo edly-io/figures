@@ -29,6 +29,7 @@ from figures.serializers import (
     CourseEnrollmentSerializer,
     CourseMauMetricsSerializer,
     CourseMauLiveMetricsSerializer,
+    CourseTopStatsSerializer,
     GeneralCourseDataSerializer,
     GeneralUserDataSerializer,
     LearnerCourseDetailsSerializer,
@@ -256,6 +257,26 @@ class TestCourseDailyMetricsSerializer(object):
         serializer = CourseDailyMetricsSerializer(instance=obj)
         with pytest.raises(ValidationError):
             data = serializer.data
+
+
+@pytest.mark.django_db
+class TestCourseTopStatsSerializer(object):
+    """
+    Tests the CourseTopStatsSerializer serializer class.
+    """
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.model = CourseDailyMetrics
+        self.metrics = CourseDailyMetricsFactory()
+        self.serializer = CourseTopStatsSerializer(instance=self.metrics)
+
+    def test_has_fields(self):
+        """
+        Verify the serialized data has the same keys and values as the model
+        """
+        data = self.serializer.data
+        assert data['enrollment_count'] == self.metrics.enrollment_count
+        assert data['num_learners_completed'] == self.metrics.num_learners_completed
 
 
 @pytest.mark.django_db

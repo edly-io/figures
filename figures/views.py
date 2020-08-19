@@ -61,6 +61,7 @@ from figures.serializers import (
     CourseIndexSerializer,
     CourseMauMetricsSerializer,
     CourseMauLiveMetricsSerializer,
+    CourseTopStatsSerializer,
     EnrollmentMetricsSerializer,
     GeneralCourseDataSerializer,
     LearnerDetailsSerializer,
@@ -320,6 +321,31 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 raise NotFound()
         course_overview = get_object_or_404(CourseOverview, pk=course_key)
         return Response(GeneralCourseDataSerializer(course_overview).data)
+
+
+class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Viewset to get top courses by enrollments/completions.
+    """
+    model = CourseDailyMetrics
+
+    # The "kilo paginator"  is a tempoarary hack to return all course to not
+    # have to change the front end until Figures "Level 2"
+    pagination_class = FiguresKiloPagination
+    serializer_class = CourseTopStatsSerializer
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        course_ids = figures.sites.get_course_keys_for_site(site)
+        queryset = self.model.objects.filter(course_id__in=course_ids)
+        order_by = self.request.query_params.get('order_by', '')
+        if order_by:
+            order_by_name = order_by.split(',')[0]
+            order_by_sign = order_by.split(',')[1]
+            order_by_sign = '' if order_by_sign == 'asc' else '-'
+            queryset = queryset.order_by(order_by_sign + order_by_name)
+
+        return queryset[:10]
 
 
 class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):

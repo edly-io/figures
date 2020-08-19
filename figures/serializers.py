@@ -186,6 +186,24 @@ class CourseDailyMetricsSerializer(serializers.ModelSerializer):
         exclude = ()
 
 
+class CourseTopStatsSerializer(serializers.ModelSerializer):
+    """
+    Serializer to return top course stats for summary page.
+    """
+    course_name = serializers.SerializerMethodField()
+
+    def get_course_name(self, obj):
+        """
+        Get course name from "CourseOverview" model.
+        """
+        course_overview = CourseOverview.objects.filter(id=as_course_key(obj.course_id)).first()
+        return course_overview.display_name if course_overview else ''
+
+    class Meta:
+        model = CourseDailyMetrics
+        fields = ('course_name', 'enrollment_count', 'num_learners_completed')
+
+
 class SiteDailyMetricsSerializer(serializers.ModelSerializer):
     """Proviedes summary data about the LMS site
     """

@@ -78,6 +78,11 @@ router.register(
     base_name='courses-general')
 
 router.register(
+    r'courses/stats',
+    views.CourseTopStatsViewSet,
+    base_name='courses-top-stats')
+
+router.register(
     r'courses/detail',
     views.CourseDetailsViewSet,
     base_name='courses-detail')
