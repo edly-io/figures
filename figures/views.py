@@ -66,6 +66,7 @@ from figures.serializers import (
     CourseMauMetricsSerializer,
     CourseMauLiveMetricsSerializer,
     CourseOverviewSerializer,
+    CourseTopStatsSerializer,
     EnrollmentMetricsSerializer,
     GeneralCourseDataSerializer,
     LearnerDetailsSerializer,
@@ -324,6 +325,94 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
                 'error': 'no metrics data available',
             }
         return Response(data)
+
+
+class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """Viewset intended for Figures Web UI
+    """
+    model = CourseOverview
+
+    # The "kilo paginator"  is a tempoarary hack to return all course to not
+    # have to change the front end until Figures "Level 2"
+    pagination_class = FiguresKiloPagination
+    serializer_class = GeneralCourseDataSerializer
+    filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
+    filter_class = CourseOverviewFilter
+    search_fields = ['display_name', 'id']
+    ordering_fields = ['display_name', 'self_paced', 'date_joined']
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_courses_for_site(site)
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        course_id_str = kwargs.get('pk', '')
+        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        site = django.contrib.sites.shortcuts.get_current_site(request)
+        if figures.helpers.is_multisite():
+            if site != figures.sites.get_site_for_course(course_key):
+                # Raising NotFound instead of PermissionDenied
+                raise NotFound()
+        course_overview = get_object_or_404(CourseOverview, pk=course_key)
+        return Response(GeneralCourseDataSerializer(course_overview).data)
+
+
+class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Viewset to get top courses by enrollments/completions.
+    """
+    model = CourseDailyMetrics
+
+    # The "kilo paginator"  is a tempoarary hack to return all course to not
+    # have to change the front end until Figures "Level 2"
+    pagination_class = FiguresKiloPagination
+    serializer_class = CourseTopStatsSerializer
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        course_ids = figures.sites.get_course_keys_for_site(site)
+        queryset = self.model.objects.filter(course_id__in=course_ids)
+        order_by = self.request.query_params.get('order_by', '')
+        if order_by:
+            order_by_name = order_by.split(',')[0]
+            order_by_sign = order_by.split(',')[1]
+            order_by_sign = '' if order_by_sign == 'asc' else '-'
+            queryset = queryset.order_by(order_by_sign + order_by_name)
+
+        return queryset[:10]
+
+
+class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    '''
+
+    '''
+    model = CourseOverview
+
+    # The "kilo paginator"  is a tempoarary hack to return all course to not
+    # have to change the front end until Figures "Level 2"
+    pagination_class = FiguresKiloPagination
+    serializer_class = CourseDetailsSerializer
+    filter_backends = (DjangoFilterBackend, )
+    filter_class = CourseOverviewFilter
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_courses_for_site(site)
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        # NOTE: Duplicating code in GeneralCourseDataViewSet. Candidate to dry up
+        # Make it a decorator
+        course_id_str = kwargs.get('pk', '')
+        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
+        site = django.contrib.sites.shortcuts.get_current_site(request)
+        if figures.helpers.is_multisite():
+            if site != figures.sites.get_site_for_course(course_key):
+                # Raising NotFound instead of PermissionDenied
+                raise NotFound()
+        course_overview = get_object_or_404(CourseOverview, pk=course_key)
+        return Response(CourseDetailsSerializer(course_overview).data)
 
 
 class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
