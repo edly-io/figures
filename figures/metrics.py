@@ -26,10 +26,13 @@ from decimal import Decimal
 import math
 
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Max
+from django.db.models import Avg, Max, Q
 
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from courseware.courses import get_course_by_id  # pylint: disable=import-error
 from courseware.models import StudentModule  # pylint: disable=import-error
+
+import organizations
 
 from figures.compat import (
     GeneratedCertificate,
@@ -45,6 +48,7 @@ from figures.helpers import (
     prev_day,
     previous_months_iterator,
     first_last_days_for_month,
+    period_as_month,
 )
 from figures.mau import get_mau_from_site_course
 from figures.models import (
@@ -54,7 +58,8 @@ from figures.models import (
 )
 import figures.sites
 
-#
+
+# period_str
 # Helpers (consider moving to the ``helpers`` module
 #
 
@@ -207,8 +212,8 @@ class LearnerCourseGrades(object):
     @staticmethod
     def course_progress(course_enrollment):
         lcg = LearnerCourseGrades(
-                user_id=course_enrollment.user.id,
-                course_id=course_enrollment.course_id,
+            user_id=course_enrollment.user.id,
+            course_id=course_enrollment.course_id,
         )
         course_progress_details = lcg.progress()
         return dict(
@@ -304,6 +309,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
     TODO: Consider first trying to get the data from the SiteDailyMetrics
     model. If there are no records, then get the data from the User model
     """
+
     def calc_from_user_model():
         filter_args = dict(
             date_joined__lt=as_datetime(next_day(end_date)),
@@ -335,6 +341,7 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
     NOTE: Untested and not yet used in the general site metrics, but we'll want to add it
     TODO: Rename this function to be "new_users" for consistency with the API endpoint
     """
+
     def calc_from_user_model():
         filter_args = dict(
             date_joined__gt=as_datetime(prev_day(start_date)),
@@ -374,6 +381,7 @@ def get_total_site_courses_for_time_period(site, start_date, end_date, **kwargs)
     Potential fix:
     get unique course ids from CourseEnrollment
     """
+
     def calc_from_site_daily_metrics():
         filter_args = dict(
             site=site,
@@ -408,6 +416,7 @@ def get_total_course_completions_for_time_period(site, start_date, end_date):
     This metric is not currently captured in SiteDailyMetrics, so retrieving from
     course dailies instead
     """
+
     def calc_from_course_daily_metrics():
         filter_args = dict(
             site=site,
@@ -421,6 +430,40 @@ def get_total_course_completions_for_time_period(site, start_date, end_date):
             return 0
 
     return calc_from_course_daily_metrics()
+
+
+def get_total_active_courses_for_time_period(site, start_date, end_date):
+    """
+    This metric is not currently captured in SiteDailyMetrics, so retrieving from
+    CourseOverview instead
+    """
+
+    def calc_from_courses_overview():
+        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+
+        if edx_organizations:
+            return CourseOverview.objects.filter(
+                org=edx_organizations[0].short_name
+            ).filter(
+                Q(
+                    Q(start__lt=prev_day(start_date)) & Q(end__gt=next_day(end_date))
+                ) |
+                Q(
+                    Q(start__gt=prev_day(start_date)) & Q(end__lt=next_day(end_date))
+                ) |
+                Q(
+                    Q(start__gt=prev_day(start_date)) & Q(start__lt=next_day(end_date))
+                ) |
+                Q(
+                    Q(end__gt=prev_day(start_date)) & Q(end__lt=next_day(end_date))
+                )
+            ).values(
+                'id'
+            ).distinct().count()
+        else:
+            return 0
+
+    return calc_from_courses_overview()
 
 
 # -------------------------
@@ -509,14 +552,13 @@ def get_course_mau_history_metrics(site, course_id, date_for, months_back):
     history = []
 
     for year, month, _ in previous_months_iterator(month_for=date_for,
-                                                   months_back=months_back,):
-
+                                                   months_back=months_back, ):
         period = '{year}/{month}'.format(year=year, month=str(month).zfill(2))
         active_users = get_mau_from_site_course(site=site,
                                                 course_id=course_id,
                                                 year=year,
                                                 month=month)
-        history.append(dict(period=period, value=active_users.count(),))
+        history.append(dict(period=period, value=active_users.count(), ))
 
     if history:
         # use the last entry
@@ -555,14 +597,14 @@ def get_monthly_history_metric(func, site, date_for, months_back,
     date_for = as_date(date_for)
     history = []
 
-    for month in previous_months_iterator(month_for=date_for, months_back=months_back,):
-        period = period_str(month)
+    for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
+        period = period_as_month(month)
         value = func(
             site=site,
             start_date=datetime.date(month[0], month[1], 1),
             end_date=datetime.date(month[0], month[1], month[2]),
         )
-        history.append(dict(period=period, value=value,))
+        history.append(dict(period=period, value=value, ))
 
     if history:
         # use the last entry
@@ -572,7 +614,7 @@ def get_monthly_history_metric(func, site, date_for, months_back,
         current_month = 0
     return dict(
         current_month=current_month,
-        history=history,)
+        history=history, )
 
 
 def get_month_course_metrics(site, course_id, month_for, **_kwargs):
@@ -612,7 +654,7 @@ def get_month_course_metrics(site, course_id, month_for, **_kwargs):
         num_learners_completed=num_learners_completed,
         avg_days_to_complete=avg_days_to_complete,
         avg_progress=avg_progress,
-        )
+    )
 
 
 def get_current_month_site_metrics(site, **_kwargs):
@@ -722,6 +764,17 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
           },
           ...
         ]
+      },
+      "total_active_courses": {
+        // number of courses active in this month
+        "current": 129,
+        "history": [
+          {
+            "period": "April 2018",
+            "value": 101,
+          },
+          ...
+        ]
       }
     }
     """
@@ -773,10 +826,18 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
         months_back=months_back,
     )
 
+    total_active_courses = get_monthly_history_metric(
+        func=get_total_active_courses_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
+
     return dict(
         monthly_active_users=monthly_active_users,
         total_site_users=total_site_users,
         total_site_courses=total_site_courses,
         total_course_enrollments=total_course_enrollments,
         total_course_completions=total_course_completions,
+        total_active_courses=total_active_courses,
     )
