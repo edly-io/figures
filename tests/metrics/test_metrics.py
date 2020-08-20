@@ -57,7 +57,7 @@ from figures.metrics import (
     get_total_enrollments_for_time_period,
     get_total_site_courses_for_time_period,
     get_total_site_users_joined_for_time_period,
-
+    get_total_active_courses_for_time_period,
 )
 import figures.helpers
 
@@ -226,7 +226,8 @@ class TestGetMonthlySiteMetrics(object):
             'total_site_users',
             'total_site_courses',
             'total_course_enrollments',
-            'total_course_completions',)
+            'total_course_completions',
+            'total_active_courses',)
 
     @pytest.mark.skip(reason='Test not implemented yet')
     # @pytest.mark.paramtrize('date_for', [
@@ -360,7 +361,8 @@ class TestSiteMetricsGettersStandalone(object):
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
-            'monthly_active_users'
+            'monthly_active_users',
+            'total_active_courses'
         ]
         expected_2nd_lvl_keys = ['current_month', 'history']
         expected_history_elem_keys = ['period', 'value']
@@ -470,7 +472,8 @@ class TestSiteMetricsGettersMultisite(object):
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
-            'monthly_active_users'
+            'monthly_active_users',
+            'total_active_courses'
         ]
         expected_2nd_lvl_keys = ['current_month', 'history']
         expected_history_elem_keys = ['period', 'value']
