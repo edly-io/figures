@@ -17,7 +17,7 @@ from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
 )
 
-import figures.helpers
+from figures.helpers import as_course_key
 from figures.helpers import is_multisite
 from figures.views import CourseTopStatsViewSet
 
@@ -83,6 +83,7 @@ class TestCourseTopStatsViewSet(object):
         assert len(response.data['results']) == len(self.course_overviews)
 
         for rec in response.data['results']:
+            assert CourseOverview.objects.get(id=as_course_key(rec['course_id']))
             assert CourseOverview.objects.get(display_name=rec['course_name'])
         assert response.data['results'][0]['enrollment_count'] >= response.data['results'][1]['enrollment_count']
 

@@ -201,7 +201,7 @@ class CourseTopStatsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CourseDailyMetrics
-        fields = ('course_name', 'enrollment_count', 'num_learners_completed')
+        fields = ('course_name', 'course_id', 'enrollment_count', 'num_learners_completed')
 
 
 class SiteDailyMetricsSerializer(serializers.ModelSerializer):

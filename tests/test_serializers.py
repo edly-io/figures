@@ -275,6 +275,7 @@ class TestCourseTopStatsSerializer(object):
         Verify the serialized data has the same keys and values as the model
         """
         data = self.serializer.data
+        assert data['course_id'] == self.metrics.course_id
         assert data['enrollment_count'] == self.metrics.enrollment_count
         assert data['num_learners_completed'] == self.metrics.num_learners_completed
 
