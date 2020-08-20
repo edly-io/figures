@@ -152,6 +152,7 @@ def first_last_days_for_month(month_for):
 
 
 def period_as_month(month_tuple, fmt='%b-%Y'):
-    """Returns display date for the given month tuple containing year, month
+    """
+    Returns display date for the given month tuple containing year, month
     """
     return datetime.date(*month_tuple).strftime(fmt)

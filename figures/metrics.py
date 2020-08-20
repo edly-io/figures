@@ -434,8 +434,10 @@ def get_total_course_completions_for_time_period(site, start_date, end_date):
 
 def get_total_active_courses_for_time_period(site, start_date, end_date):
     """
+    Return Active courses in month based on Course Start and End Date.
+
     This metric is not currently captured in SiteDailyMetrics, so retrieving from
-    CourseOverview instead
+    CourseOverview instead.
     """
 
     def calc_from_courses_overview():
