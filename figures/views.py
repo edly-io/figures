@@ -77,6 +77,7 @@ from figures import metrics
 from figures.pagination import (
     FiguresLimitOffsetPagination,
     FiguresKiloPagination,
+    FiguresTopStatsPagination,
 )
 import figures.permissions
 import figures.helpers
@@ -328,13 +329,13 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     Viewset to get top courses by enrollments/completions.
     """
     model = CourseDailyMetrics
-    pagination_class = FiguresKiloPagination
+    pagination_class = FiguresTopStatsPagination
     serializer_class = CourseTopStatsSerializer
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         course_ids = figures.sites.get_course_keys_for_site(site)
-        queryset = self.model.objects.filter(course_id__in=course_ids)
+        queryset = self.model.objects.filter(course_id__in=course_ids, date_for=datetime.utcnow())
         order_by = self.request.query_params.get('order_by', '')
         if order_by:
             order_by_name = order_by.split(',')[0]

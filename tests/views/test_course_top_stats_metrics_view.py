@@ -1,4 +1,4 @@
-
+from datetime import datetime
 import mock
 import pytest
 
@@ -61,7 +61,8 @@ class TestCourseTopStatsViewSet(object):
                 )
                 CourseDailyMetricsFactory(
                     course_id=str(course_overview.id),
-                    site=self.site
+                    site=self.site,
+                    date_for=datetime.utcnow()
                 )
 
     @property
