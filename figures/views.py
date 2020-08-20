@@ -328,9 +328,6 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     Viewset to get top courses by enrollments/completions.
     """
     model = CourseDailyMetrics
-
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
     pagination_class = FiguresKiloPagination
     serializer_class = CourseTopStatsSerializer
 
@@ -345,7 +342,7 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             order_by_sign = '' if order_by_sign == 'asc' else '-'
             queryset = queryset.order_by(order_by_sign + order_by_name)
 
-        return queryset[:10]
+        return queryset
 
 
 class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
