@@ -6,6 +6,7 @@ see the model ``edx_figures.models.CourseDailyMetrics``
 from __future__ import print_function
 
 from textwrap import dedent
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
 
