@@ -24,7 +24,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -321,11 +321,10 @@ class CourseDailyMetricsLoader(object):
         )
         if data['average_progress'] is not None:
             defaults['average_progress'] = str(data['average_progress'])
-
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=str(self.course_id),
             site=self.site,
-            date_for=date_for,
+            date_for=as_date(date_for),
             defaults=defaults
         )
         cdm.clean_fields()
