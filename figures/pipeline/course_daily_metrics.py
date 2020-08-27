@@ -295,6 +295,7 @@ class CourseDailyMetricsLoader(object):
         Raises django.core.exceptions.ValidationError if the record fails
         validation
         """
+
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=self.course_id,
             site=self.site,
