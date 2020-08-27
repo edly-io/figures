@@ -24,7 +24,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.logger import log_error
@@ -299,7 +299,7 @@ class CourseDailyMetricsLoader(object):
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=self.course_id,
             site=self.site,
-            date_for=date_for,
+            date_for=as_date(date_for),
             defaults=dict(
                 enrollment_count=data['enrollment_count'],
                 active_learners_today=data['active_learners_today'],

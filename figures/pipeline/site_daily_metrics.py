@@ -11,7 +11,7 @@ import datetime
 from django.utils.timezone import utc
 from django.db.models import Sum
 
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 from figures.mau import site_mau_1g_for_month_as_of_day
 from figures.models import CourseDailyMetrics, SiteDailyMetrics
 from figures.sites import (
@@ -182,7 +182,7 @@ class SiteDailyMetricsLoader(object):
 
         data = self.extractor.extract(site=site, date_for=date_for)
         site_metrics, created = SiteDailyMetrics.objects.update_or_create(
-            date_for=date_for,
+            date_for=as_date(date_for),
             site=site,
             defaults=dict(
                 cumulative_active_user_count=data['cumulative_active_user_count'],
