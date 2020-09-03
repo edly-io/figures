@@ -169,10 +169,17 @@ def get_courses_for_site(site):
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
         edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
-        edly_user_profiles = EdlyUserProfile.objects.filter(edly_sub_organizations__edx_organization__in=edx_organizations)
+        edly_user_profiles = EdlyUserProfile.objects.filter(
+            edly_sub_organizations__edx_organization__in=edx_organizations
+        ).exclude(
+            user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        )
+
         user_ids = edly_user_profiles.values_list('user', flat=True)
     else:
-        user_ids = get_user_model().objects.all().values_list('id', flat=True)
+        user_ids = get_user_model().objects.all().exclude(
+            user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        ).values_list('id', flat=True)
     return user_ids
 
 
