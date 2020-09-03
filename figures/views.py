@@ -267,7 +267,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
     and list the most recent data for all sites (or filtered sites)
     """
 
-    pagination_class = FiguresLimitOffsetPagination
+    pagination_class = FiguresTopStatsPagination
 
     @property
     def metrics_method(self):
@@ -410,6 +410,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = LearnerDetailsSerializer
     filter_backends = (DjangoFilterBackend, )
     filter_class = UserFilterSet
+    search_fields = ['profile__name', 'username', 'email']
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
