@@ -412,6 +412,15 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_class = UserFilterSet
     search_fields = ['profile__name', 'username', 'email']
 
+    def paginate_queryset(self, queryset, view=None):
+        """
+        Return a single page of results, or `None` if no_page parameter passed.
+        """
+        if 'no_page' in self.request.query_params:
+            return None
+        else:
+            return self.paginator.paginate_queryset(queryset, self.request, view=self)
+
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         queryset = figures.sites.get_users_for_site(site)
