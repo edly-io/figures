@@ -697,6 +697,40 @@ def get_current_month_site_metrics(site, **_kwargs):
                 course_completions=course_completions)
 
 
+def get_last_month_site_metrics(site, **_kwargs):
+    """
+    Return Last Month Site Metrics
+    """
+
+    end_date = datetime.date.today().replace(day=1) - datetime.timedelta(days=1)
+    start_date = datetime.date(year=end_date.year, month=end_date.month, day=1)
+
+    active_users = get_active_users_for_time_period(site=site,
+                                                    start_date=start_date,
+                                                    end_date=end_date)
+    registered_users = get_total_site_users_for_time_period(site=site,
+                                                            start_date=start_date,
+                                                            end_date=end_date)
+    new_users = get_total_site_users_joined_for_time_period(site=site,
+                                                            start_date=start_date,
+                                                            end_date=end_date)
+    site_courses = get_total_site_courses_for_time_period(site=site,
+                                                          start_date=start_date,
+                                                          end_date=end_date)
+    course_enrollments = get_total_enrollments_for_time_period(site=site,
+                                                               start_date=start_date,
+                                                               end_date=end_date)
+    course_completions = get_total_course_completions_for_time_period(site=site,
+                                                                      start_date=start_date,
+                                                                      end_date=end_date)
+    return dict(active_users=active_users,
+                registered_users=registered_users,
+                new_users=new_users,
+                site_courses=site_courses,
+                course_enrollments=course_enrollments,
+                course_completions=course_completions)
+
+
 def get_monthly_site_metrics(site, date_for=None, **kwargs):
     """Gets current metrics with history
 

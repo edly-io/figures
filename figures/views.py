@@ -406,7 +406,7 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
-    pagination_class = FiguresLimitOffsetPagination
+    pagination_class = FiguresTopStatsPagination
     serializer_class = LearnerDetailsSerializer
     filter_backends = (DjangoFilterBackend, )
     filter_class = UserFilterSet
@@ -632,7 +632,11 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
         """
 
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        data = metrics.get_current_month_site_metrics(site)
+        data = {
+            'current_month': metrics.get_current_month_site_metrics(site),
+            'last_month': metrics.get_last_month_site_metrics(site)
+        }
+
         return Response(data)
 
     @list_route()
