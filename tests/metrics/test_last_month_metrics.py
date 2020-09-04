@@ -61,5 +61,14 @@ class TestGetLastMonthSiteMetrics(object):
         return student_modules
 
     def test_get_last_month_site_metrics(self):
-        data = get_last_month_site_metrics(self.site)
-        assert data['registered_users'] == len(self.students_data)
+        expected_data = {
+            'active_users': 0,
+            'site_courses': 0,
+            'course_enrollments': 0,
+            'registered_users': len(self.students_data),
+            'new_users': 0,
+            'course_completions': 0
+        }
+
+        received_data = get_last_month_site_metrics(self.site)
+        assert received_data == expected_data
