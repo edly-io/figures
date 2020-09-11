@@ -408,8 +408,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
     pagination_class = FiguresTopStatsPagination
     serializer_class = LearnerDetailsSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = UserFilterSet
+    filter_backends = (DjangoFilterBackend, SearchFilter, )
     search_fields = ['profile__name', 'username', 'email']
 
     def paginate_queryset(self, queryset, view=None):
