@@ -206,10 +206,19 @@ class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = CourseEnrollment
-    pagination_class = FiguresLimitOffsetPagination
+    pagination_class = FiguresTopStatsPagination
     serializer_class = CourseEnrollmentSerializer
-    filter_backends = (DjangoFilterBackend, )
+    filter_backends = (DjangoFilterBackend, SearchFilter,)
     filter_class = CourseEnrollmentFilter
+
+    def paginate_queryset(self, queryset, view=None):
+        """
+        Return a single page of results, or `None` if no_page parameter passed.
+        """
+        if 'no_page' in self.request.query_params:
+            return None
+        else:
+            return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)

@@ -81,7 +81,11 @@ def make_user(**kwargs):
 @pytest.mark.django_db
 class CourseEnrollmentFilterTest(TestCase):
     def setUp(self):
-        self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
+        self.users = [make_user(**data) for data in USER_DATA]
+        self.course_overview = CourseOverviewFactory()
+        self.course_enrollments = [
+            CourseEnrollmentFactory(course_id=self.course_overview.id, user=self.users[i]) for i in range(4)
+        ]
 
     def tearDown(self):
         pass
@@ -92,18 +96,19 @@ class CourseEnrollmentFilterTest(TestCase):
             f.qs,
             [o.id for o in self.course_enrollments],
             lambda o: o.id,
-            ordered=False)
+            ordered=False
+        )
 
     def test_filter_course_id(self):
-        '''
+        """
         Each default factory created course enrollment has a unique course id
         We use this to get the course id for the first CourseEnrollment object
         Then we filter results on this course id and compare to the results
         returned by the filter class
-        '''
+        """
         course_id = CourseEnrollment.objects.all()[0].course_id
         expected_results = CourseEnrollment.objects.filter(course_id=course_id)
-        assert expected_results.count() != len(self.course_enrollments)
+        assert expected_results.count() == len(self.course_enrollments)
 
         res = CourseEnrollmentFilter().filter_course_id(
             queryset=CourseEnrollment.objects.all(),
@@ -111,6 +116,37 @@ class CourseEnrollmentFilterTest(TestCase):
             value=str(course_id))
         self.assertQuerysetEqual(
             res,
+            [o.id for o in expected_results],
+            lambda o: o.id,
+            ordered=False
+        )
+
+    def test_filter_user_username(self):
+        username = self.users[0].username
+        expected_results = CourseEnrollment.objects.filter(user__username=username)
+
+        response = CourseEnrollmentFilter().filter_user_username(
+            queryset=CourseEnrollment.objects.all(),
+            name='user_username',
+            value=str(username))
+        self.assertQuerysetEqual(
+            response,
+            [o.id for o in expected_results],
+            lambda o: o.id,
+            ordered=False
+        )
+
+    def test_filter_user_fullname(self):
+        fullname = self.users[0].profile.name
+        expected_results = CourseEnrollment.objects.filter(user__profile__name=fullname)
+
+        response = CourseEnrollmentFilter().filter_user_fullname(
+            queryset=CourseEnrollment.objects.all(),
+            name='user__profile__name',
+            value=str(fullname))
+
+        self.assertQuerysetEqual(
+            response,
             [o.id for o in expected_results],
             lambda o: o.id,
             ordered=False)

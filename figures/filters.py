@@ -91,14 +91,17 @@ class CourseOverviewFilter(django_filters.FilterSet):
 
 
 class CourseEnrollmentFilter(django_filters.FilterSet):
-    '''Provides filtering for the CourseEnrollment model objects
+    """
+    Provides filtering for the CourseEnrollment model objects
+    """
 
-    '''
     course_id = char_method_filter(method='filter_course_id')
-    is_active = django_filters.BooleanFilter(name='is_active',)
+    username = char_method_filter(method='filter_user_username')
+    fullname = char_method_filter(method='filter_user_fullname')
+    is_active = django_filters.BooleanFilter(name='is_active', )
 
     def filter_course_id(self, queryset, name, value):  # pylint: disable=unused-argument
-        '''
+        """
 
         This method converts the course id string to a CourseLocator object
         and returns the filtered queryset. This is required because
@@ -107,13 +110,25 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         Query parameters with plus signs '+' in the string are automatically
         replaced with spaces, so we need to put the '+' back in for CourseKey
         to be able to create a course key object from the string
-        '''
+        """
         course_key = CourseKey.from_string(value.replace(' ', '+'))
         return queryset.filter(course_id=course_key)
 
+    def filter_user_username(self, queryset, name, value):  # pylint: disable=unused-argument
+        """
+        Filter by User's username
+        """
+        return queryset.filter(user__username=value)
+
+    def filter_user_fullname(self, queryset, name, value):  # pylint: disable=unused-argument
+        """
+        Filter by User's full name
+        """
+        return queryset.filter(user__profile__name=value)
+
     class Meta:
         model = CourseEnrollment
-        fields = ['course_id', 'user_id', 'is_active', ]
+        fields = ['course_id', 'user_id', 'username', 'fullname', 'is_active']
 
 
 class EnrollmentMetricsFilter(CourseEnrollmentFilter):
