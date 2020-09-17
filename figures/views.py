@@ -210,6 +210,7 @@ class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CourseEnrollmentSerializer
     filter_backends = (DjangoFilterBackend, SearchFilter,)
     filter_class = CourseEnrollmentFilter
+    search_fields = ['user__profile__name', 'user__username', 'user__email']
 
     def paginate_queryset(self, queryset, view=None):
         """
