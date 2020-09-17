@@ -107,8 +107,8 @@ class UserIndexSerializer(serializers.Serializer):
     username = serializers.CharField(read_only=True)
     fullname = serializers.CharField(source='profile.name', default=None, read_only=True)
     email = serializers.CharField(read_only=True)
-    date_joined = serializers.DateField(read_only=True)
-    last_login = serializers.DateField(read_only=True)
+    date_joined = serializers.DateTimeField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True)
 
 #
 # Serializers for edx-platform models
