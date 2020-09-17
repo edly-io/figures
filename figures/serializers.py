@@ -105,9 +105,10 @@ class UserIndexSerializer(serializers.Serializer):
     """
     id = serializers.IntegerField(read_only=True)
     username = serializers.CharField(read_only=True)
-    fullname = serializers.CharField(
-        source='profile.name', default=None, read_only=True)
-
+    fullname = serializers.CharField(source='profile.name', default=None, read_only=True)
+    email = serializers.CharField(read_only=True)
+    date_joined = serializers.DateTimeField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True)
 
 #
 # Serializers for edx-platform models
@@ -148,11 +149,20 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
     # course = CourseOverviewSerializer(read_only=True)
     course_id = serializers.CharField()
     user = UserIndexSerializer(read_only=True)
+    courses = serializers.SerializerMethodField()
+
+    def get_courses(self, obj):
+        course_enrollments = figures.sites.get_course_enrollments_for_site(
+            self.context['request'].site
+        ).filter(
+            user=obj.user
+        )
+        return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 
     class Meta:
         model = CourseEnrollment
         editable = False
-        fields = ('id', 'user', 'created', 'is_active', 'mode', 'course_id')
+        fields = ('id', 'user', 'created', 'is_active', 'mode', 'course_id', 'courses')
         exclude = ()
 
 
