@@ -60,7 +60,7 @@ COURSE_DATA = [
 def make_course(**kwargs):
     id = make_course_key_str(**kwargs)
     return CourseOverviewFactory(
-        id=id, org=kwargs['org'], number=kwargs['number'])
+        id=id, org=kwargs['org'])
 
 
 USER_DATA = [
@@ -156,8 +156,9 @@ class CourseEnrollmentFilterTest(TestCase):
                     reason='Django Filter backward compatibility not implemented')
 @pytest.mark.django_db
 class CourseOverviewFilterTest(TestCase):
-    '''Tests the CourseOverviewFilter filter class
-    '''
+    """
+    Tests the CourseOverviewFilter filter class
+    """
     def setUp(self):
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
 
@@ -198,6 +199,19 @@ class CourseOverviewFilterTest(TestCase):
             [o.id for o in self.course_overviews if '001' in o.number],
             lambda o: o.id,
             ordered=False)
+
+    def test_filter_course_id(self):
+        course_id = self.course_overviews[0].id
+        expected_results = CourseOverview.objects.filter(id=course_id)
+        filter_resp = CourseOverviewFilter(
+            queryset=CourseOverview.objects.filter(id=course_id))
+
+        self.assertQuerysetEqual(
+            filter_resp.qs,
+            [overview.id for overview in expected_results if course_id == overview.id],
+            lambda overview: overview.id,
+            ordered=False
+        )
 
 
 @pytest.mark.skipif(django_filters_pre_v1(),
