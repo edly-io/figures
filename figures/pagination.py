@@ -6,7 +6,7 @@ from rest_framework.pagination import LimitOffsetPagination, PageNumberPaginatio
 from rest_framework.response import Response
 
 
-class FiguresTopStatsPagination(PageNumberPagination):
+class FiguresPageLevelPagination(PageNumberPagination):
     """
     Custom Figures paginator to make the number of records returned consistent
     """
