@@ -77,7 +77,7 @@ from figures import metrics
 from figures.pagination import (
     FiguresLimitOffsetPagination,
     FiguresKiloPagination,
-    FiguresTopStatsPagination,
+    FiguresPageLevelPagination,
 )
 import figures.permissions
 import figures.helpers
@@ -206,7 +206,7 @@ class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = CourseEnrollment
-    pagination_class = FiguresTopStatsPagination
+    pagination_class = FiguresPageLevelPagination
     serializer_class = CourseEnrollmentSerializer
     filter_backends = (DjangoFilterBackend, SearchFilter,)
     filter_class = CourseEnrollmentFilter
@@ -277,7 +277,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
     and list the most recent data for all sites (or filtered sites)
     """
 
-    pagination_class = FiguresTopStatsPagination
+    pagination_class = FiguresPageLevelPagination
 
     @property
     def metrics_method(self):
@@ -308,14 +308,21 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     """
     model = CourseOverview
 
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
+    pagination_class = FiguresPageLevelPagination
     serializer_class = GeneralCourseDataSerializer
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
     filter_class = CourseOverviewFilter
     search_fields = ['display_name', 'id']
     ordering_fields = ['display_name', 'self_paced', 'date_joined']
+
+    def paginate_queryset(self, queryset, view=None):
+        """
+        Return a single page of results, or `None` if no_page parameter passed.
+        """
+        if 'no_page' in self.request.query_params:
+            return None
+        else:
+            return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -339,7 +346,7 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     Viewset to get top courses by enrollments/completions.
     """
     model = CourseDailyMetrics
-    pagination_class = FiguresTopStatsPagination
+    pagination_class = FiguresPageLevelPagination
     serializer_class = CourseTopStatsSerializer
 
     def get_queryset(self):
@@ -416,7 +423,7 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
-    pagination_class = FiguresTopStatsPagination
+    pagination_class = FiguresPageLevelPagination
     serializer_class = LearnerDetailsSerializer
     filter_backends = (DjangoFilterBackend, SearchFilter, )
     search_fields = ['profile__name', 'username', 'email']
