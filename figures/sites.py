@@ -13,6 +13,7 @@ Document how organization site mapping works
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
+from django.db.models import Q
 
 # TODO: Add exception handling
 import organizations
@@ -194,7 +195,11 @@ def get_users_for_site(site):
 
 def get_course_enrollments_for_site(site):
     course_keys = get_course_keys_for_site(site)
-    return CourseEnrollment.objects.filter(course_id__in=course_keys)
+    return CourseEnrollment.objects.filter(
+        course_id__in=course_keys
+    ).filter(
+        Q(user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms)
+    )
 
 
 def get_student_modules_for_course_in_site(site, course_id):
