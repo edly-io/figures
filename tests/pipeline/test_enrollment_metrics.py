@@ -338,7 +338,12 @@ class TestAddEnrollmentMetricsRecord(object):
             points_possible=10,
             points_earned=5,
             count=22,  # sections possible
-            sections_worked=11
+            sections_worked=11,
+            grade=dict(
+                percent_grade=1.0,
+                letter_grade='PASS',
+                passed_timestamp=datetime.now(),
+            ),
         )
         obj = _add_enrollment_metrics_record(site=self.site,
                                              course_enrollment=self.course_enrollment,

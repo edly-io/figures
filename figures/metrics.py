@@ -195,6 +195,11 @@ class LearnerCourseGrades(object):
             points_earned=points_earned,
             sections_worked=sections_worked,
             count=count,
+            grade=dict(
+                percent_grade=self.course_grade.percent if self.course_grade.percent else 0.0,
+                letter_grade=self.course_grade.letter_grade if self.course_grade.letter_grade else '',
+            ),
+            passed_timestamp=self.course_grade.passed_timestamp if self.course_grade else None
         )
 
     def progress_percent(self, progress_details=None):
