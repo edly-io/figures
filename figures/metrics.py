@@ -458,6 +458,9 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
                 ) |
                 Q(
                     Q(end__gt=prev_day(start_date)) & Q(end__lt=next_day(end_date))
+                ) |
+                Q(
+                    Q(start__lt=prev_day(start_date)) & Q(end__isnull=True)
                 )
             ).values(
                 'id'
