@@ -269,7 +269,10 @@ def _add_enrollment_metrics_record(site, course_enrollment, progress_data, date_
         points_possible=progress_data['points_possible'],
         points_earned=progress_data['points_earned'],
         sections_worked=progress_data['sections_worked'],
-        sections_possible=progress_data['count']
+        sections_possible=progress_data['count'],
+        percent_grade=progress_data.get('grade', '').get('percent_grade', ''),
+        letter_grade=progress_data.get('grade', '').get('letter_grade', ''),
+        passed_timestamp=progress_data.get('passed_timestamp'),
         )
 
 

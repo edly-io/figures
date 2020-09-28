@@ -33,6 +33,8 @@ if RELEASE_LINE == 'ginkgo':
 else:
     from lms.djangoapps.certificates.models import GeneratedCertificate  # noqa pylint: disable=unused-import,import-error
 
+from lms.djangoapps.grades.models import PersistentCourseGrade
+
 
 def course_grade(learner, course):
     """
@@ -41,9 +43,13 @@ def course_grade(learner, course):
     Returns the course grade for the specified learner and course
     """
     if RELEASE_LINE == 'ginkgo':
-        return CourseGradeFactory().create(learner, course)
+        course_grade = CourseGradeFactory().create(learner, course)
     else:  # Assume Hawthorn or greater
-        return CourseGradeFactory().read(learner, course)
+        course_grade = CourseGradeFactory().read(learner, course)
+
+    persistent_course_grade = PersistentCourseGrade.objects.filter(user_id=learner.id, course_id=course.id).first()
+    course_grade.passed_timestamp = persistent_course_grade.passed_timestamp if persistent_course_grade else None
+    return course_grade
 
 
 def chapter_grade_values(chapter_grades):

@@ -72,6 +72,10 @@ class TestLearnerCourseGrades(object):
                     )
             )
 
+        self.lcg.course_grade.letter_grade = 'PASS'
+        self.lcg.course_grade.percent = 1
+        self.lcg.course_grade.passed_timestamp = datetime.datetime.now()
+
     def test_str_rep(self):
         '''Test the string representation, __str__
         '''
@@ -162,7 +166,12 @@ class TestLearnerCourseGrades(object):
             points_earned=sum(rec.all_total.earned
                 for rec in self.graded_sections),
             sections_worked=len([rec for rec in self.graded_sections
-                if rec.all_total.earned > 0])
+                if rec.all_total.earned > 0]),
+            grade=dict(
+                percent_grade=self.lcg.course_grade.percent,
+                letter_grade=self.lcg.course_grade.letter_grade,
+            ),
+            passed_timestamp=self.lcg.course_grade.passed_timestamp
         )
         assert progress == expected
 
@@ -209,6 +218,11 @@ def test_lcg_course_progress():
             sections_worked=1,
             points_possible=1.5,
             points_earned=0.5,
+            grade=dict(
+                percent_grade=0.0,
+                letter_grade='',
+            ),
+            passed_timestamp=None
             ))
     course_enrollment = CourseEnrollmentFactory()
     course_progress = LearnerCourseGrades.course_progress(course_enrollment)

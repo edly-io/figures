@@ -488,10 +488,13 @@ class TestLearnerCourseDetailsSerializer(object):
                  'sections_worked': 5,
                  'points_possible': 30.0,
                  'sections_possible': 10,
-                 'points_earned': 15.0
+                 'points_earned': 15.0,
+                 'letter_grade': '',
+                 'percent_grade': 0
+                 'passed_timestamp': None
              },
              'course_progress': (0.5,),
-             'course_completed': datetime.datetime(2018, 4, 1, 0, 0, tzinfo=<UTC>)
+             'course_completed': False
             }
         """
         metrics_data = dict(
@@ -507,10 +510,11 @@ class TestLearnerCourseDetailsSerializer(object):
 
         data = self.serializer.get_progress_data(self.course_enrollment)
         details = data['course_progress_details']
+        expected_progress_percent = round((lcgm.progress_percent / 1) * 100, 2)
         for key, val in metrics_data.items():
             assert details[key] == val
-        assert data['course_progress'] == lcgm.progress_percent
-        assert data['course_completed'] == self.generated_certificate.created_date
+        assert data['course_progress'] == expected_progress_percent
+        assert not data['course_completed']
 
     def test_get_progress_data_with_no_data(self):
         """Tests that the serializer method succeeds when no learner course
@@ -520,7 +524,10 @@ class TestLearnerCourseDetailsSerializer(object):
             'course_progress_history': [],
             'course_progress_details': None,
             'course_progress': 0.0,
-            'course_completed': False
+            'course_completed': False,
+            'letter_grade': '',
+            'percent_grade': 0.0,
+            'passed_timestamp': None,
         }
         assert not LearnerCourseGradeMetrics.objects.count()
         course_enrollment = CourseEnrollmentFactory()

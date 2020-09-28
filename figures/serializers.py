@@ -637,25 +637,23 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         TODO: We will cache course grades, so we'll refactor this method to  use
         the cache, so we'll likely change the call to LearnerCourseGrades
         """
-        cert = GeneratedCertificate.objects.filter(
-            user=course_enrollment.user,
-            course_id=course_enrollment.course_id,
-            )
-
-        if cert:
-            course_completed = cert[0].created_date
-        else:
-            course_completed = False
-
         # Default values if we can't retrieve progress data
         progress_percent = 0.0
         course_progress_details = None
+        course_completed = False
+        letter_grade = ''
+        percent_grade = 0.0
+        passed_timestamp = None
 
         try:
             obj = LearnerCourseGradeMetrics.objects.most_recent_for_learner_course(
                 user=course_enrollment.user,
                 course_id=str(course_enrollment.course_id))
             if obj:
+                course_completed = True if obj.passed_timestamp else False
+                letter_grade = obj.letter_grade
+                percent_grade = obj.percent_grade
+                passed_timestamp = obj.passed_timestamp
                 progress_percent = obj.progress_percent
                 course_progress_details = obj.progress_details
         except Exception as e:  # pylint: disable=broad-except
@@ -677,9 +675,12 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
 
         data = dict(
             course_completed=course_completed,
-            course_progress=progress_percent,
+            course_progress=round((progress_percent / 1) * 100, 2),
             course_progress_details=course_progress_details,
             course_progress_history=course_progress_history,
+            letter_grade=letter_grade,
+            percent_grade=round((percent_grade / 1) * 100, 2),
+            passed_timestamp=passed_timestamp,
             )
         return data
 

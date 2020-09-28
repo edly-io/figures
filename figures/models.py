@@ -294,6 +294,9 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     points_earned = models.FloatField()
     sections_worked = models.IntegerField()
     sections_possible = models.IntegerField()
+    letter_grade = models.CharField(max_length=255, blank=True, default='')
+    percent_grade = models.FloatField(default=0.0)
+    passed_timestamp = models.DateTimeField(default=None, null=True)
 
     objects = LearnerCourseGradeMetricsManager()
 

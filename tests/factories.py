@@ -314,6 +314,9 @@ class LearnerCourseGradeMetricsFactory(DjangoModelFactory):
     points_earned = 15.0
     sections_worked = 5
     sections_possible = 10
+    letter_grade = ''
+    percent_grade = 0
+    passed_timestamp = None
 
 
 class SiteDailyMetricsFactory(DjangoModelFactory):
