@@ -261,19 +261,22 @@ def _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
 def _add_enrollment_metrics_record(site, course_enrollment, progress_data, date_for):
     """Convenience function to save progress metrics to Figures
     """
-    return LearnerCourseGradeMetrics.objects.create(
-        site=site,
+    enrollment_metrics = LearnerCourseGradeMetrics.objects.update_or_create(
+        defaults={
+            'site': site,
+            'points_possible': progress_data['points_possible'],
+            'points_earned': progress_data['points_earned'],
+            'sections_worked': progress_data['sections_worked'],
+            'sections_possible': progress_data['count'],
+            'percent_grade': progress_data.get('grade', {}).get('percent_grade', 0.0),
+            'letter_grade': progress_data.get('grade', {}).get('letter_grade', ''),
+            'passed_timestamp': progress_data.get('passed_timestamp', None),
+        },
         user=course_enrollment.user,
         course_id=str(course_enrollment.course_id),
         date_for=date_for,
-        points_possible=progress_data['points_possible'],
-        points_earned=progress_data['points_earned'],
-        sections_worked=progress_data['sections_worked'],
-        sections_possible=progress_data['count'],
-        percent_grade=progress_data.get('grade', {}).get('percent_grade', 0.0),
-        letter_grade=progress_data.get('grade', {}).get('letter_grade', ''),
-        passed_timestamp=progress_data.get('passed_timestamp', None),
-        )
+    )
+    return enrollment_metrics[0]
 
 
 def _collect_progress_data(student_module):

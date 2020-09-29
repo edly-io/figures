@@ -47,7 +47,7 @@ def course_grade(learner, course):
     else:  # Assume Hawthorn or greater
         course_grade = CourseGradeFactory().read(learner, course)
 
-    persistent_course_grade = PersistentCourseGrade.objects.filter(user_id=learner.id, course_id=course.id).first()
+    persistent_course_grade = PersistentCourseGrade.objects.filter(user_id=learner.id, course_id=course.id).order_by('-modified').first()
     course_grade.passed_timestamp = persistent_course_grade.passed_timestamp if persistent_course_grade else None
     return course_grade
 
