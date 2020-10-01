@@ -349,8 +349,8 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
 
     def calc_from_user_model():
         filter_args = dict(
-            date_joined__gt=as_datetime(prev_day(start_date)),
-            date_joined__lt=as_datetime(next_day(end_date)),
+            date_joined__date__gt=prev_day(start_date),
+            date_joined__date__lt=next_day(end_date),
         )
         users = figures.sites.get_users_for_site(site)
         return users.filter(**filter_args).values('id').distinct().count()
