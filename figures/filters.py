@@ -222,8 +222,8 @@ class UserFilterSet(django_filters.FilterSet):
     is_active = django_filters.BooleanFilter(name='is_active')
     is_staff = django_filters.BooleanFilter(name='is_staff')
     is_superuser = django_filters.BooleanFilter(name='is_superuser')
-    username = django_filters.CharFilter(lookup_expr='icontains')
-    email = django_filters.CharFilter(lookup_expr='icontains')
+    username = django_filters.CharFilter(lookup_expr='iexact')
+    email = django_filters.CharFilter(lookup_expr='iexact')
     name = django_filters.CharFilter(lookup_expr='icontains', name='profile__name')
 
     country = django_filters.CharFilter(
