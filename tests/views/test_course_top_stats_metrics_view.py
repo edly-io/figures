@@ -80,7 +80,7 @@ class TestCourseTopStatsViewSet(object):
 
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results', ])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
         assert len(response.data['results']) == len(self.course_overviews)
 
         for rec in response.data['results']:
@@ -100,7 +100,7 @@ class TestCourseTopStatsViewSet(object):
 
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results', ])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
         assert len(response.data['results']) == len(self.course_overviews)
 
         for rec in response.data['results']:
