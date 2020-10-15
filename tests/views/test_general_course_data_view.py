@@ -138,7 +138,7 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results',])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous',])
         assert len(response.data['results']) == len(self.course_overviews)
 
         for rec in response.data['results']:

@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 import django.contrib.sites.shortcuts
 from django.contrib.sites.models import Site
+from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -441,8 +442,18 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
+        learners_only = self.request.GET.get('learners_only', None)
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         queryset = figures.sites.get_users_for_site(site)
+        if learners_only and learners_only.lower() == "true":
+            queryset = queryset.filter(
+                Q(
+                    Q(is_staff=False) &
+                    Q(is_superuser=False) &
+                    ~Q(courseaccessrole__role='course_creator_group')
+                )
+            )
+
         return queryset
 
     def get_serializer_context(self):

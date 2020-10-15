@@ -205,7 +205,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results'])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
         results = response.data['results']
         assert len(results) == len(self.users) + len(self.callers)
@@ -333,7 +333,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results'])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
         results = response.data['results']
         assert len(results) == len(self.my_site_users)
