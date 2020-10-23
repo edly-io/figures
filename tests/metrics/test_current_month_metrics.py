@@ -9,7 +9,9 @@ from django.utils.timezone import utc
 from figures.metrics import (
     get_last_month_site_metrics
 )
-import figures.helpers
+from figures.helpers import (
+    days_in_month
+)
 from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
     EdlyUserProfileFactory,
@@ -33,17 +35,23 @@ def create_edly_sub_org_user(edly_sub_org):
 
 
 @pytest.mark.django_db
-class TestGetLastMonthSiteMetrics(object):
+class TestGetCurrentMonthSiteMetrics(object):
     """
     This test also exercises the time period getters used in
-    figures.metrics.get_last_month_site_metrics
+    figures.metrics.get_current_month_site_metrics
     """
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
         self.site = SiteFactory()
-        self.end_date = datetime.date.today().replace(day=1) - datetime.timedelta(days=1)
-        self.start_date = datetime.date(year=self.end_date.year, month=self.end_date.month, day=1)
+        self.date_for = datetime.datetime.utcnow().date()
+        self.start_date = datetime.date(year=self.date_for.year, month=self.date_for.month, day=1)
+        self.end_date = datetime.date(
+            year=self.date_for.year,
+            month=self.date_for.month,
+            day=days_in_month(self.date_for)
+        )
+
         self.students_data = self.create_students_record(self.start_date, self.end_date)
 
     def create_students_record(self, start_date, end_date):

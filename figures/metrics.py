@@ -303,6 +303,33 @@ def get_active_users_for_time_period(site, start_date, end_date, course_ids=None
         **filter_args).values('student__id').distinct().count()
 
 
+def get_active_learners_for_time_period(site, start_date, end_date, course_ids=None):
+    """
+    Returns the number of learners active in the time period.
+    """
+    user_ids = figures.sites.get_users_for_site(site).filter(
+        Q(
+            Q(is_staff=False) &
+            Q(is_superuser=False) &
+            ~Q(courseaccessrole__role='course_creator_group')
+        )
+    ).values_list(
+        'id',
+        flat=True
+    )
+
+    filter_args = dict(
+        modified__gt=as_datetime(prev_day(start_date)),
+        modified__lt=as_datetime(next_day(end_date)),
+        student_id__in=user_ids,
+    )
+    if course_ids:
+        filter_args['course_ids__in'] = course_ids
+
+    return StudentModule.objects.filter(
+        **filter_args).values('student__id').distinct().count()
+
+
 def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
     """
     Returns the maximum number of users who joined before or on the end date
@@ -358,6 +385,28 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
     # We don't yet have this info directly in SiteDailyMetrics
     # We can calculate this for days after the initial day
     # So we're going to defer implementing it for now
+
+    return calc_from_user_model()
+
+
+def get_total_site_learners_joined_for_time_period(site, start_date, end_date):
+    """
+    Returns the number of new learners for the time period
+    """
+
+    def calc_from_user_model():
+        filter_args = dict(
+            date_joined__date__gt=prev_day(start_date),
+            date_joined__date__lt=next_day(end_date),
+        )
+        users = figures.sites.get_users_for_site(site).filter(
+            Q(
+                Q(is_staff=False) &
+                Q(is_superuser=False) &
+                ~Q(courseaccessrole__role='course_creator_group')
+            )
+        )
+        return users.filter(**filter_args).values('id').distinct().count()
 
     return calc_from_user_model()
 
@@ -675,31 +724,56 @@ def get_current_month_site_metrics(site, **_kwargs):
     """
     date_for = datetime.datetime.utcnow().date()
     start_date = datetime.date(year=date_for.year, month=date_for.month, day=1)
-    end_date = datetime.date(year=date_for.year,
-                             month=date_for.month,
-                             day=days_in_month(date_for))
+    end_date = datetime.date(
+        year=date_for.year,
+        month=date_for.month,
+        day=days_in_month(date_for)
+    )
 
-    active_users = get_active_users_for_time_period(site=site,
-                                                    start_date=start_date,
-                                                    end_date=end_date)
-    registered_users = get_total_site_users_for_time_period(site=site,
-                                                            start_date=start_date,
-                                                            end_date=end_date)
-    new_users = get_total_site_users_joined_for_time_period(site=site,
-                                                            start_date=start_date,
-                                                            end_date=end_date)
-    site_courses = get_total_site_courses_for_time_period(site=site,
-                                                          start_date=start_date,
-                                                          end_date=end_date)
-    course_enrollments = get_total_enrollments_for_time_period(site=site,
-                                                               start_date=start_date,
-                                                               end_date=end_date)
-    course_completions = get_total_course_completions_for_time_period(site=site,
-                                                                      start_date=start_date,
-                                                                      end_date=end_date)
+    active_users = get_active_users_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    registered_users = get_total_site_users_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date)
+    new_users = get_total_site_users_joined_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    site_courses = get_total_site_courses_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    course_enrollments = get_total_enrollments_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    course_completions = get_total_course_completions_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    active_learners = get_active_learners_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    new_learners = get_total_site_learners_joined_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
     return dict(active_users=active_users,
+                active_learners=active_learners,
                 registered_users=registered_users,
                 new_users=new_users,
+                new_learners=new_learners,
                 site_courses=site_courses,
                 course_enrollments=course_enrollments,
                 course_completions=course_completions)
@@ -731,9 +805,22 @@ def get_last_month_site_metrics(site, **_kwargs):
     course_completions = get_total_course_completions_for_time_period(site=site,
                                                                       start_date=start_date,
                                                                       end_date=end_date)
+    active_learners = get_active_learners_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+    new_learners = get_total_site_learners_joined_for_time_period(
+        site=site,
+        start_date=start_date,
+        end_date=end_date
+    )
+
     return dict(active_users=active_users,
+                active_learners=active_learners,
                 registered_users=registered_users,
                 new_users=new_users,
+                new_learners=new_learners,
                 site_courses=site_courses,
                 course_enrollments=course_enrollments,
                 course_completions=course_completions)
