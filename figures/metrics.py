@@ -391,10 +391,13 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
 
 def get_total_site_learners_joined_for_time_period(site, start_date, end_date):
     """
-    Returns the number of new learners for the time period
+    Returns the number of new learners joined for the time period
     """
 
     def calc_from_user_model():
+        """
+        Calculate the number of new learners joined for the time period
+        """
         filter_args = dict(
             date_joined__date__gt=prev_day(start_date),
             date_joined__date__lt=next_day(end_date),
