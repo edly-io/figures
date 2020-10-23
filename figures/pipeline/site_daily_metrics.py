@@ -88,6 +88,32 @@ def get_previous_cumulative_active_user_count(site, date_for):
         return 0
 
 
+def get_site_active_learners_for_date(site, date_for):
+    """
+    Get the active learners ids for the given site and date
+
+    We do this by filtering StudentModule for courses in the site, then
+    for StudentModule records filtered for the date, then we get the distinct
+    learners ids
+    """
+    student_modules = get_student_modules_for_site(site)
+
+    return student_modules.filter(
+        modified__year=date_for.year,
+        modified__month=date_for.month,
+        modified__day=date_for.day
+    ).filter(
+        Q(
+            Q(student__is_staff=False) &
+            Q(student__is_superuser=False) &
+            ~Q(student__courseaccessrole__role='course_creator_group')
+        )
+    ).values_list(
+        'student__id',
+        flat=True
+    ).distinct()
+
+
 def get_total_enrollment_count(site, date_for, course_ids=None):  # pylint: disable=unused-argument
     '''Returns the total enrollments across all courses for the site
     It does not return unique learners
@@ -134,9 +160,13 @@ class SiteDailyMetricsExtractor(object):
 
         todays_active_users = get_site_active_users_for_date(site, date_for)
         todays_active_user_count = todays_active_users.count()
+
+        todays_active_learners = get_site_active_learners_for_date(site, date_for)
+        todays_active_learners_count = todays_active_learners.count()
         mau = site_mau_1g_for_month_as_of_day(site, date_for)
 
         data['todays_active_user_count'] = todays_active_user_count
+        data['todays_active_learners_count'] = todays_active_learners_count
         data['cumulative_active_user_count'] = get_previous_cumulative_active_user_count(
             site, date_for) + todays_active_user_count
         data['total_user_count'] = user_count
@@ -187,6 +217,7 @@ class SiteDailyMetricsLoader(object):
             defaults=dict(
                 cumulative_active_user_count=data['cumulative_active_user_count'],
                 todays_active_user_count=data['todays_active_user_count'],
+                todays_active_learners_count=data['todays_active_learners_count'],
                 total_user_count=data['total_user_count'],
                 course_count=data['course_count'],
                 total_enrollment_count=data['total_enrollment_count'],
