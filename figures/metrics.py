@@ -427,11 +427,9 @@ def get_total_site_learners_for_time_period(site, start_date, end_date):
             date_joined__date__lt=next_day(end_date),
         )
         users = figures.sites.get_users_for_site(site).filter(
-            Q(
-                Q(is_staff=False) &
-                Q(is_superuser=False) &
-                ~Q(courseaccessrole__role='course_creator_group')
-            )
+            ~Q(courseaccessrole__role='course_creator_group'),
+            is_staff=False,
+            is_superuser=False
         )
         return users.filter(**filter_args).values('id').distinct().count()
 

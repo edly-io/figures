@@ -90,11 +90,7 @@ def get_previous_cumulative_active_user_count(site, date_for):
 
 def get_site_active_learners_for_date(site, date_for):
     """
-    Get the active learners ids for the given site and date
-
-    We do this by filtering StudentModule for courses in the site, then
-    for StudentModule records filtered for the date, then we get the distinct
-    learners ids
+    Get the active learners id's for the provided site and date.
     """
     student_modules = get_student_modules_for_site(site)
 
@@ -103,11 +99,9 @@ def get_site_active_learners_for_date(site, date_for):
         modified__month=date_for.month,
         modified__day=date_for.day
     ).filter(
-        Q(
-            Q(student__is_staff=False) &
-            Q(student__is_superuser=False) &
-            ~Q(student__courseaccessrole__role='course_creator_group')
-        )
+        ~Q(courseaccessrole__role='course_creator_group'),
+        is_staff=False,
+        is_superuser=False
     ).values_list(
         'student__id',
         flat=True
