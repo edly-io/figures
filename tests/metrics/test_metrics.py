@@ -128,6 +128,7 @@ def create_site_daily_metrics_data(site, start_date, end_date):
         return dict(
             cumulative_active_user_count=2,
             todays_active_user_count=2,
+            todays_active_learners_count=2,
             total_user_count=5,
             course_count=1,
             total_enrollment_count=3,
@@ -137,6 +138,7 @@ def create_site_daily_metrics_data(site, start_date, end_date):
     data = dict(
         cumulative_active_user_count=50,
         todays_active_user_count=10,
+        todays_active_learners_count=10,
         total_user_count=5,
         course_count=5,
         total_enrollment_count=100,
@@ -222,6 +224,7 @@ class TestGetMonthlySiteMetrics(object):
         self.expected_keys = (
             'monthly_active_users',
             'total_site_users',
+            'total_site_learners',
             'total_site_courses',
             'total_course_enrollments',
             'total_course_completions',
@@ -389,6 +392,7 @@ class TestSiteMetricsGettersStandalone(object):
         '''
         expected_top_lvl_keys = [
             'total_site_users',
+            'total_site_learners',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
@@ -533,6 +537,7 @@ class TestSiteMetricsGettersMultisite(object):
         '''
         expected_top_lvl_keys = [
             'total_site_users',
+            'total_site_learners',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',

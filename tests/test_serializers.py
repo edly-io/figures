@@ -333,6 +333,7 @@ class TestSiteDailyMetricsSerializer(object):
             date_for='2020-01-01',
             cumulative_active_user_count=1,
             todays_active_user_count=2,
+            todays_active_learners_count=2,
             total_user_count=3,
             course_count=4,
             total_enrollment_count=5

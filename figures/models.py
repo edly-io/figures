@@ -100,6 +100,7 @@ class SiteDailyMetrics(TimeStampedModel):
     cumulative_active_user_count = models.IntegerField(blank=True, null=True)
 
     todays_active_user_count = models.IntegerField(blank=True, null=True)
+    todays_active_learners_count = models.IntegerField(blank=True, null=True)
     total_user_count = models.IntegerField()
     course_count = models.IntegerField()
     total_enrollment_count = models.IntegerField()
