@@ -74,6 +74,7 @@ SDM_DATA = [
     dict(
         cumulative_active_user_count=50,
         todays_active_user_count=10,
+        todays_active_learners_count=10,
         total_user_count=200,
         course_count=len(CDM_INPUT_TEST_DATA),
         total_enrollment_count=100,
@@ -85,6 +86,7 @@ SDM_DATA = [
 SDM_EXPECTED_RESULTS = dict(
     cumulative_active_user_count=65,
     todays_active_user_count=15,
+    todays_active_learners_count=15,
     total_user_count=200,
     course_count=len(CDM_INPUT_TEST_DATA),
     total_enrollment_count=150,
@@ -245,6 +247,7 @@ class TestSiteDailyMetricsExtractor(object):
         expected_results = dict(
             cumulative_active_user_count=52,  # previous cumulative is 50
             todays_active_user_count=2,
+            todays_active_learners_count=2,
             total_user_count=len(self.users),
             course_count=len(CDM_INPUT_TEST_DATA),
             total_enrollment_count=150,
@@ -302,6 +305,7 @@ class TestSiteDailyMetricsLoader(object):
     """
     FIELD_VALUES = dict(
                 todays_active_user_count=1,
+                todays_active_learners_count=1,
                 cumulative_active_user_count=2,
                 total_user_count=3,
                 course_count=4,
