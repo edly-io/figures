@@ -11,31 +11,31 @@ Future: add a remote mode to pull data via REST API
 
 # TODO: Move extractors to figures.pipeline.extract module
 """
-from __future__ import absolute_import
-import logging
-
-from dateutil.relativedelta import relativedelta
-from django.db import transaction
-from django.utils.timezone import utc
-
-from courseware.models import StudentModule  # pylint: disable=import-error
-from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
-from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
-
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 import figures.metrics
-from figures.models import CourseDailyMetrics
+import figures.pipeline.loaders
+import figures.sites
+import logging
+from courseware.models import StudentModule  # pylint: disable=import-error
+from decimal import Decimal
+from django.contrib.auth.models import User
+
+from django.db import transaction
+from django.db.models import Q
+from django.utils.timezone import utc
+from figures.compat import GeneratedCertificate
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
 from figures.pipeline.enrollment_metrics_next import (
     calculate_course_progress as calculate_course_progress_next
 )
-
+from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
-import figures.sites
+from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from student.models import CourseEnrollment  # pylint: disable=import-error
+from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 from figures.pipeline.helpers import pipeline_date_for_rule
-
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,9 @@ def get_active_learner_ids_today(course_id, date_for):
     """
     date_for_as_datetime = as_datetime(date_for)
     return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
         course_id=as_course_key(course_id),
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
@@ -85,7 +88,7 @@ def get_active_learner_ids_today(course_id, date_for):
         ).values_list('student__id', flat=True).distinct()
 
 
-def get_days_to_complete(course_id, date_for):
+def get_days_to_complete(site, course_id, date_for):
     """Return a dict with a list of days to complete and errors
 
     NOTE: This is a work in progress, as it has issues to resolve:
@@ -106,8 +109,19 @@ def get_days_to_complete(course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).values_list(
+        'pk',
+        flat=True
+    )
+
     grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
+        user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for),
     ).values('user_id', 'passed_timestamp')
@@ -131,9 +145,9 @@ def calc_average_days_to_complete(days):
         return 0.0
 
 
-def get_average_days_to_complete(course_id, date_for):
+def get_average_days_to_complete(site, course_id, date_for):
 
-    days_to_complete = get_days_to_complete(course_id, date_for)
+    days_to_complete = get_days_to_complete(site, course_id, date_for)
     # TODO: Track any errors in getting days to complete
     # This is in days_to_complete['errors']
     average_days_to_complete = calc_average_days_to_complete(
@@ -141,7 +155,7 @@ def get_average_days_to_complete(course_id, date_for):
     return average_days_to_complete
 
 
-def get_num_learners_completed(course_id, date_for):
+def get_num_learners_completed(site, course_id, date_for):
     """
     Get the total number of certificates generated for the course up to the
     'date_for' date
@@ -150,8 +164,19 @@ def get_num_learners_completed(course_id, date_for):
 
     We may want to get the number of certificates granted in the given day
     """
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).values_list(
+        'pk',
+        flat=True
+    )
+
     grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
+        user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for),
     )
@@ -185,7 +210,7 @@ class CourseDailyMetricsExtractor(object):
     BUT, we will then need to find a transform
     """
 
-    def extract(self, course_id, date_for, ed_next=False, **_kwargs):
+    def extract(self, site, course_id, date_for, ed_next=False, **_kwargs):
         """Extracts (collects) aggregated course level data
 
         Args:
@@ -239,55 +264,10 @@ class CourseDailyMetricsExtractor(object):
         data['active_learners_today'] = active_learners_today
 
         # Average progress
-        # Progress data cannot be reliable for backfills or for any date prior to yesterday
-        # without using StudentModuleHistory so we skip getting this data if running
-        # for a day earlier than previous day (i.e., not during daily update of CDMs),
-        #  especially since it is so expensive to calculate.
-        # Note that Avg() applied across null and decimal vals for aggregate average_progress
-        # will correctly ignore nulls
-        # TODO: Reconsider this if we implement either StudentModuleHistory-based queries
-        # (if so, you will need to add any types you want to
-        # StudentModuleHistory.HISTORY_SAVING_TYPES)
-        # TODO: Reconsider this once we switch to using Persistent Grades
-        if is_past_date(date_for + relativedelta(days=1)):  # more than 1 day in past
-            data['average_progress'] = None
-            msg = ('FIGURES:PIPELINE:CDM Declining to calculate average progress for a past date'
-                   ' date_for={date_for}, course_id="{course_id}"')
-            logger.debug(msg.format(date_for=date_for, course_id=course_id))
-        else:
-            try:
-                # This conditional check is an interim solution until we make
-                # the progress function configurable and able to run Figures
-                # plugins
-                if ed_next:
-                    progress_data = calculate_course_progress_next(course_id=course_id)
-                else:
-                    progress_data = bulk_calculate_course_progress_data(course_id=course_id,
-                                                                        date_for=date_for)
-                data['average_progress'] = progress_data['average_progress']
-            except Exception:  # pylint: disable=broad-except
-                # Broad exception for starters. Refine as we see what gets caught
-                # Make sure we set the average_progres to None so that upstream
-                # does not think things are normal
-                data['average_progress'] = None
-
-                if ed_next:
-                    prog_func = 'calculate_course_progress_next'
-                else:
-                    prog_func = 'bulk_calculate_course_progress_data'
-
-                msg = ('FIGURES:FAIL {prog_func}'
-                       ' date_for={date_for}, course_id="{course_id}"')
-                logger.exception(msg.format(prog_func=prog_func,
-                                            date_for=date_for,
-                                            course_id=course_id))
-
-        data['average_days_to_complete'] = get_average_days_to_complete(
-            course_id, date_for,)
-
-        data['num_learners_completed'] = get_num_learners_completed(
-            course_id, date_for,)
-
+        progress_data = bulk_calculate_course_progress_data(course_id=course_id, date_for=date_for)
+        data['average_progress'] = progress_data['average_progress']
+        data['average_days_to_complete'] = get_average_days_to_complete(site, course_id, date_for)
+        data['num_learners_completed'] = get_num_learners_completed(site, course_id, date_for)
         return data
 
 
@@ -301,6 +281,7 @@ class CourseDailyMetricsLoader(object):
 
     def get_data(self, date_for, ed_next=False):
         return self.extractor.extract(
+            site=self.site,
             course_id=self.course_id,
             date_for=date_for,
             ed_next=ed_next)
