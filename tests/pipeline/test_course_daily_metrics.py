@@ -4,24 +4,19 @@ TODO: Update this test module to test multisite environments
 """
 
 import datetime
+import figures.sites
 import mock
 import pytest
-
 from django.core.exceptions import PermissionDenied, ValidationError
-
+from figures.helpers import as_datetime, next_day, prev_day
+from figures.models import CourseDailyMetrics, PipelineError
+from figures.pipeline import course_daily_metrics as pipeline_cdm
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
     EdlyUserProfileFactory,
 )
 from student.models import CourseEnrollment, CourseAccessRole
-
-from figures.helpers import as_datetime, next_day, prev_day
-
-from figures.models import CourseDailyMetrics, PipelineError
-from figures.pipeline import course_daily_metrics as pipeline_cdm
-import figures.sites
-
 from tests.factories import (
     CourseAccessRoleFactory,
     CourseEnrollmentFactory,
@@ -31,14 +26,13 @@ from tests.factories import (
     OrganizationCourseFactory,
     SiteFactory,
     StudentModuleFactory,
+    UserFactory,
 )
-
 from tests.helpers import (
     organizations_support_sites,
     OPENEDX_RELEASE,
     GINKGO,
 )
-
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -115,7 +109,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             course_id=self.course_enrollments[i].course_id,
             role=role,
             org=self.course_enrollments[i].course_id.org,
-            ) for i, role in enumerate(self.COURSE_ROLES)]
+        ) for i, role in enumerate(self.COURSE_ROLES)]
 
         # create student modules for yesterday and today
         self.student_modules = [StudentModuleFactory(
@@ -123,7 +117,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             student=ce.user,
             created=ce.created,
             modified=as_datetime(self.today)
-            ) for ce in self.course_enrollments]
+        ) for ce in self.course_enrollments]
 
         self.cert_days_to_complete = [10, 20, 30]
         self.expected_avg_cert_days_to_complete = 20
@@ -133,9 +127,9 @@ class TestCourseDailyMetricsPipelineFunctions(object):
                 course_id=self.course_enrollments[i].course_id,
                 percent_grade=80.5,
                 passed_timestamp=(
-                    self.course_enrollments[i].created + datetime.timedelta(
-                        days=days)
-                    ),
+                        self.course_enrollments[i].created + datetime.timedelta(
+                    days=days)
+                ),
             ) for i, days in enumerate(self.cert_days_to_complete)]
 
     def test_get_enrolled_in_exclude_admins(self):
@@ -178,7 +172,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             course_id=self.course_overview.id,
             date_for=self.today,
             course_enrollments=course_enrollments
-            )
+        )
         # See tests/mocks/lms/djangoapps/grades/course_grade.py for
         # the source subsection grades that
 
@@ -197,16 +191,17 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             course_id=self.course_overview.id)
 
         results = pipeline_cdm.get_average_progress_deprecated(
-                course_id=self.course_overview.id,
-                date_for=self.today,
-                course_enrollments=course_enrollments
-                )
+            course_id=self.course_overview.id,
+            date_for=self.today,
+            course_enrollments=course_enrollments
+        )
         assert results == pytest.approx(0.0)
         assert PipelineError.objects.count() == course_enrollments.count()
 
     def test_get_days_to_complete(self):
         expected = dict(days=self.cert_days_to_complete)
         actual = pipeline_cdm.get_days_to_complete(
+            site=self.site,
             course_id=self.course_overview.id,
             date_for=self.today + datetime.timedelta(
                 days=1 + max(self.cert_days_to_complete))
@@ -220,6 +215,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
     def test_get_average_days_to_complete(self):
         actual = pipeline_cdm.get_average_days_to_complete(
+            site=self.site,
             course_id=self.course_overview.id,
             date_for=self.today + datetime.timedelta(
                 days=1 + max(self.cert_days_to_complete))
@@ -228,6 +224,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
     def test_get_num_learners_completed(self):
         actual = pipeline_cdm.get_num_learners_completed(
+            site=self.site,
             course_id=self.course_overview.id,
             date_for=self.today + datetime.timedelta(
                 days=1 + max(self.cert_days_to_complete))
@@ -246,7 +243,19 @@ class TestCourseDailyMetricsExtractor(object):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
-        self.student_module = StudentModuleFactory()
+        self.site = SiteFactory(domain='my-site.test')
+        self.org = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.org
+        )
+        self.user = UserFactory()
+        EdlyUserProfileFactory(
+            user=self.user,
+            edly_sub_organizations=[self.edly_sub_organization]
+        )
+
+        self.student_module = StudentModuleFactory(student=self.user)
 
     def test_extract(self, monkeypatch):
         course_id = self.course_enrollments[0].course_id
@@ -254,7 +263,7 @@ class TestCourseDailyMetricsExtractor(object):
                             'bulk_calculate_course_progress_data',
                             lambda **_kwargs: dict(average_progress=0.5))
 
-        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(course_id)
+        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(self.site, course_id)
         assert results
 
 

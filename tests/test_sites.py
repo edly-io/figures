@@ -22,16 +22,14 @@ or restructure into fixtures and standalone test functions, depending on how
 figures.sites evolves
 """
 
+import figures.helpers
+import figures.sites
 import mock
+import organizations
 import pytest
-
+from courseware.tests.factories import StudentModuleFactory
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-
-import organizations
-from organizations.tests.factories import OrganizationFactory
-from courseware.tests.factories import StudentModuleFactory
-
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
@@ -39,10 +37,7 @@ from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
     EdlyUserProfileFactory,
 )
-
-import figures.helpers
-import figures.sites
-
+from organizations.tests.factories import OrganizationFactory
 from tests.factories import (
     CourseEnrollmentFactory,
     CourseOverviewFactory,
@@ -51,7 +46,6 @@ from tests.factories import (
     UserFactory,
 )
 from tests.helpers import organizations_support_sites
-
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -74,7 +68,13 @@ class TestHandlersForStandaloneMode(object):
         self.default_site = Site.objects.get()
         self.features = {'FIGURES_IS_MULTISITE': False}
         self.site = Site.objects.first()
-        assert Site.objects.count() == 1
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization
+        )
+
+        assert Site.objects.count() == 2
 
     def test_get_site_for_course(self):
         """
@@ -111,14 +111,14 @@ class TestHandlersForStandaloneMode(object):
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             users = figures.sites.get_users_for_site(self.site)
             assert set([user.id for user in users]) == set(
-                       [user.id for user in expected_users])
+                [user.id for user in expected_users])
 
     def test_get_course_enrollments_for_site(self):
         expected_ce = [CourseEnrollmentFactory() for i in range(3)]
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
             assert set([ce.id for ce in course_enrollments]) == set(
-                       [ce.id for ce in expected_ce])
+                [ce.id for ce in expected_ce])
 
 
 @pytest.mark.django_db
@@ -211,7 +211,7 @@ class TestHandlersForMultisiteMode(object):
             course_id=course_overview.id) for i in range(ce_count)]
         course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
         assert set([ce.id for ce in course_enrollments]) == set(
-                   [ce.id for ce in expected_ce])
+            [ce.id for ce in expected_ce])
 
     def test_get_student_modules_for_course_in_site(self):
         course_overviews = [CourseOverviewFactory() for i in range(3)]
@@ -229,8 +229,8 @@ class TestHandlersForMultisiteMode(object):
 
         student_module_count = 1
         student_module_expected = [StudentModuleFactory(course_id=course_overviews[0].id,
-                                            student=user
-                                            ) for i in range(student_module_count)]
+                                                        student=user
+                                                        ) for i in range(student_module_count)]
 
         # StudentModule for other course
         StudentModuleFactory(course_id=course_overviews[1].id)
@@ -300,7 +300,7 @@ class TestUserHandlersForMultisiteMode(object):
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             users = figures.sites.get_users_for_site(self.site)
             assert set([user.id for user in users]) == set(
-                       [user.id for user in expected_users])
+                [user.id for user in expected_users])
 
 
 @pytest.mark.skipif(organizations_support_sites(),
@@ -330,7 +330,6 @@ class TestOrganizationsLacksSiteSupport(object):
             OrganizationFactory(sites=[self.site])
 
     def test_org_course_missing_sites_field(self):
-
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             # orgs = organizations.models.Organization.objects.all()
             # assert orgs

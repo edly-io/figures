@@ -12,28 +12,26 @@ Future: add a remote mode to pull data via REST API
 # TODO: Move extractors to figures.pipeline.extract module
 """
 import datetime
-from decimal import Decimal
+import figures.metrics
+import figures.pipeline.loaders
+import figures.sites
 import logging
-
-from django.db import transaction
-from django.utils.timezone import utc
-
 from courseware.models import StudentModule  # pylint: disable=import-error
+from decimal import Decimal
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.db.models import Q
+from django.utils.timezone import utc
+from figures.compat import GeneratedCertificate
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+from figures.models import CourseDailyMetrics, PipelineError
+from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
+from figures.pipeline.logger import log_error
+from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
-
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
-import figures.metrics
-from figures.models import CourseDailyMetrics, PipelineError
-from figures.pipeline.logger import log_error
-import figures.pipeline.loaders
-from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
-from figures.serializers import CourseIndexSerializer
-from figures.compat import GeneratedCertificate
-import figures.sites
-
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +74,9 @@ def get_active_learner_ids_today(course_id, date_for):
     """
     date_for_as_datetime = as_datetime(date_for)
     return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
         course_id=as_course_key(course_id),
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
@@ -125,7 +126,7 @@ def get_average_progress_deprecated(course_id, date_for, course_enrollments):
     return average_progress
 
 
-def get_days_to_complete(course_id, date_for):
+def get_days_to_complete(site, course_id, date_for):
     """Return a dict with a list of days to complete and errors
 
     NOTE: This is a work in progress, as it has issues to resolve:
@@ -146,8 +147,19 @@ def get_days_to_complete(course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).values_list(
+        'pk',
+        flat=True
+    )
+
     grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
+        user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for),
     ).values('user_id', 'passed_timestamp')
@@ -171,9 +183,9 @@ def calc_average_days_to_complete(days):
         return 0.0
 
 
-def get_average_days_to_complete(course_id, date_for):
+def get_average_days_to_complete(site, course_id, date_for):
 
-    days_to_complete = get_days_to_complete(course_id, date_for)
+    days_to_complete = get_days_to_complete(site, course_id, date_for)
     # TODO: Track any errors in getting days to complete
     # This is in days_to_complete['errors']
     average_days_to_complete = calc_average_days_to_complete(
@@ -181,9 +193,20 @@ def get_average_days_to_complete(course_id, date_for):
     return average_days_to_complete
 
 
-def get_num_learners_completed(course_id, date_for):
+def get_num_learners_completed(site, course_id, date_for):
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).values_list(
+        'pk',
+        flat=True
+    )
+
     grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
+        user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for),
     )
@@ -217,7 +240,7 @@ class CourseDailyMetricsExtractor(object):
     BUT, we will then need to find a transform
     """
 
-    def extract(self, course_id, date_for=None, **_kwargs):
+    def extract(self, site, course_id, date_for=None, **_kwargs):
         """
             defaults = dict(
                 enrollment_count=data['enrollment_count'],
@@ -261,16 +284,10 @@ class CourseDailyMetricsExtractor(object):
         data['active_learners_today'] = active_learners_today
 
         # Average progress
-        progress_data = bulk_calculate_course_progress_data(course_id=course_id,
-                                                            date_for=date_for)
+        progress_data = bulk_calculate_course_progress_data(course_id=course_id, date_for=date_for)
         data['average_progress'] = progress_data['average_progress']
-
-        data['average_days_to_complete'] = get_average_days_to_complete(
-            course_id, date_for,)
-
-        data['num_learners_completed'] = get_num_learners_completed(
-            course_id, date_for,)
-
+        data['average_days_to_complete'] = get_average_days_to_complete(site, course_id, date_for)
+        data['num_learners_completed'] = get_num_learners_completed(site, course_id, date_for)
         return data
 
 
@@ -284,6 +301,7 @@ class CourseDailyMetricsLoader(object):
 
     def get_data(self, date_for):
         return self.extractor.extract(
+            site=self.site,
             course_id=self.course_id,
             date_for=date_for)
 

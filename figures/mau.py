@@ -3,6 +3,7 @@ This module provides MAU metrics retrieval functionality
 """
 
 from datetime import datetime
+from django.db.models import Q
 
 from figures.models import CourseMauMetrics, SiteMauMetrics
 from figures.sites import (
@@ -23,6 +24,20 @@ def get_mau_from_student_modules(student_modules, year, month):
     """
     qs = student_modules.filter(modified__year=year,
                                 modified__month=month)
+    return qs.values_list('student__id', flat=True).distinct()
+
+
+def get_learners_mau_from_student_modules(student_modules, year, month):
+    """
+    Return records modified by learners in year and month
+    """
+    qs = student_modules.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        modified__year=year,
+        modified__month=month,
+    )
     return qs.values_list('student__id', flat=True).distinct()
 
 
@@ -65,6 +80,26 @@ def retrieve_live_course_mau_data(site, course_id):
     users = get_mau_from_student_modules(student_modules=student_modules,
                                          year=today.year,
                                          month=today.month)
+    return dict(
+        count=users.count(),
+        month_for=today.date(),
+        course_id=str(course_id),
+        domain=site.domain,
+    )
+
+
+def retrieve_live_course_learners_mau_data(site, course_id):
+    """
+    Used this when we need to retrieve unique active learners for a given course
+    in the site
+    """
+    student_modules = get_student_modules_for_course_in_site(site, course_id)
+    today = datetime.utcnow()
+    users = get_learners_mau_from_student_modules(
+        student_modules=student_modules,
+        year=today.year,
+        month=today.month
+    )
     return dict(
         count=users.count(),
         month_for=today.date(),

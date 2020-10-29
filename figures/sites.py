@@ -198,7 +198,10 @@ def get_course_enrollments_for_site(site):
     return CourseEnrollment.objects.filter(
         course_id__in=course_keys
     ).filter(
-        Q(user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms)
+        ~Q(user__courseaccessrole__role='course_creator_group'),
+        user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        user__is_staff=False,
+        user__is_superuser=False,
     )
 
 
