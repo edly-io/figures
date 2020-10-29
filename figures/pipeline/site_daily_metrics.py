@@ -9,7 +9,7 @@ course metrics. These data are extracted directly from edx-platform models
 import datetime
 
 from django.utils.timezone import utc
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 from figures.mau import site_mau_1g_for_month_as_of_day
@@ -99,9 +99,9 @@ def get_site_active_learners_for_date(site, date_for):
         modified__month=date_for.month,
         modified__day=date_for.day
     ).filter(
-        ~Q(courseaccessrole__role='course_creator_group'),
-        is_staff=False,
-        is_superuser=False
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False
     ).values_list(
         'student__id',
         flat=True
