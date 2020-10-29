@@ -18,6 +18,7 @@ from figures.mau import (
     mau_1g_for_month_as_of_day,
     site_mau_1g_for_month_as_of_day,
     store_mau_metrics,
+    get_learners_mau_from_student_modules,
 )
 
 from tests.factories import StudentModuleFactory
@@ -151,3 +152,17 @@ def test_store_mau_metrics(monkeypatch, sm_test_data):
                                                     month=mock_today.month)
         # TODO: Fix, rudimentary check, improve
         assert expected_mau
+
+
+def test_get_learners_mau_from_student_modules(sm_test_data):
+    year_for = sm_test_data['year_for']
+    month_for = sm_test_data['month_for']
+    sm = get_student_modules_for_site(sm_test_data['site'])
+    users = get_learners_mau_from_student_modules(
+        student_modules=sm,
+        year=year_for,
+        month=month_for
+    )
+
+    sm_check = sm.values_list('student__id', flat=True).distinct()
+    assert set(users) == set(sm_check)

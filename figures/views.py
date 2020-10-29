@@ -84,7 +84,7 @@ import figures.permissions
 import figures.helpers
 import figures.sites
 from figures.mau import (
-    retrieve_live_course_mau_data,
+    retrieve_live_course_learners_mau_data,
     retrieve_live_site_mau_data,
 )
 
@@ -447,11 +447,9 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         queryset = figures.sites.get_users_for_site(site)
         if learners_only and learners_only.lower() == "true":
             queryset = queryset.filter(
-                Q(
-                    Q(is_staff=False) &
-                    Q(is_superuser=False) &
-                    ~Q(courseaccessrole__role='course_creator_group')
-                )
+                ~Q(courseaccessrole__role='course_creator_group'),
+                is_staff=False,
+                is_superuser=False
             )
 
         return queryset
@@ -784,7 +782,7 @@ class CourseMauLiveMetricsViewSet(CommonAuthMixin, viewsets.GenericViewSet):
             if site != figures.sites.get_site_for_course(course_key):
                 # Raising NotFound instead of PermissionDenied
                 raise NotFound()
-        data = retrieve_live_course_mau_data(site, course_key)
+        data = retrieve_live_course_learners_mau_data(site, course_key)
         serializer = self.serializer_class(data)
         return Response(serializer.data)
 
@@ -793,7 +791,7 @@ class CourseMauLiveMetricsViewSet(CommonAuthMixin, viewsets.GenericViewSet):
         course_overviews = figures.sites.get_courses_for_site(site)
         data = []
         for co in course_overviews:
-            data.append(retrieve_live_course_mau_data(site, co.id))
+            data.append(retrieve_live_course_learners_mau_data(site, co.id))
         serializer = self.serializer_class(data, many=True)
         return Response(serializer.data)
 
