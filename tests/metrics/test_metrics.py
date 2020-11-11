@@ -45,6 +45,9 @@ import pytest
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
 
+from openedx.features.edly.models import EdlyUserProfile, EdlySubOrganization
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
+from student.roles import GlobalCourseCreatorRole
 from figures.metrics import (
     get_active_users_for_time_period,
     get_course_average_days_to_complete_for_time_period,
@@ -58,6 +61,7 @@ from figures.metrics import (
     get_total_site_users_for_time_period,
     get_total_site_users_joined_for_time_period,
     get_total_active_courses_for_time_period,
+    get_total_site_staff_users_for_time_period,
 )
 import figures.helpers
 
@@ -210,6 +214,30 @@ def create_users_joined_over_time(site, is_multisite, start_date, end_date):
     return users
 
 
+def create_staff_users_joined_over_time(site, start_date, end_date):
+    """
+    Creates staff users on a successive date between the dates passed as arguments
+    """
+    edx_org = OrganizationFactory()
+    edly_sub_org = EdlySubOrganizationFactory(
+        edx_organization=edx_org,
+        lms_site=site
+    )
+
+    users = []
+    for dt in rrule(DAILY, dtstart=start_date, until=end_date):
+        user = UserFactory(date_joined=dt)
+
+        edly_user_profile, __ = EdlyUserProfile.objects.get_or_create(user=user)
+        edly_user_profile.edly_sub_organizations.add(edly_sub_org)
+        edly_user_profile.save()
+
+        GlobalCourseCreatorRole(edx_org).add_users(user)
+        users.append(user)
+
+    return users
+
+
 @pytest.mark.django_db
 class TestGetMonthlySiteMetrics(object):
     """
@@ -225,10 +253,12 @@ class TestGetMonthlySiteMetrics(object):
             'monthly_active_users',
             'total_site_users',
             'total_site_learners',
+            'total_site_staff_users',
             'total_site_courses',
             'total_course_enrollments',
             'total_course_completions',
-            'total_active_courses',)
+            'total_active_courses',
+        )
 
     @pytest.mark.skip(reason='Test not implemented yet')
     # @pytest.mark.paramtrize('date_for', [
@@ -393,6 +423,7 @@ class TestSiteMetricsGettersStandalone(object):
         expected_top_lvl_keys = [
             'total_site_users',
             'total_site_learners',
+            'total_site_staff_users',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
@@ -538,6 +569,7 @@ class TestSiteMetricsGettersMultisite(object):
         expected_top_lvl_keys = [
             'total_site_users',
             'total_site_learners',
+            'total_site_staff_users',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
@@ -733,3 +765,34 @@ class TestCourseMetricsGettersMultisite(object):
             end_date=self.data_end_date,
             course_id=self.alpha_course_overview.id)
         assert actual == expected
+
+@pytest.mark.django_db
+class TestStaffUsersMetrics(object):
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db, settings):
+        self.alpha_site = SiteFactory(domain='alpha.site')
+        self.data_start_date = DEFAULT_START_DATE
+        self.data_end_date = DEFAULT_END_DATE
+
+        self.users = create_staff_users_joined_over_time(
+            site=self.alpha_site,
+            start_date=self.data_start_date,
+            end_date=self.data_end_date
+        )
+
+    def test_get_total_site_staff_users_for_time_period(self):
+        """
+        Test get_total_site_staff_users_for_time_period metrics helper
+
+        Add users who joined before and after the time period, and
+        compare the count to the users created within the time period
+        """
+
+        count = get_total_site_staff_users_for_time_period(
+            site=self.alpha_site,
+            start_date=self.data_start_date,
+            end_date=self.data_end_date
+        )
+
+        assert count == len(self.users)

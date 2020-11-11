@@ -436,6 +436,29 @@ def get_total_site_learners_for_time_period(site, start_date, end_date):
     return calc_from_user_model()
 
 
+def get_total_site_staff_users_for_time_period(site, start_date, end_date):
+    """
+    Returns the total number of staff users for the time period
+    """
+
+    def calc_from_user_model():
+        """
+        Calculate the total number of staff users for the time period
+        """
+        filter_args = dict(
+            date_joined__date__lt=next_day(end_date),
+        )
+        users = figures.sites.get_users_for_site(site).filter(
+            courseaccessrole__role='global_course_creator',
+            is_superuser=False,
+            is_staff=False
+        )
+
+        return users.filter(**filter_args).values('id').distinct().count()
+
+    return calc_from_user_model()
+
+
 def get_total_enrollments_for_time_period(site, start_date, end_date,
                                           course_ids=None):  # pylint: disable=unused-argument
     """Returns the maximum number of enrollments
@@ -900,6 +923,17 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
           ...
         ]
       },
+      "total_site_staff_users": {
+        // represents total number of registered staff users for org/site
+        "current": 4931,
+        "history": [
+          {
+            "period": "April 2018",
+            "value": 4899,
+          },
+          ...
+        ]
+      },
       "total_site_courses": {
         "current": 19,
         "history": [
@@ -980,6 +1014,12 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
         date_for=date_for,
         months_back=months_back,
     )
+    total_site_staff_users = get_monthly_history_metric(
+        func=get_total_site_staff_users_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
     total_site_courses = get_monthly_history_metric(
         func=get_total_site_courses_for_time_period,
         site=site,
@@ -1010,6 +1050,7 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
         monthly_active_users=monthly_active_users,
         total_site_users=total_site_users,
         total_site_learners=total_site_learners,
+        total_site_staff_users=total_site_staff_users,
         total_site_courses=total_site_courses,
         total_course_enrollments=total_course_enrollments,
         total_course_completions=total_course_completions,
