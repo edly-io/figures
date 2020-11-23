@@ -161,7 +161,7 @@ def get_days_to_complete(site, course_id, date_for):
         course_id=as_course_key(course_id),
         user_id__in=users_ids,
         passed_timestamp__isnull=False,
-        passed_timestamp__lte=as_datetime(date_for),
+        passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
     ).values('user_id', 'passed_timestamp')
 
     days = []
