@@ -50,7 +50,6 @@ from datetime import datetime
 from decimal import Decimal
 
 from django.utils.timezone import utc
-
 from figures.metrics import LearnerCourseGrades
 from figures.models import LearnerCourseGradeMetrics, PipelineError
 from figures.pipeline.logger import log_error
@@ -60,6 +59,7 @@ from figures.sites import (
     course_enrollments_for_course,
     UnlinkedCourseError,
     )
+from util.query import read_replica_or_default
 
 
 def bulk_calculate_course_progress_data(course_id, date_for=None):
@@ -157,7 +157,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, course_sm, date_for=
     #     "Instance of 'list' has no 'order_by' member (no-member)"
     # See: https://github.com/PyCQA/pylint-django/issues/165
     student_modules = course_sm.filter(
-        student_id=course_enrollment.user.id).order_by('-modified')
+        student_id=course_enrollment.user.id).using(read_replica_or_default()).order_by('-modified')
     if student_modules:
         most_recent_sm = student_modules[0]
     else:
@@ -165,7 +165,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, course_sm, date_for=
 
     lcgm = LearnerCourseGradeMetrics.objects.filter(
         user=course_enrollment.user,
-        course_id=str(course_enrollment.course_id))
+        course_id=str(course_enrollment.course_id)).using(read_replica_or_default())
     most_recent_lcgm = lcgm.order_by('date_for').last()  # pylint: disable=E1101
 
     if _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):

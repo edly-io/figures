@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 
 from figures.models import SiteMonthlyMetrics
 from figures.sites import get_student_modules_for_site
+from util.query import read_replica_or_default
 
 
 def fill_month(site, month_for, student_modules=None, overwrite=False):
@@ -18,7 +19,7 @@ def fill_month(site, month_for, student_modules=None, overwrite=False):
 
     if student_modules:
         month_sm = student_modules.filter(modified__year=month_for.year,
-                                          modified__month=month_for.month)
+                                          modified__month=month_for.month).using(read_replica_or_default())
         mau_count = month_sm.values_list('student_id',
                                          flat=True).distinct().count()
     else:

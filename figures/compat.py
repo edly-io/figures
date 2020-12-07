@@ -34,6 +34,7 @@ else:
     from lms.djangoapps.certificates.models import GeneratedCertificate  # noqa pylint: disable=unused-import,import-error
 
 from lms.djangoapps.grades.models import PersistentCourseGrade
+from util.query import read_replica_or_default
 
 
 def course_grade(learner, course):
@@ -47,7 +48,7 @@ def course_grade(learner, course):
     else:  # Assume Hawthorn or greater
         course_grade = CourseGradeFactory().read(learner, course)
 
-    persistent_course_grade = PersistentCourseGrade.objects.filter(user_id=learner.id, course_id=course.id).order_by('-modified').first()
+    persistent_course_grade = PersistentCourseGrade.objects.filter(user_id=learner.id, course_id=course.id).using(read_replica_or_default()).order_by('-modified').first()
     course_grade.passed_timestamp = persistent_course_grade.passed_timestamp if persistent_course_grade else None
     return course_grade
 
