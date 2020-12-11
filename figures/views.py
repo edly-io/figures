@@ -94,6 +94,7 @@ from figures.mau import (
     retrieve_live_course_learners_mau_data,
     retrieve_live_site_mau_data,
 )
+from util.query import read_replica_or_default
 
 
 UNAUTHORIZED_USER_REDIRECT_URL = '/'
@@ -283,8 +284,8 @@ class CourseDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     filter_class = CourseDailyMetricsFilter
 
     def get_queryset(self):
-        site = figures.sites.get_requested_site(self.request)
-        queryset = CourseDailyMetrics.objects.filter(site=site)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = CourseDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
         return queryset
 
 
@@ -297,8 +298,8 @@ class SiteDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     filter_class = SiteDailyMetricsFilter
 
     def get_queryset(self):
-        site = figures.sites.get_requested_site(self.request)
-        queryset = SiteDailyMetrics.objects.filter(site=site)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = SiteDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
         return queryset
 
 
@@ -389,7 +390,8 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         course_ids = figures.sites.get_course_keys_for_site(site)
-        queryset = self.model.objects.filter(course_id__in=course_ids, date_for=datetime.utcnow())
+        queryset = self.model.objects.filter(
+            course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
         order_by = self.request.query_params.get('order_by', '')
         if order_by:
             order_by_name = order_by.split(',')[0]
@@ -485,7 +487,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 ~Q(courseaccessrole__role='course_creator_group'),
                 is_staff=False,
                 is_superuser=False
-            )
+            ).using(read_replica_or_default())
 
         return queryset
 
@@ -645,8 +647,9 @@ class EnrollmentMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_class = EnrollmentMetricsFilter
 
     def get_queryset(self):
-        site = figures.sites.get_requested_site(self.request)
-        queryset = LearnerCourseGradeMetrics.objects.filter(site=site)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = LearnerCourseGradeMetrics.objects.filter(
+            site=site).using(read_replica_or_default())
         return queryset
 
     @action(detail=False)
@@ -1000,8 +1003,8 @@ class CourseMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     lookup_value_regex = settings.COURSE_ID_PATTERN
 
     def get_queryset(self):
-        site = figures.sites.get_requested_site(self.request)
-        queryset = CourseMauMetrics.objects.filter(site=site)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = CourseMauMetrics.objects.filter(site=site).using(read_replica_or_default())
         return queryset
 
 
@@ -1013,8 +1016,8 @@ class SiteMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_class = SiteMauMetricsFilter
 
     def get_queryset(self):
-        site = figures.sites.get_requested_site(self.request)
-        queryset = SiteMauMetrics.objects.filter(site=site)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = SiteMauMetrics.objects.filter(site=site).using(read_replica_or_default())
         return queryset
 
 

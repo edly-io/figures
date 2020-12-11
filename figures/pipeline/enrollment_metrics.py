@@ -49,16 +49,19 @@ for each learner+course  # See bulk_calculate_course_progress_data
 from __future__ import absolute_import
 from datetime import datetime
 from decimal import Decimal
+
 import logging
 
 from django.utils.timezone import utc
-
 from figures.metrics import LearnerCourseGrades
-from figures.models import LearnerCourseGradeMetrics
-from figures.sites import (get_site_for_course,
-                           course_enrollments_for_course,
-                           student_modules_for_course_enrollment,
-                           UnlinkedCourseError)
+from figures.models import LearnerCourseGradeMetrics, PipelineError
+from figures.sites import (
+    get_site_for_course,
+    get_student_modules_for_course_in_site,
+    course_enrollments_for_course,
+    UnlinkedCourseError,
+    )
+from util.query import read_replica_or_default
 
 logger = logging.getLogger(__name__)
 
@@ -162,24 +165,17 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
     # The following are two different ways to avoide the dreaded error
     #     "Instance of 'list' has no 'order_by' member (no-member)"
     # See: https://github.com/PyCQA/pylint-django/issues/165
+    student_modules = student_modules.filter(
+        student_id=course_enrollment.user.id).using(read_replica_or_default()).order_by('-modified')
+    if student_modules:
+        most_recent_sm = student_modules[0]
+    else:
+        most_recent_sm = None
 
-    if not student_modules:
-        student_modules = student_modules_for_course_enrollment(
-            site=site,
-            course_enrollment=course_enrollment).order_by('-modified')
-
-    # check if there are any StudentModule records for the enrollment
-    # if not, no progress to report
-
-    # If there are no student module records, then the learner had no activity
-    # in this course, so we return None
-    if not student_modules:
-        return None
-
-    most_recent_sm = student_modules[0]
-    most_recent_lcgm = LearnerCourseGradeMetrics.objects.latest_lcgm(
+    lcgm = LearnerCourseGradeMetrics.objects.filter(
         user=course_enrollment.user,
-        course_id=course_enrollment.course_id)
+        course_id=str(course_enrollment.course_id)).using(read_replica_or_default())
+    most_recent_lcgm = lcgm.order_by('date_for').last()  # pylint: disable=E1101
 
     if _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
         progress_data = _collect_progress_data(most_recent_sm)

@@ -35,6 +35,7 @@ from figures.pipeline.enrollment_metrics_next import (
     update_enrollment_data_for_course,
     stale_course_enrollments,
 )
+from util.query import read_replica_or_default
 
 
 logger = get_task_logger(__name__)
@@ -65,7 +66,7 @@ def populate_single_cdm(course_id, date_for=None, ed_next=False, force_update=Fa
 
     # Provide info in celery log
     learner_count = CourseEnrollment.objects.filter(
-        course_id=as_course_key(course_id)).count()
+        course_id=as_course_key(course_id)).using(read_replica_or_default()).count()
     msg = 'populate_single_cdm. course id = "{}", learner count={}'.format(
         course_id, learner_count)
     logger.debug(msg)
@@ -93,74 +94,14 @@ def populate_single_sdm(site_id, date_for, force_update=False):
                                   force_update=force_update)
 
     logger.debug(
-        'done running populate_site_daily_metrics for site_id={}'.format(site_id))
-
-
-@shared_task
-def populate_daily_metrics_for_site(site_id, date_for, ed_next=False, force_update=False):
-    """Collect metrics for the given site and date
-    """
-    try:
-        site = Site.objects.get(id=site_id)
-    except Site.DoesNotExist as e:
-        msg = ('{prefix}:SITE:FAIL:populate_daily_metrics_for_site:site_id: '
-               '{site_id} does not exist')
-        logger.exception(msg.format(prefix=FPD_LOG_PREFIX, site_id=site_id))
-        raise e
-
-    for course_id in site_course_ids(site):
-        try:
-            if ed_next:
-                update_enrollment_data_for_course(course_id)
-
-            populate_single_cdm(course_id=course_id,
-                                date_for=date_for,
-                                ed_next=ed_next,
-                                force_update=force_update)
-        except Exception as e:  # pylint: disable=broad-except
-            msg = ('{prefix}:SITE:COURSE:FAIL:populate_daily_metrics_for_site.'
-                   ' site_id:{site_id}, date_for:{date_for}. course_id:{course_id}'
-                   ' exception:{exception}')
-            logger.exception(msg.format(prefix=FPD_LOG_PREFIX,
-                                        site_id=site_id,
-                                        date_for=date_for,
-                                        course_id=str(course_id),
-                                        exception=e))
-    populate_single_sdm(site_id=site.id,
-                        date_for=date_for,
-                        force_update=force_update)
-
-
-@shared_task
-def update_enrollment_data_for_site(site_id, **_kwargs):
-    """Original task to collect `EnrollmentData` records
-
-    This tasks collects `EnrollmentData` records at the site level with the
-    context of 'backfill'. This means it goes through all enrollments on the
-    site and checks if the `EnrollmentData` record needs to be updated
-
-    This can be an expensive task as it iterates over all the enrollments in a
-    site.
-    We can reduce the records for which we need to iterate if we filter on
-    CourseEnrollment.objects.filter(is_actie=True)
-    However, we have to ensure that we don't exclude learners who have just
-    completed a course and are awaiting post course activities, like being
-    awarded a certificate
-    """
-    try:
-        site = Site.objects.get(id=site_id)
-        results = backfill_enrollment_data_for_site(site)
-        if results.get('errors'):
-            for rec in results['errors']:
-                logger.error('figures.tasks.update_enrollment_data_for_site. Error:{}'.format(rec))
-    except Site.DoesNotExist:
-        logger.error(
-            'figurs.tasks.update_enrollment_data_for_site: site_id={} does not exist'.format(
-                site_id))
-    except Exception:  # pylint: disable=broad-except
-        msg = ('FIGURES:DAILYLFAIL daily metrics:update_enrollment_data_for_site'
-               ' for site_id={}'.format(site_id))
-        logger.exception(msg)
+        'populate_site_daily_metrics called for site_id={}'.format(site_id))
+    SiteDailyMetricsLoader().load(
+        site=Site.objects.using(read_replica_or_default()).get(id=site_id),
+        date_for=kwargs.get('date_for', None),
+        force_update=kwargs.get('force_update', False),
+        )
+    logger.debug(
+        'done running populate_site_daily_metrics for site_id={}"'.format(site_id))
 
 
 @shared_task
@@ -211,160 +152,47 @@ def populate_daily_metrics(site_id=None, date_for=None, force_update=False):
     if site_id is not None:
         sites = get_sites_by_id((site_id, ))
     else:
-        sites = get_sites()
-    sites_count = sites.count()
+        date_for = datetime.datetime.utcnow().replace(tzinfo=utc).date()
 
-    # This is our task entry log message
-    msg = '{prefix}:START:date_for={date_for}, site_count={site_count}'
-    logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                           date_for=date_for,
-                           site_count=sites_count))
+    logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
+        date_for))
 
-    if is_past_date(date_for):
-        msg = ('{prefix}:INFO - CourseDailyMetrics.average_progress will not be '
-               'calculated for past date {date_for}')
-        logger.info(msg.format(date_for=date_for, prefix=FPD_LOG_PREFIX))
-
-    for i, site in enumerate(sites):
-
-        msg = '{prefix}:SITE:START:{id}:{domain} - Site {i:04d} of {n:04d}'
-        logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                               id=site.id,
-                               domain=site.domain,
-                               i=i,
-                               n=sites_count))
-        try:
-            populate_daily_metrics_for_site(site_id=site.id,
-                                            date_for=date_for,
-                                            force_update=force_update)
-
-        except Exception:  # pylint: disable=broad-except
-            msg = ('{prefix}:FAIL populate_daily_metrics unhandled site level'
-                   ' exception for site[{site_id}]={domain}')
-            logger.exception(msg.format(prefix=FPD_LOG_PREFIX,
-                                        site_id=site.id,
-                                        domain=site.domain))
-
-        # Until we implement signal triggers
-        if do_update_enrollment_data:
+    sites_count = Site.objects.using(read_replica_or_default()).count()
+    for i, site in enumerate(Site.objects.using(read_replica_or_default()).all()):
+        for course in figures.sites.get_courses_for_site(site):
             try:
-                update_enrollment_data_for_site(site_id=site.id)
-            except Exception:  # pylint: disable=broad-except
-                msg = ('{prefix}:FAIL figures.tasks update_enrollment_data_for_site '
-                       ' unhandled exception. site[{site_id}]:{domain}')
-                logger.exception(msg.format(prefix=FPD_LOG_PREFIX,
-                                            site_id=site.id,
-                                            domain=site.domain))
+                populate_single_cdm(
+                    course_id=course.id,
+                    date_for=date_for,
+                    force_update=force_update)
+            except Exception as e:  # pylint: disable=broad-except
+                logger.exception('figures.tasks.populate_daily_metrics failed')
+                # Always capture CDM load exceptions to the Figures pipeline
+                # error table
+                error_data = dict(
+                    date_for=date_for,
+                    msg='figures.tasks.populate_daily_metrics failed',
+                    exception_class=e.__class__.__name__,
+                    )
+                if hasattr(e, 'message_dict'):
+                    error_data['message_dict'] = e.message_dict  # pylint: disable=no-member
+                log_error_to_db(
+                    error_data=error_data,
+                    error_type=PipelineError.COURSE_DATA,
+                    course_id=str(course.id),
+                    site=site,
+                    logger=logger,
+                    log_pipeline_errors_to_db=True,
+                    )
+        populate_site_daily_metrics(
+            site_id=site.id,
+            date_for=date_for,
+            force_update=force_update)
+        logger.info("figures.populate_daily_metrics: finished Site {:04d} of {:04d}".format(
+            i, sites_count))
 
-        msg = '{prefix}:SITE:END:{id}:{domain} - Site {i:04d} of {n:04d}'
-        logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                               id=site.id,
-                               domain=site.domain,
-                               i=i,
-                               n=sites_count))
-
-    msg = '{prefix}:END:date_for={date_for}, site_count={site_count}'
-    logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                           date_for=date_for,
-                           site_count=sites_count))
-
-
-@shared_task
-def populate_daily_metrics_next(site_id=None, force_update=False):
-    """Next iteration to collect daily metrics for all sites in a deployment
-
-    This is a top level Celery task run every 24 hours to update Figures data.
-
-    * It updates Figures per-enrollment data and collect daily aggregate metrics
-    * It's purpose is to collect new metrics on an ongoing basis and not serve
-      dual purpose of collecting ongoing data AND backfilling data.
-    * The driver for this change is to improve performance of the daily Celery jobs
-
-    What's different?
-
-    * Figures collects the enrollment data first, then aggregates daily data.
-
-    TODO: Draft up public architecture docs and reference them here
-    """
-    if waffle.switch_is_active(WAFFLE_DISABLE_PIPELINE):
-        logger.warning('Figures pipeline is disabled due to %s being active.',
-                       WAFFLE_DISABLE_PIPELINE)
-        return
-
-    date_for = datetime.datetime.utcnow().date()
-    if site_id is not None:
-        sites = get_sites_by_id((site_id, ))
-    else:
-        sites = get_sites()
-    sites_count = sites.count()
-    # This is our task entry log message
-    msg = '{prefix}:START:date_for={date_for}, site_count={site_count}'
-    logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                           date_for=date_for,
-                           site_count=sites_count))
-    for i, site in enumerate(sites):
-        msg = '{prefix}:SITE:START:{id}:{domain} - Site {i:04d} of {n:04d}'
-        logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                               id=site.id,
-                               domain=site.domain,
-                               i=i,
-                               n=sites_count))
-        try:
-            populate_daily_metrics_for_site(site_id=site.id,
-                                            date_for=date_for,
-                                            ed_next=True,
-                                            force_update=force_update)
-        except Exception as ex:  # pylint: disable=broad-except
-            msg = ('{prefix}:FAIL populate_daily_metrics unhandled site level'
-                   ' exception for site[{site_id}]={domain}. msg: {msg}')
-            logger.exception(msg.format(prefix=FPD_LOG_PREFIX,
-                                        site_id=site.id,
-                                        domain=site.domain,
-                                        msg=str(ex)))
-
-    msg = '{prefix}:END:date_for={date_for}, site_count={site_count}'
-    logger.info(msg.format(prefix=FPD_LOG_PREFIX,
-                           date_for=date_for,
-                           site_count=sites_count))
-
-
-@shared_task
-def backfill_enrollment_data_for_course(course_id):
-    """Update EnrollmentData records for activity before "yesterday"
-
-    This task function is to get `EnrollmentData` records up to date. This is
-    needed under at least the following conditions
-
-    A. Figures is being installed/enabled on an existing Open edX deployment
-    B. The daily pipeline was stopped or failed to run for longer than a day
-
-    Why this function is needed is because it costs too much time to query
-    an enrollment's `StudentModule` record to find the latest date it was
-    modified. For the regular day to day pipeline, Figures can perform a **much**
-    fasater query to find if `StudentModule` records exist for the specific day
-    we gather our daily metrics. This is always the previous calendar day given
-    UTC time. The following function is what updates `EnrollmentData` on the
-    daily job:
-
-    ```
-    figures.pipeline.enrollment_metrics_next.update_enrollment_data_for_course
-    ```
-
-    There is a Figures Django management command to run this task:
-
-    ```
-    backfill_figures_enrollment_data
-    ```
-    """
-    course = Course(course_id)
-    updated = []
-    for enrollment in stale_course_enrollments(course_id):
-        # `update_metrics` results are a (object, created_flag) tuple
-        updated.append(EnrollmentData.objects.update_metrics(course.site, enrollment))
-
-    msg = ('figures.tasks.backfill_enrollment_data_for_course "{course_id}".'
-           ' Updated {edrec_count} enrollment data records.')
-    logger.info(msg.format(course_id=course_id, edrec_count=len(updated)))
+    logger.info('Finished task "figures.populate_daily_metrics" for date "{}"'.format(
+        date_for))
 
 
 #
@@ -388,7 +216,8 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
         '''This function let's us skip over courses with many enrollments, speeding
         up testing. Do not use for production
         '''
-        count = CourseEnrollment.objects.filter(course_id=course_overview.id).count()
+        count = CourseEnrollment.objects.filter(
+            course_id=course_overview.id).using(read_replica_or_default()).count()
         return False if count > threshold else True
 
     if date_for:
@@ -400,7 +229,7 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
         'Starting task "figures.experimental_populate_daily_metrics" for date "{}"'.format(
             date_for))
 
-    courses = CourseOverview.objects.all()
+    courses = CourseOverview.objects.using(read_replica_or_default()).all()
     cdm_tasks = [
         populate_single_cdm.s(
             course_id=six.text_type(course.id),  # noqa: F821
@@ -435,7 +264,7 @@ def populate_course_mau(site_id, course_id, month_for=None, force_update=False):
         month_for = as_date(month_for)
     else:
         month_for = datetime.datetime.utcnow().date()
-    site = Site.objects.get(id=site_id)
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
     start_time = time.time()
     obj, _created = collect_course_mau(site=site,
                                        courselike=course_id,
@@ -459,13 +288,8 @@ def populate_mau_metrics_for_site(site_id, month_for=None, force_update=False):
     TODO: Decide how sites would be excluded and create filter
     TODO: Check results of 'store_mau_metrics' to log unexpected results
     """
-    site = Site.objects.get(id=site_id)
-    msg = 'Starting figures'
-    logger.info(msg)
-    for course_id in site_course_ids(site):
-        # 'course_id' should be string and not a CourseKey
-        # However, we cast to 'str' so that this function doesn't care whether
-        # the course identifier is a CourseKey type or a string
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
+    for course_key in figures.sites.get_course_keys_for_site(site):
         populate_course_mau(site_id=site_id,
                             course_id=str(course_id),
                             month_for=month_for,
@@ -480,44 +304,21 @@ def populate_all_mau():
     Initially, run it every day to observe monthly active user accumulation for
     the month and evaluate the results
     """
-    for site in get_sites():
+    for site in Site.objects.using(read_replica_or_default()).all():
         populate_mau_metrics_for_site(site_id=site.id, force_update=False)
 
 
 @shared_task
 def populate_monthly_metrics_for_site(site_id):
-    try:
-        site = Site.objects.get(id=site_id)
-        logger.info('figures.tasks.populate_monthly_metrics_for_site({}): {}'.format(
-            site_id, site.domain))
-        msg = 'Ran populate_monthly_metrics_for_site. [{}]:{}'
-        with log_exec_time(msg.format(site.id, site.domain)):
-            fill_last_smm_month(site=site)
-    except Site.DoesNotExist:
-        msg = '{prefix}:SITE:ERROR: site_id:{site_id} Site does not exist'
-        logger.error(msg.format(prefix=FPM_LOG_PREFIX, site_id=site_id))
-    except Exception:  # pylint: disable=broad-except
-        msg = '{prefix}:SITE:ERROR: site_id:{site_id} Other error'
-        logger.exception(msg.format(prefix=FPM_LOG_PREFIX, site_id=site_id))
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
+    fill_last_smm_month(site=site)
 
 
 @shared_task
 def run_figures_monthly_metrics():
     """
-    Populate monthly metrics for all sites.
+    TODO: only run for active sites. Requires knowing which sites we can skip
     """
-    if waffle.switch_is_active(WAFFLE_DISABLE_PIPELINE):
-        logger.info('Figures pipeline is disabled due to %s being active.',
-                    WAFFLE_DISABLE_PIPELINE)
-        return
-
-    msg = 'Starting figures.tasks.run_figures_monthly_metrics in "{}"" mode...'
-
-    if is_multisite():
-        logger.info(msg.format('multisite'))
-        all_sites_jobs = group(populate_monthly_metrics_for_site.s(site.id) for site in get_sites())
-        all_sites_jobs.delay()
-    else:
-        # running standalone, single site, no need to delay subtask
-        logger.info(msg.format('standalone'))
-        populate_monthly_metrics_for_site(default_site().id)
+    logger.info('Starting figures.tasks.run_figures_monthly_metrics...')
+    for site in Site.objects.using(read_replica_or_default()).all():
+        populate_monthly_metrics_for_site.delay(site_id=site.id)

@@ -36,6 +36,7 @@ from figures.models import (
     LearnerCourseGradeMetrics,
     SiteMauMetrics,
 )
+from util.query import read_replica_or_default
 
 
 def hack_get_version(version_string):
@@ -205,7 +206,7 @@ class CourseOverviewFilter(django_filters.FilterSet):
         Filter by Course ID
         """
         course_key = CourseKey.from_string(value.replace(' ', '+'))
-        return queryset.filter(id=course_key)
+        return queryset.filter(id=course_key).using(read_replica_or_default())
 
     class Meta:
         model = CourseOverview
@@ -234,7 +235,7 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         to be able to create a course key object from the string
         """
         course_key = CourseKey.from_string(value.replace(' ', '+'))
-        return queryset.filter(course_id=course_key)
+        return queryset.filter(course_id=course_key).using(read_replica_or_default())
 
     def filter_user_username(self, queryset, name, value):  # pylint: disable=unused-argument
         """
@@ -246,7 +247,7 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         """
         Filter by User's full name
         """
-        return queryset.filter(user__profile__name=value)
+        return queryset.filter(user__profile__name=value).using(read_replica_or_default())
 
     class Meta:
         model = CourseEnrollment
@@ -294,7 +295,7 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
 
     def filter_course_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         course_ids = [cid.replace(' ', '+') for cid in value.split(',')]
-        return queryset.filter(course_id__in=course_ids)
+        return queryset.filter(course_id__in=course_ids).using(read_replica_or_default())
 
     def filter_user_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         """
@@ -307,8 +308,10 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
         The "value" parameter is either `True` or `False`
         """
         if value is True:
-            return queryset.filter(sections_possible__gt=0,
-                                   sections_worked=F('sections_possible'))
+            return queryset.filter(
+                sections_possible__gt=0,
+                sections_worked=F('sections_possible')
+            ).using(read_replica_or_default())
         else:
             return queryset
 
@@ -318,7 +321,9 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
         """
         if value is True:
             # This is a hack until we add `completed` field to LCGM
-            return queryset.filter(sections_worked__lt=F('sections_possible'))
+            return queryset.filter(
+                sections_worked__lt=F('sections_possible')
+            ).using(read_replica_or_default())
         else:
             return queryset
 
@@ -355,7 +360,7 @@ class UserFilterSet(django_filters.FilterSet):
 
     def filter_user_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         user_ids = [user_id for user_id in value.split(',') if user_id.isdigit()]
-        return queryset.filter(id__in=user_ids)
+        return queryset.filter(id__in=user_ids).using(read_replica_or_default())
 
     def filter_enrolled_in_course_id(self, queryset,
                                      name, value):  # pylint: disable=unused-argument
@@ -372,7 +377,7 @@ class UserFilterSet(django_filters.FilterSet):
         course_key = CourseKey.from_string(value.replace(' ', '+'))
         enrollments = get_enrolled_in_exclude_admins(course_id=course_key)
         user_ids = enrollments.values_list('user__id', flat=True)
-        return queryset.filter(id__in=user_ids)
+        return queryset.filter(id__in=user_ids).using(read_replica_or_default())
 
 
 class CourseDailyMetricsFilter(django_filters.FilterSet):

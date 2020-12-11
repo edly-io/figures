@@ -16,6 +16,7 @@ from django.db.models import F
 from jsonfield import JSONField
 
 from model_utils.models import TimeStampedModel
+from util.query import read_replica_or_default
 
 from figures.compat import CourseEnrollment
 from figures.helpers import as_course_key, utc_yesterday
@@ -90,7 +91,7 @@ class CourseDailyMetrics(TimeStampedModel):
 
         if date_for:
             filter_args['date_for__lt'] = date_for
-        return cls.objects.filter(**filter_args).order_by('-date_for').first()
+        return cls.objects.filter(**filter_args).using(read_replica_or_default()).order_by('-date_for').first()
 
 
 class SiteDailyMetrics(TimeStampedModel):
@@ -152,7 +153,7 @@ class SiteDailyMetrics(TimeStampedModel):
 
         if date_for:
             filter_args['date_for__lt'] = date_for
-        recs = cls.objects.filter(**filter_args).order_by('-date_for')
+        recs = cls.objects.filter(**filter_args).using(read_replica_or_default()).order_by('-date_for')
         return recs[0] if recs else None
 
 
@@ -184,8 +185,7 @@ class SiteMonthlyMetrics(TimeStampedModel):
         if not overwrite:
             try:
 
-                obj = SiteMonthlyMetrics.objects.get(site=site,
-                                                     month_for=month_for)
+                obj = SiteMonthlyMetrics.objects.using(read_replica_or_default()).get(site=site, month_for=month_for)
                 return (obj, False,)
             except SiteMonthlyMetrics.DoesNotExist:
                 pass
@@ -729,7 +729,7 @@ class SiteMauMetrics(BaseDateMetricsModel):
         """
         if not overwrite:
             try:
-                obj = SiteMauMetrics.objects.get(site=site, date_for=date_for)
+                obj = SiteMauMetrics.objects.using(read_replica_or_default()).get(site=site, date_for=date_for)
                 return (obj, False,)
             except SiteMauMetrics.DoesNotExist:
                 pass
@@ -778,7 +778,7 @@ class CourseMauMetrics(BaseDateMetricsModel):
         """
         if not overwrite:
             try:
-                obj = CourseMauMetrics.objects.get(site=site,
+                obj = CourseMauMetrics.objects.using(read_replica_or_default()).get(site=site,
                                                    course_id=course_id,
                                                    date_for=date_for)
                 return (obj, False,)
