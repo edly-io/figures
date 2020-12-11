@@ -28,6 +28,7 @@ from student.models import CourseEnrollment  # pylint: disable=import-error
 
 from figures.helpers import as_course_key
 import figures.helpers
+from util.query import read_replica_or_default
 
 
 class CrossSiteResourceError(Exception):
@@ -90,7 +91,7 @@ def default_site():
     behavior for getting the current site.
     """
     if getattr(settings, 'SITE_ID', ''):
-        return Site.objects.get(pk=settings.SITE_ID)
+        return Site.objects.using(read_replica_or_default()).get(pk=settings.SITE_ID)
 
     return None
 
@@ -111,7 +112,7 @@ def get_site_for_course(course_id):
     """
     if figures.helpers.is_multisite():
         org_courses = organizations.models.OrganizationCourse.objects.filter(
-            course_id=str(course_id))
+            course_id=str(course_id)).using(read_replica_or_default())
         if org_courses:
             # Keep until this assumption analyzed
             msg = 'Multiple orgs found for course: {}'
@@ -132,7 +133,7 @@ def get_site_for_course(course_id):
             site = None
     else:
         # Operating in single site / standalone mode, return the default site
-        site = Site.objects.get(id=settings.SITE_ID)
+        site = Site.objects.using(read_replica_or_default()).get(id=settings.SITE_ID)
     return site
 
 
@@ -140,17 +141,19 @@ def get_organizations_for_site(site):
     """
     TODO: Refactor the functions in this module that make this call
     """
-    return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+    return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(read_replica_or_default())
 
 
 def get_course_keys_for_site(site):
     if figures.helpers.is_multisite():
-        orgs = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+        orgs = organizations.models.Organization.objects.filter(
+            edlysuborganization__lms_site=site).using(read_replica_or_default())
         org_courses = organizations.models.OrganizationCourse.objects.filter(
-            organization__in=orgs)
+            organization__in=orgs).using(read_replica_or_default())
         course_ids = org_courses.values_list('course_id', flat=True)
     else:
-        course_ids = CourseOverview.objects.all().values_list('id', flat=True)
+        course_ids = CourseOverview.objects.using(
+            read_replica_or_default()).all().values_list('id', flat=True)
     return [as_course_key(cid) for cid in course_ids]
 
 
@@ -161,24 +164,25 @@ def get_courses_for_site(site):
     """
     if figures.helpers.is_multisite():
         course_keys = get_course_keys_for_site(site)
-        courses = CourseOverview.objects.filter(id__in=course_keys)
+        courses = CourseOverview.objects.filter(id__in=course_keys).using(read_replica_or_default())
     else:
-        courses = CourseOverview.objects.all()
+        courses = CourseOverview.objects.using(read_replica_or_default()).all()
     return courses
 
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
-        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+        edx_organizations = organizations.models.Organization.objects.filter(
+            edlysuborganization__lms_site=site).using(read_replica_or_default())
         edly_user_profiles = EdlyUserProfile.objects.filter(
             edly_sub_organizations__edx_organization__in=edx_organizations
-        ).exclude(
+        ).using(read_replica_or_default()).exclude(
             user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
 
         user_ids = edly_user_profiles.values_list('user', flat=True)
     else:
-        user_ids = get_user_model().objects.all().exclude(
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
             user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         ).values_list('id', flat=True)
     return user_ids
@@ -187,9 +191,10 @@ def get_user_ids_for_site(site):
 def get_users_for_site(site):
     if figures.helpers.is_multisite():
         user_ids = get_user_ids_for_site(site)
-        users = get_user_model().objects.filter(id__in=user_ids)
+        users = get_user_model().objects.filter(id__in=user_ids).using(
+            read_replica_or_default())
     else:
-        users = get_user_model().objects.all()
+        users = get_user_model().objects.using(read_replica_or_default()).all()
     return users
 
 
@@ -202,7 +207,7 @@ def get_course_enrollments_for_site(site):
         user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
         user__is_staff=False,
         user__is_superuser=False,
-    )
+    ).using(read_replica_or_default())
 
 
 def get_student_modules_for_course_in_site(site, course_id):
@@ -212,12 +217,12 @@ def get_student_modules_for_course_in_site(site, course_id):
         if not check_site or site_id != check_site.id:
             CourseNotInSiteError('course "{}"" does not belong to site "{}"'.format(
                 course_id, site_id))
-    return StudentModule.objects.filter(course_id=as_course_key(course_id))
+    return StudentModule.objects.filter(course_id=as_course_key(course_id)).using(read_replica_or_default())
 
 
 def get_student_modules_for_site(site):
     course_ids = get_course_keys_for_site(site)
-    return StudentModule.objects.filter(course_id__in=course_ids)
+    return StudentModule.objects.filter(course_id__in=course_ids).using(read_replica_or_default())
 
 
 def course_enrollments_for_course(course_id):
@@ -225,7 +230,7 @@ def course_enrollments_for_course(course_id):
 
     Relies on the fact that course_ids are globally unique
     """
-    return CourseEnrollment.objects.filter(course_id=as_course_key(course_id))
+    return CourseEnrollment.objects.filter(course_id=as_course_key(course_id)).using(read_replica_or_default())
 
 
 def student_modules_for_course_enrollment(ce):
@@ -233,4 +238,4 @@ def student_modules_for_course_enrollment(ce):
 
     Relies on the fact that course_ids are globally unique
     """
-    return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id)
+    return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id).using(read_replica_or_default())

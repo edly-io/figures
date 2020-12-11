@@ -48,6 +48,7 @@ from figures.models import (
     )
 from figures.pipeline.logger import log_error
 import figures.sites
+from util.query import read_replica_or_default
 
 
 # Temporarily hardcoding here
@@ -156,7 +157,7 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
             self.context['request'].site
         ).filter(
             user=obj.user
-        )
+        ).using(read_replica_or_default())
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 
     class Meta:
@@ -206,7 +207,8 @@ class CourseTopStatsSerializer(serializers.ModelSerializer):
         """
         Get course name from "CourseOverview" model.
         """
-        course_overview = CourseOverview.objects.filter(id=as_course_key(obj.course_id)).first()
+        course_overview = CourseOverview.objects.filter(id=as_course_key(
+            obj.course_id)).using(read_replica_or_default()).first()
         return course_overview.display_name if course_overview else ''
 
     class Meta:
@@ -317,14 +319,15 @@ class GeneralCourseDataSerializer(serializers.Serializer):
     #     return figures.sites.get_site_for_course(str(obj.id))
 
     def get_staff(self, obj):
-        qs = CourseAccessRole.objects.filter(course_id=obj.id)
+        qs = CourseAccessRole.objects.filter(course_id=obj.id).using(read_replica_or_default())
         if qs:
             return [CourseAccessRoleForGCDSerializer(data).data for data in qs]
         else:
             return []
 
     def get_metrics(self, obj):
-        qs = CourseDailyMetrics.objects.filter(course_id=str(obj.id))
+        qs = CourseDailyMetrics.objects.filter(
+            course_id=str(obj.id)).using(read_replica_or_default())
         if qs:
             return CourseDailyMetricsSerializer(qs.order_by('-date_for')[0]).data
         else:
@@ -417,7 +420,8 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         return ret
 
     def get_staff(self, course_overview):
-        qs = CourseAccessRole.objects.filter(course_id=course_overview.id)
+        qs = CourseAccessRole.objects.filter(
+            course_id=course_overview.id).using(read_replica_or_default())
         if qs:
             return [CourseAccessRoleForGCDSerializer(data).data for data in qs]
         else:
@@ -567,10 +571,10 @@ class GeneralUserDataSerializer(serializers.Serializer):
 
     def get_courses(self, user):
         course_ids = CourseEnrollment.objects.filter(
-            user=user).values_list('course_id', flat=True).distinct()
+            user=user).using(read_replica_or_default()).values_list('course_id', flat=True).distinct()
 
         course_overviews = CourseOverview.objects.filter(
-            id__in=[as_course_key(course_id) for course_id in course_ids])
+            id__in=[as_course_key(course_id) for course_id in course_ids]).using(read_replica_or_default())
 
         return [CourseOverviewSerializer(data).data for data in course_overviews]
 
@@ -777,7 +781,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         """
 
         course_enrollments = figures.sites.get_course_enrollments_for_site(
-            self.context.get('site')).filter(user=user)
+            self.context.get('site')).filter(user=user).using(read_replica_or_default())
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 
     def get_profile_image(self, user):

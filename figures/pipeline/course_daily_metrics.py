@@ -32,6 +32,7 @@ from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disabl
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
+from util.query import read_replica_or_default
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
 
-    return CourseEnrollment.objects.filter(**filter_args).exclude(
+    return CourseEnrollment.objects.filter(**filter_args).using(read_replica_or_default()).exclude(
         user__in=staff).exclude(user__in=admins).exclude(user__in=coaches)
 
 
@@ -81,7 +82,7 @@ def get_active_learner_ids_today(course_id, date_for):
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
         modified__day=date_for_as_datetime.day,
-        ).values_list('student__id', flat=True).distinct()
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
 
 
 def get_average_progress_deprecated(course_id, date_for, course_enrollments):
@@ -152,7 +153,7 @@ def get_days_to_complete(site, course_id, date_for):
         edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
         is_staff=False,
         is_superuser=False,
-    ).values_list(
+    ).using(read_replica_or_default()).values_list(
         'pk',
         flat=True
     )
@@ -162,14 +163,14 @@ def get_days_to_complete(site, course_id, date_for):
         user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
-    ).values('user_id', 'passed_timestamp')
+    ).using(read_replica_or_default()).values('user_id', 'passed_timestamp')
 
     days = []
     for grade in grades:
         course_enrollment = CourseEnrollment.objects.filter(
             course_id=as_course_key(course_id),
             user__id=grade.get('user_id')
-        ).first()
+        ).using(read_replica_or_default()).first()
         days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
 
     return dict(days=days)
@@ -199,7 +200,7 @@ def get_num_learners_completed(site, course_id, date_for):
         edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
         is_staff=False,
         is_superuser=False,
-    ).values_list(
+    ).using(read_replica_or_default()).values_list(
         'pk',
         flat=True
     )
@@ -209,7 +210,7 @@ def get_num_learners_completed(site, course_id, date_for):
         user_id__in=users_ids,
         passed_timestamp__isnull=False,
         passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
-    )
+    ).using(read_replica_or_default())
 
     return grades.count()
 
@@ -227,7 +228,7 @@ class CourseIndicesExtractor(object):
         """
 
         filter_args = kwargs.get('filters', {})
-        queryset = CourseOverview.objects.filter(**filter_args)
+        queryset = CourseOverview.objects.filter(**filter_args).using(read_replica_or_default())
         return CourseIndexSerializer(queryset, many=True)
 
 
@@ -350,7 +351,7 @@ class CourseDailyMetricsLoader(object):
         else:
             date_for = as_datetime(date_for).replace(tzinfo=utc)
         try:
-            cdm = CourseDailyMetrics.objects.get(course_id=self.course_id,
+            cdm = CourseDailyMetrics.objects.using(read_replica_or_default()).get(course_id=self.course_id,
                                                  date_for=date_for)
             # record found, only update if force update flag is True
             if not force_update:

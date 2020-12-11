@@ -23,6 +23,7 @@ import figures.sites
 from figures.pipeline.mau_pipeline import collect_course_mau
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
 from figures.pipeline.logger import log_error_to_db
+from util.query import read_replica_or_default
 
 
 logger = get_task_logger(__name__)
@@ -45,7 +46,7 @@ def populate_single_cdm(course_id, date_for=None, force_update=False):
 
     # Provide info in celery log
     learner_count = CourseEnrollment.objects.filter(
-        course_id=as_course_key(course_id)).count()
+        course_id=as_course_key(course_id)).using(read_replica_or_default()).count()
     msg = 'populate_single_cdm. course id = "{}", learner count={}'.format(
         course_id, learner_count)
     logger.info(msg)
@@ -66,7 +67,7 @@ def populate_site_daily_metrics(site_id, **kwargs):
     logger.debug(
         'populate_site_daily_metrics called for site_id={}'.format(site_id))
     SiteDailyMetricsLoader().load(
-        site=Site.objects.get(id=site_id),
+        site=Site.objects.using(read_replica_or_default()).get(id=site_id),
         date_for=kwargs.get('date_for', None),
         force_update=kwargs.get('force_update', False),
         )
@@ -101,8 +102,8 @@ def populate_daily_metrics(date_for=None, force_update=False):
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
-    sites_count = Site.objects.count()
-    for i, site in enumerate(Site.objects.all()):
+    sites_count = Site.objects.using(read_replica_or_default()).count()
+    for i, site in enumerate(Site.objects.using(read_replica_or_default()).all()):
         for course in figures.sites.get_courses_for_site(site):
             try:
                 populate_single_cdm(
@@ -160,7 +161,8 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
         '''This function let's us skip over courses with many enrollments, speeding
         up testing. Do not use for production
         '''
-        count = CourseEnrollment.objects.filter(course_id=course_overview.id).count()
+        count = CourseEnrollment.objects.filter(
+            course_id=course_overview.id).using(read_replica_or_default()).count()
         return False if count > threshold else True
 
     if date_for:
@@ -172,7 +174,7 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
         'Starting task "figures.experimental_populate_daily_metrics" for date "{}"'.format(
             date_for))
 
-    courses = CourseOverview.objects.all()
+    courses = CourseOverview.objects.using(read_replica_or_default()).all()
     cdm_tasks = [
         populate_single_cdm.s(
             course_id=unicode(course.id),  # noqa: F821
@@ -207,7 +209,7 @@ def populate_course_mau(site_id, course_id, month_for=None, force_update=False):
         month_for = as_date(month_for)
     else:
         month_for = datetime.datetime.utcnow().date()
-    site = Site.objects.get(id=site_id)
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
     start_time = time.time()
     obj, _created = collect_course_mau(site=site,
                                        courselike=course_id,
@@ -231,7 +233,7 @@ def populate_mau_metrics_for_site(site_id, month_for=None, force_update=False):
     TODO: Decide how sites would be excluded and create filter
     TODO: Check results of 'store_mau_metrics' to log unexpected results
     """
-    site = Site.objects.get(id=site_id)
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
     for course_key in figures.sites.get_course_keys_for_site(site):
         populate_course_mau(site_id=site_id,
                             course_id=str(course_key),
@@ -247,13 +249,13 @@ def populate_all_mau():
     Initially, run it every day to observe monthly active user accumulation for
     the month and evaluate the results
     """
-    for site in Site.objects.all():
+    for site in Site.objects.using(read_replica_or_default()).all():
         populate_mau_metrics_for_site(site_id=site.id, force_update=False)
 
 
 @shared_task
 def populate_monthly_metrics_for_site(site_id):
-    site = Site.objects.get(id=site_id)
+    site = Site.objects.using(read_replica_or_default()).get(id=site_id)
     fill_last_smm_month(site=site)
 
 
@@ -263,5 +265,5 @@ def run_figures_monthly_metrics():
     TODO: only run for active sites. Requires knowing which sites we can skip
     """
     logger.info('Starting figures.tasks.run_figures_monthly_metrics...')
-    for site in Site.objects.all():
+    for site in Site.objects.using(read_replica_or_default()).all():
         populate_monthly_metrics_for_site.delay(site_id=site.id)

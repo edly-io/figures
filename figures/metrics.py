@@ -57,6 +57,7 @@ from figures.models import (
     SiteMonthlyMetrics,
 )
 import figures.sites
+from util.query import read_replica_or_default
 
 
 # period_str
@@ -111,7 +112,7 @@ class LearnerCourseGrades(object):
             django.core.exceptions.PermissionDenied(
                 "User does not have access to this course")
         """
-        self.learner = get_user_model().objects.get(id=user_id)
+        self.learner = get_user_model().objects.using(read_replica_or_default()).get(id=user_id)
         self.course = get_course_by_id(course_key=as_course_key(course_id))
         self.course._field_data_cache = {}  # pylint: disable=protected-access
         self.course.set_grading_policy(self.course.grading_policy)
@@ -135,7 +136,7 @@ class LearnerCourseGrades(object):
 
     def certificates(self):
         return GeneratedCertificate.objects.filter(
-            user=self.learner).filter(course_id=self.course.id)
+            user=self.learner).filter(course_id=self.course.id).using(read_replica_or_default())
 
     def learner_completed(self):
         return self.certificates().count() != 0
@@ -300,7 +301,7 @@ def get_active_users_for_time_period(site, start_date, end_date, course_ids=None
         filter_args['course_ids__in'] = course_ids
 
     return StudentModule.objects.filter(
-        **filter_args).values('student__id').distinct().count()
+        **filter_args).using(read_replica_or_default()).values('student__id').distinct().count()
 
 
 def get_active_learners_for_time_period(site, start_date, end_date, course_ids=None):
@@ -313,7 +314,7 @@ def get_active_learners_for_time_period(site, start_date, end_date, course_ids=N
             Q(is_superuser=False) &
             ~Q(courseaccessrole__role='course_creator_group')
         )
-    ).values_list(
+    ).using(read_replica_or_default()).values_list(
         'id',
         flat=True
     )
@@ -327,7 +328,7 @@ def get_active_learners_for_time_period(site, start_date, end_date, course_ids=N
         filter_args['course_ids__in'] = course_ids
 
     return StudentModule.objects.filter(
-        **filter_args).values('student__id').distinct().count()
+        **filter_args).using(read_replica_or_default()).values('student__id').distinct().count()
 
 
 def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
@@ -347,14 +348,14 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
             date_joined__lt=as_datetime(next_day(end_date)),
         )
         users = figures.sites.get_users_for_site(site)
-        return users.filter(**filter_args).count()
+        return users.filter(**filter_args).using(read_replica_or_default()).count()
 
     def calc_from_site_daily_metrics():
         filter_args = dict(
             site=site,
             date_for__gt=prev_day(start_date),
             date_for__lt=next_day(end_date))
-        qs = SiteDailyMetrics.objects.filter(**filter_args)
+        qs = SiteDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
         if qs:
             return qs.aggregate(maxval=Max('total_user_count'))['maxval']
         else:
@@ -380,7 +381,7 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
             date_joined__date__lt=next_day(end_date),
         )
         users = figures.sites.get_users_for_site(site)
-        return users.filter(**filter_args).values('id').distinct().count()
+        return users.filter(**filter_args).using(read_replica_or_default()).values('id').distinct().count()
 
     # We don't yet have this info directly in SiteDailyMetrics
     # We can calculate this for days after the initial day
@@ -408,7 +409,7 @@ def get_total_site_learners_joined_for_time_period(site, start_date, end_date):
                 Q(is_superuser=False) &
                 ~Q(courseaccessrole__role='course_creator_group')
             )
-        )
+        ).using(read_replica_or_default())
         return users.filter(**filter_args).values('id').distinct().count()
 
     return calc_from_user_model()
@@ -430,7 +431,7 @@ def get_total_site_learners_for_time_period(site, start_date, end_date):
             ~Q(courseaccessrole__role='course_creator_group'),
             is_staff=False,
             is_superuser=False
-        )
+        ).using(read_replica_or_default())
         return users.filter(**filter_args).values('id').distinct().count()
 
     return calc_from_user_model()
@@ -452,7 +453,7 @@ def get_total_site_staff_users_for_time_period(site, start_date, end_date):
             courseaccessrole__role='global_course_creator',
             is_superuser=False,
             is_staff=False
-        )
+        ).using(read_replica_or_default())
 
         return users.filter(**filter_args).values('id').distinct().count()
 
@@ -471,7 +472,7 @@ def get_total_enrollments_for_time_period(site, start_date, end_date,
         date_for__lt=next_day(end_date),
     )
 
-    qs = SiteDailyMetrics.objects.filter(**filter_args)
+    qs = SiteDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
     if qs:
         return qs.aggregate(maxval=Max('total_enrollment_count'))['maxval']
     else:
@@ -490,7 +491,7 @@ def get_total_site_courses_for_time_period(site, start_date, end_date, **kwargs)
             date_for__gt=prev_day(start_date),
             date_for__lt=next_day(end_date),
         )
-        qs = SiteDailyMetrics.objects.filter(**filter_args)
+        qs = SiteDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
         if qs:
             return qs.aggregate(maxval=Max('course_count'))['maxval']
         else:
@@ -505,7 +506,7 @@ def get_total_site_courses_for_time_period(site, start_date, end_date, **kwargs)
         ce = figures.sites.get_course_enrollments_for_site(site)
         # Then filter on the time period
         return ce.filter(
-            **filter_args).values('course_id').distinct().count()
+            **filter_args).using(read_replica_or_default()).values('course_id').distinct().count()
 
     if kwargs.get('calc_raw'):
         return calc_from_course_enrollments()
@@ -525,7 +526,7 @@ def get_total_course_completions_for_time_period(site, start_date, end_date):
             date_for__gt=prev_day(start_date),
             date_for__lt=next_day(end_date),
         )
-        qs = CourseDailyMetrics.objects.filter(**filter_args)
+        qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
         if qs:
             return qs.aggregate(maxval=Max('num_learners_completed'))['maxval']
         else:
@@ -543,7 +544,7 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
     """
 
     def calc_from_courses_overview():
-        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site)
+        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(read_replica_or_default())
 
         if edx_organizations:
             return CourseOverview.objects.filter(
@@ -564,7 +565,7 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
                 Q(
                     Q(start__lt=prev_day(start_date)) & Q(end__isnull=True)
                 )
-            ).values(
+            ).using(read_replica_or_default()).values(
                 'id'
             ).distinct().count()
         else:
@@ -594,7 +595,7 @@ def get_course_enrolled_users_for_time_period(site, start_date, end_date, course
         course_id=course_id
     )
 
-    qs = CourseDailyMetrics.objects.filter(**filter_args)
+    qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
     if qs:
         return qs.aggregate(maxval=Max('enrollment_count'))['maxval']
     else:
@@ -609,7 +610,7 @@ def get_course_average_progress_for_time_period(site, start_date, end_date, cour
         course_id=course_id
     )
 
-    qs = CourseDailyMetrics.objects.filter(**filter_args)
+    qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
     if qs:
         value = qs.aggregate(average=Avg('average_progress'))['average']
         return float(Decimal(value).quantize(Decimal('.00')))
@@ -625,7 +626,7 @@ def get_course_average_days_to_complete_for_time_period(site, start_date, end_da
         course_id=course_id
     )
 
-    qs = CourseDailyMetrics.objects.filter(**filter_args)
+    qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
     if qs:
         return int(math.ceil(
             qs.aggregate(average=Avg('average_days_to_complete'))['average']
@@ -645,7 +646,7 @@ def get_course_num_learners_completed_for_time_period(site, start_date, end_date
         course_id=course_id
     )
 
-    qs = CourseDailyMetrics.objects.filter(**filter_args)
+    qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
     if qs:
         return qs.aggregate(max=Max('num_learners_completed'))['max']
     else:

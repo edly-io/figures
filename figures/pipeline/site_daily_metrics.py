@@ -19,6 +19,7 @@ from figures.sites import (
     get_users_for_site,
     get_student_modules_for_site,
 )
+from util.query import read_replica_or_default
 
 
 #
@@ -40,12 +41,13 @@ def missing_course_daily_metrics(site, date_for):
     '''
     cdm_course_keys = [
         as_course_key(cdm.course_id) for cdm in
-        CourseDailyMetrics.objects.filter(site=site, date_for=date_for)
+        CourseDailyMetrics.objects.filter(
+            site=site, date_for=date_for).using(read_replica_or_default())
     ]
 
     site_course_overviews = get_courses_for_site(site)
     course_overviews = site_course_overviews.filter(
-        created__lt=as_datetime(next_day(date_for))).exclude(id__in=cdm_course_keys)
+        created__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).exclude(id__in=cdm_course_keys)
 
     return set(course_overviews.values_list('id', flat=True))
 
@@ -69,7 +71,7 @@ def get_site_active_users_for_date(site, date_for):
     # each date field
     return student_modules.filter(modified__year=date_for.year,
                                   modified__month=date_for.month,
-                                  modified__day=date_for.day).values_list(
+                                  modified__day=date_for.day).using(read_replica_or_default()).values_list(
         'student__id', flat=True).distinct()
 
 
@@ -102,7 +104,7 @@ def get_site_active_learners_for_date(site, date_for):
         ~Q(student__courseaccessrole__role='course_creator_group'),
         student__is_staff=False,
         student__is_superuser=False
-    ).values_list(
+    ).using(read_replica_or_default()).values_list(
         'student__id',
         flat=True
     ).distinct()
@@ -113,7 +115,7 @@ def get_total_enrollment_count(site, date_for, course_ids=None):  # pylint: disa
     It does not return unique learners
     '''
     aggregates = CourseDailyMetrics.objects.filter(
-        site=site, date_for=date_for).aggregate(
+        site=site, date_for=date_for).using(read_replica_or_default()).aggregate(
         Sum('enrollment_count'))
     if aggregates and 'enrollment_count__sum' in aggregates:
         enrollment_count = aggregates['enrollment_count__sum'] or 0
@@ -147,10 +149,10 @@ class SiteDailyMetricsExtractor(object):
 
         site_users = get_users_for_site(site)
         user_count = site_users.filter(
-            date_joined__lt=as_datetime(next_day(date_for))).count()
+            date_joined__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).count()
         site_courses = get_courses_for_site(site)
         course_count = site_courses.filter(
-            created__lt=as_datetime(next_day(date_for))).count()
+            created__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).count()
 
         todays_active_users = get_site_active_users_for_date(site, date_for)
         todays_active_user_count = todays_active_users.count()
@@ -197,7 +199,7 @@ class SiteDailyMetricsLoader(object):
         # then skip getting data
         if not force_update:
             try:
-                sdm = SiteDailyMetrics.objects.get(site=site, date_for=date_for)
+                sdm = SiteDailyMetrics.objects.using(read_replica_or_default()).get(site=site, date_for=date_for)
                 return (sdm, False,)
 
             except SiteDailyMetrics.DoesNotExist:

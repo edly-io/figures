@@ -11,6 +11,7 @@ from figures.sites import (
     get_student_modules_for_site,
     get_student_modules_for_course_in_site,
 )
+from util.query import read_replica_or_default
 
 
 def get_mau_from_student_modules(student_modules, year, month):
@@ -22,8 +23,10 @@ def get_mau_from_student_modules(student_modules, year, month):
     the specified month
 
     """
-    qs = student_modules.filter(modified__year=year,
-                                modified__month=month)
+    qs = student_modules.filter(
+        modified__year=year,
+        modified__month=month
+    ).using(read_replica_or_default())
     return qs.values_list('student__id', flat=True).distinct()
 
 
@@ -37,7 +40,7 @@ def get_learners_mau_from_student_modules(student_modules, year, month):
         student__is_superuser=False,
         modified__year=year,
         modified__month=month,
-    )
+    ).using(read_replica_or_default())
     return qs.values_list('student__id', flat=True).distinct()
 
 
@@ -123,7 +126,7 @@ def mau_1g_for_month_as_of_day(sm_queryset, date_for):
     """
     month_sm = sm_queryset.filter(modified__year=date_for.year,
                                   modified__month=date_for.month,
-                                  modified__day__lte=date_for.day)
+                                  modified__day__lte=date_for.day).using(read_replica_or_default())
     return month_sm.values('student__id').distinct()
 
 
@@ -161,7 +164,8 @@ def store_mau_metrics(site, overwrite=False):
                                                          overwrite=overwrite)
     course_mau_objects = []
     for course_key in get_course_keys_for_site(site):
-        course_student_modules = student_modules.filter(course_id=course_key)
+        course_student_modules = student_modules.filter(
+            course_id=course_key).using(read_replica_or_default())
         course_mau = get_mau_from_student_modules(
             student_modules=course_student_modules,
             year=today.year,
