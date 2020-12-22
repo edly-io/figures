@@ -158,6 +158,12 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
         ).filter(
             user=obj.user
         ).using(read_replica_or_default())
+
+        if obj.course_id:
+            course_enrollments = course_enrollments.filter(
+                course_id=as_course_key(obj.course_id)
+            )
+
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 
     class Meta:
