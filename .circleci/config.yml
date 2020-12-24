@@ -1,0 +1,63 @@
+version: 2
+jobs:
+  build:
+    # directory where steps are run
+    working_directory: ~/circleci-figures
+    docker:
+      # CircleCI Python images available at: https://hub.docker.com/r/circleci/python/
+      - image: circleci/python:2.7.13
+        environment:
+          BASH_ENV: ~/.bashrc
+    steps: # steps that comprise the `build` job
+      - checkout # check out source code to working directory
+      - run: sudo chown -R circleci:circleci /usr/local/bin
+      - run: sudo chown -R circleci:circleci /usr/local/share
+      - run: sudo chown -R circleci:circleci /usr/local/lib/python2.7/site-packages
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: figures-test-deps
+      - run:
+          name: "Install apt-get packages"
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y python-software-properties mongodb curl git python-dev
+      - run:
+          name: "Install python requirements"
+          command: |
+            virtualenv venv
+            . venv/bin/activate
+            pip install pytest
+      - save_cache:
+          key: figures-test-deps
+          paths:
+            - ".venv"
+            - "/usr/local/bin"
+            - "/usr/local/lib/python3.6/site-packages"
+      - run:
+          name: "Run Tests"
+          command: |
+            . venv/bin/activate
+            mkdir test-results
+            sudo service mongodb start
+            sudo service mongodb status
+            pytest /edx/src/figures/tests/views/test_course_top_stats_metrics_view.py
+            pytest /edx/src/figures/tests/metrics/test_last_month_metrics.py
+            pytest /edx/src/figures/tests/metrics/test_current_month_metrics.py
+            pytest /edx/src/figures/tests/pipeline/test_course_daily_metrics.py
+            pytest /edx/src/figures/tests/test_permissions.py
+            pytest /edx/src/figures/tests/pipeline/test_course_daily_metrics.py
+            pytest /edx/src/figures/tests/test_sites.py::TestUserHandlersForMultisiteMode
+            pytest /edx/src/figures/tests/test_sites.py::TestHandlersForMultisiteMode::test_get_student_modules_for_course_in_site
+            pytest /edx/src/figures/tests/test_serializers.py::TestCourseTopStatsSerializer
+            pytest /edx/src/figures/tests/test_serializers.py::TestSiteDailyMetricsSerializer
+            pytest /edx/src/figures/tests/test_serializers.py::TestSiteDailyMetricsSerializer::test_save
+            pytest /edx/src/figures/tests/test_serializers.py::TestLearnerCourseDetailsSerializer::test_get_progress_data
+            pytest /edx/src/figures/tests/test_serializers.py::TestLearnerCourseDetailsSerializer::test_get_progress_data_with_no_data
+            pytest /edx/src/figures/tests/metrics/test_metrics.py::TestGetMonthlySiteMetrics
+            pytest /edx/src/figures/tests/metrics/test_metrics.py::TestSiteMetricsGettersMultisite
+            pytest /edx/src/figures/tests/metrics/test_metrics.py::TestStaffUsersMetrics
+            pytest /edx/src/figures/tests/metrics/test_last_month_metrics.py::TestGetLastMonthSiteMetrics
+            pytest /edx/src/figures/tests/pipeline/test_enrollment_metrics.py::TestAddEnrollmentMetricsRecord
+            pytest /edx/src/figures/tests/pipeline/test_site_daily_metrics.py::TestSiteDailyMetricsLoader
+            pytest /edx/src/figures/tests/views/test_site_daily_metrics_view.py::TestSiteDailyMetricsView::test_create
+            pytest /edx/src/figures/tests/test_filters.py::CourseEnrollmentFilterTest
+            pytest /edx/src/figures/tests/test_filters.py::CourseOverviewFilterTest::test_filter_course_id
