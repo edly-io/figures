@@ -81,7 +81,9 @@ def make_user(**kwargs):
 @pytest.mark.django_db
 class CourseEnrollmentFilterTest(TestCase):
     def setUp(self):
-        self.users = [make_user(**data) for data in USER_DATA]
+        self.users = [
+            UserFactory(username=data['username'], profile__name=data['fullname']) for data in USER_DATA
+        ]
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
             CourseEnrollmentFactory(course_id=self.course_overview.id, user=self.users[i]) for i in range(4)
