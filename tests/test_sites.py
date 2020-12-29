@@ -36,6 +36,7 @@ from openedx.core.djangoapps.content.course_overviews.models import (
 from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
     EdlyUserProfileFactory,
+    EdlyUserFactory,
 )
 from organizations.tests.factories import OrganizationFactory
 from tests.factories import (
@@ -203,12 +204,20 @@ class TestHandlersForMultisiteMode(object):
 
     @pytest.mark.parametrize('ce_count', [0, 1, 2])
     def test_get_course_enrollments_for_site(self, ce_count):
-
+        self.users = [
+            EdlyUserFactory(
+                profile__edly_sub_organizations=[self.edly_sub_organization]
+            ) for i in range(ce_count)
+        ]
         course_overview = CourseOverviewFactory()
-        OrganizationCourseFactory(organization=self.organization,
-                                  course_id=str(course_overview.id))
+        OrganizationCourseFactory(
+            organization=self.organization,
+            course_id=str(course_overview.id),
+        )
         expected_ce = [CourseEnrollmentFactory(
-            course_id=course_overview.id) for i in range(ce_count)]
+            user=self.users[i],
+            course_id=course_overview.id) for i in range(ce_count)
+        ]
         course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
         assert set([ce.id for ce in course_enrollments]) == set(
             [ce.id for ce in expected_ce])
