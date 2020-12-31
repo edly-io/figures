@@ -20,6 +20,8 @@ from tests.factories import (
     StudentModuleFactory,
     SiteFactory)
 from tests.helpers import organizations_support_sites
+from six.moves import range
+from six.moves import zip
 
 
 if organizations_support_sites():

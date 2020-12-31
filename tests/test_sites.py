@@ -50,6 +50,7 @@ from tests.factories import (
 from tests.helpers import organizations_support_sites
 from six.moves import range
 
+
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
 
@@ -212,10 +213,8 @@ class TestHandlersForMultisiteMode(object):
             ) for i in range(ce_count)
         ]
         course_overview = CourseOverviewFactory()
-        OrganizationCourseFactory(
-            organization=self.organization,
-            course_id=str(course_overview.id),
-        )
+        OrganizationCourseFactory(organization=self.organization,
+                                  course_id=str(course_overview.id))
         expected_ce = [CourseEnrollmentFactory(
             user=self.users[i],
             course_id=course_overview.id) for i in range(ce_count)

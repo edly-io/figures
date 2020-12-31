@@ -8,6 +8,9 @@ import datetime
 import figures.sites
 import mock
 import pytest
+
+from django.core.exceptions import PermissionDenied, ValidationError
+
 from dateutil.relativedelta import relativedelta
 from figures.helpers import as_datetime, next_day, prev_day
 from figures.models import CourseDailyMetrics, PipelineError
@@ -35,6 +38,7 @@ from tests.helpers import (
     GINKGO,
 )
 from six.moves import range
+
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -251,6 +255,7 @@ class TestCourseDailyMetricsExtractor(object):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
+        self.date_for = datetime.datetime.utcnow().date()
         self.site = SiteFactory(domain='my-site.test')
         self.org = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
@@ -274,33 +279,27 @@ class TestCourseDailyMetricsExtractor(object):
                             'bulk_calculate_course_progress_data',
                             lambda **_kwargs: dict(average_progress=0.5))
 
-        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(self.site, course_id)
+        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(self.site, course_id, date_for=self.date_for)
         assert results
 
-    @pytest.mark.parametrize('prog_func, ed_next', [
-            ('bulk_calculate_course_progress_data', False),
-            ('calculate_course_progress_next', True)
-        ])
-    def test_when_calculate_course_progress_data_fails(self,
-                                                       monkeypatch,
-                                                       caplog,
-                                                       prog_func,
-                                                       ed_next):
+    def test_when_bulk_calculate_course_progress_data_fails(self,
+                                                            monkeypatch,
+                                                            caplog):
         course_id = self.course_enrollments[0].course_id
 
-        def prog_func_mock(**_kwargs):
+        def mock_bulk(**_kwargs):
             raise Exception('fake exception')
 
         monkeypatch.setattr(figures.pipeline.course_daily_metrics,
-                            prog_func,
-                            prog_func_mock)
+                            'bulk_calculate_course_progress_data',
+                            mock_bulk)
 
         results = pipeline_cdm.CourseDailyMetricsExtractor().extract(
-            course_id, self.date_for, ed_next)
+            course_id, self.date_for)
 
         last_log = caplog.records[-1]
         assert last_log.message.startswith(
-            'FIGURES:FAIL {}'.format(prog_func))
+            'FIGURES:FAIL bulk_calculate_course_progress_data')
         assert not results['average_progress']
 
 

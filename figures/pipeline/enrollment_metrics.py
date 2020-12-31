@@ -49,18 +49,17 @@ for each learner+course  # See bulk_calculate_course_progress_data
 from __future__ import absolute_import
 from datetime import datetime
 from decimal import Decimal
-
 import logging
 
 from django.utils.timezone import utc
 from figures.metrics import LearnerCourseGrades
 from figures.models import LearnerCourseGradeMetrics, PipelineError
-from figures.sites import (
-    get_site_for_course,
-    get_student_modules_for_course_in_site,
-    course_enrollments_for_course,
-    UnlinkedCourseError,
-    )
+from figures.pipeline.logger import log_error
+from figures.sites import (get_site_for_course,
+                           course_enrollments_for_course,
+                           student_modules_for_course_enrollment,
+                           UnlinkedCourseError)
+from student.models import User
 from util.query import read_replica_or_default
 
 logger = logging.getLogger(__name__)
@@ -171,6 +170,14 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
         most_recent_sm = student_modules[0]
     else:
         most_recent_sm = None
+
+    # check if there are any StudentModule records for the enrollment
+    # if not, no progress to report
+
+    # If there are no student module records, then the learner had no activity
+    # in this course, so we return None
+    if not student_modules:
+        return None
 
     lcgm = LearnerCourseGradeMetrics.objects.filter(
         user=course_enrollment.user,

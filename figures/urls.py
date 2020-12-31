@@ -4,7 +4,7 @@ Figures URL definitions
 
 from __future__ import absolute_import
 from django import VERSION as DJANGO_VERSION
-from django.urls import include, re_path as url
+from django.conf.urls import include, url
 from rest_framework import routers
 
 from figures import views
@@ -109,7 +109,6 @@ router.register(
     views.UserIndexViewSet,
     basename='user-index')
 
-
 # New endpoints in development (unstable)
 # Unstable here means the code is subject to change without notice
 
@@ -117,6 +116,7 @@ router.register(
     r'enrollment-metrics',
     views.EnrollmentMetricsViewSet,
     basename='enrollment-metrics')
+
 
 router.register(
     r'learner-metrics-v1',
@@ -128,14 +128,46 @@ router.register(
     views.LearnerMetricsViewSetV2,
     basename='learner-metrics')
 
+router.register(
+    r'learner-metrics-v1',
+    views.LearnerMetricsViewSetV1,
+    base_name='learner-metrics-v1')
+
+router.register(
+    r'learner-metrics',
+    views.LearnerMetricsViewSetV2,
+    base_name='learner-metrics')
+
+router.register(
+    r'learner-metrics-v1',
+    views.LearnerMetricsViewSetV1,
+    base_name='learner-metrics-v1')
+
+router.register(
+    r'learner-metrics',
+    views.LearnerMetricsViewSetV2,
+    base_name='learner-metrics')
+
 urlpatterns = [
 
     # UI Templates
     url(r'^$', views.figures_home, name='figures-home'),
 
     # Non-router API endpoints
-    url(r'api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
+    url(r'^api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
         name='general-site-metrics'),
+]
+
+# Include router endpoints
+# Breaking changes between Django 1.8 and Django 2.0 so we do this
+
+if DJANGO_VERSION[0] < 2:
+    urlpatterns.append(url(r'^api/', include(router.urls, namespace='api')))
+else:
+    urlpatterns.append(url(r'^api/', include((router.urls, 'api'), namespace='api')))
+
+# Reroute all unmatched traffic to Figures main UI page
+urlpatterns.append(url(r'^(?:.*)/?$', views.figures_home, name='router-catch-all'))
 ]
 
 # Include router endpoints

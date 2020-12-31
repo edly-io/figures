@@ -11,6 +11,7 @@ Document how organization site mapping works
 """
 
 from __future__ import absolute_import
+from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites import shortcuts as sites_shortcuts
 from django.contrib.sites.models import Site
@@ -35,7 +36,6 @@ from openedx.features.edly.models import (
 from courseware.models import StudentModule  # pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 
-from figures.helpers import as_course_key
 import figures.helpers
 from util.query import read_replica_or_default
 
@@ -364,12 +364,33 @@ def get_sites_by_id(site_ids):
     return Site.objects.filter(id__in=site_ids)
 
 
-def student_modules_for_course_enrollment(ce):
-    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`1
-
-    Relies on the fact that course_ids are globally unique
+def enrollments_for_course_ids(course_ids):
     """
-    return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id).using(read_replica_or_default())
+    TODO: Update this to require the site
+    """
+    ckeys = [as_course_key(cid) for cid in course_ids]
+    return CourseEnrollment.objects.filter(course_id__in=ckeys)
+
+
+def users_enrolled_in_courses(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    enrollments = enrollments_for_course_ids(course_ids)
+    user_ids = enrollments.order_by('user_id').values('user_id').distinct()
+    return get_user_model().objects.filter(id__in=user_ids)
+
+
+def student_modules_for_course_enrollment(site, course_enrollment):
+    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`
+    """
+    qs = StudentModule.objects.filter(student=course_enrollment.user,
+                                      course_id=course_enrollment.course_id)
+    if is_multisite():
+        # We _could eamake this generic if 'StudentModule' didn't go all snowflake
+        # and decided that 'user' had to be 'student'
+        qs = qs.filter(student__organizations__sites__in=[site])
+    return qs
 
 
 def site_certificates(site):
@@ -389,26 +410,6 @@ def site_certificates(site):
     """
     if is_multisite():
         return GeneratedCertificate.objects.filter(
-            user__organizations__sites__in=[site],
-            course_id__in=get_course_keys_for_site(site)
-        )
+            user__organizations__sites__in=[site])
     else:
         return GeneratedCertificate.objects.all()
-
-
-def get_requested_site(request):
-    """
-    From a request return the corresponding site.
-
-    This functions makes use of the `REQUESTED_SITE_BACKEND` setting if configured, otherwise
-    it defaults to Django's get_current_site().
-
-    :return Site
-    """
-    backend_path = settings.ENV_TOKENS['FIGURES'].get('REQUESTED_SITE_BACKEND')
-    if backend_path:
-        requested_site_backend = import_from_path(backend_path)
-        requested_site = requested_site_backend(request)
-    else:
-        requested_site = sites_shortcuts.get_current_site(request)
-    return requested_site

@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 from datetime import datetime
 import pytest
 from django.utils.timezone import utc
@@ -6,8 +7,7 @@ from six.moves import range
 from tests.helpers import organizations_support_sites
 
 from openedx.features.edly.tests.factories import (
-    EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
+    EdlySubOrganizationFactory, EdlyUserProfileFactory,
 )
 
 from tests.factories import (
@@ -19,8 +19,6 @@ from tests.factories import (
     SiteFactory,
     UserFactory,
 )
-
-from tests.helpers import organizations_support_sites
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -67,6 +65,8 @@ def sm_test_data(db):
             OrganizationCourseFactory(organization=org, course_id=str(co.id))
         for rec in sm:
             UserOrganizationMappingFactory(user=rec.student, organization=org)
+    else:
+        org = OrganizationFactory()
 
     return dict(site=site,
                 organization=org,
@@ -77,7 +77,7 @@ def sm_test_data(db):
 
 
 @pytest.mark.django_db
-def make_site_data(num_users=3, num_courses=2, create_enrollments=True):
+def make_site_data(num_users=3, num_courses=2):
 
     site = SiteFactory()
     if organizations_support_sites():
@@ -90,15 +90,14 @@ def make_site_data(num_users=3, num_courses=2, create_enrollments=True):
 
     users = [UserFactory() for i in range(num_users)]
 
-    if create_enrollments:
-        enrollments = []
-        for i, user in enumerate(users):
-            # Create increasing number of enrollments for each user, maximum to one less
-            # than the number of courses
-            for j in range(i):
-                enrollments.append(
-                    CourseEnrollmentFactory(course=courses[j-1], user=user)
-                )
+    enrollments = []
+    for i, user in enumerate(users):
+        # Create increasing number of enrollments for each user, maximum to one less
+        # than the number of courses
+        for j in range(i):
+            enrollments.append(
+                CourseEnrollmentFactory(course=courses[j-1], user=user)
+            )
 
     if organizations_support_sites():
         for course in courses:
@@ -108,16 +107,13 @@ def make_site_data(num_users=3, num_courses=2, create_enrollments=True):
         # Set up user mappings
         map_users_to_org(org, users)
 
-    data = dict(
+    return dict(
         site=site,
         org=org,
         courses=courses,
         users=users,
         enrollments=enrollments,
     )
-    if create_enrollments:
-        data['enrollments'] = enrollments
-    return data
 
 
 @pytest.fixture

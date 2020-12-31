@@ -11,17 +11,13 @@ Future: add a remote mode to pull data via REST API
 
 # TODO: Move extractors to figures.pipeline.extract module
 """
-import figures.metrics
-import figures.pipeline.loaders
-import figures.sites
-import logging
-from courseware.models import StudentModule  # pylint: disable=import-error
+from __future__ import absolute_import
+import datetime
 from decimal import Decimal
 from django.contrib.auth.models import User
 
 from django.db import transaction
 from django.db.models import Q
-from django.utils.timezone import utc
 from figures.compat import GeneratedCertificate
 from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 from figures.models import CourseDailyMetrics, PipelineError
@@ -35,8 +31,13 @@ from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disabl
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
+
+import figures.metrics
+import figures.pipeline.loaders
+import figures.sites
 from figures.pipeline.helpers import pipeline_date_for_rule
 from util.query import read_replica_or_default
+
 
 logger = logging.getLogger(__name__)
 

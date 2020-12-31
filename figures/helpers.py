@@ -214,9 +214,7 @@ def is_past_date(val):
 
 # TODO: Consider changing name to 'months_back_iterator' or similar
 def previous_months_iterator(month_for, months_back):
-    """Iterator returns a year,month tuple for n months including the month_for.
-    months_back is a misnomer as iteration includes the start month.  The actual
-    number of previous months iterated is months_back minus one.
+    """Iterator returns a year,month tuple for n months including the month_for
 
     month_for is either a date, datetime, or tuple with year and month
     months back is the number of months to iterate

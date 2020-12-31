@@ -7,6 +7,7 @@ from __future__ import absolute_import, unicode_literals
 
 from os.path import abspath, dirname, join
 import environ
+import environ
 import sys
 
 from figures.settings.lms_production import (
@@ -20,6 +21,9 @@ from figures.settings.lms_production import (
 COURSE_ID_PATTERN = r'(?P<course_id>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 
 
+COURSE_ID_PATTERN = r'(?P<course_id>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
+
+
 def root(*args):
     """
     Get the absolute path of the given path relative to the project root.
@@ -28,10 +32,10 @@ def root(*args):
 
 
 env = environ.Env(
-    OPENEDX_RELEASE=(str, 'JUNIPER'),
+    OPENEDX_RELEASE=(str, 'HAWTHORN'),
 )
 
-environ.Env.read_env(join(dirname(dirname(__file__)), '.env'))
+environ.Env.read_env()
 
 OPENEDX_RELEASE = env('OPENEDX_RELEASE').upper()
 

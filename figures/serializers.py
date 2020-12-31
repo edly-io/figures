@@ -346,8 +346,7 @@ class GeneralCourseDataSerializer(serializers.Serializer):
         TODO:  Add unit tests for this and decide if we want to continue to
         return None or if we return "zero" data
         """
-        qs = CourseDailyMetrics.objects.filter(
-            course_id=str(obj.id)).using(read_replica_or_default())
+        qs = CourseDailyMetrics.objects.filter(course_id=str(obj.id))
         if qs:
             return CourseDailyMetricsSerializer(qs.order_by('-date_for')[0]).data
         else:
@@ -932,13 +931,14 @@ class EnrollmentDataSerializer(serializers.ModelSerializer):
     This serializer note not identify the learner. It is used in
     LearnerMetricsSerializer
     """
-    date_enrolled = serializers.DateField(format="%Y-%m-%d")
+    date_enrolled = serializers.DateTimeField(format="%Y-%m-%d")
     progress_details = serializers.SerializerMethodField()
 
     class Meta:
         model = EnrollmentData
         fields = [
-            'id', 'course_id', 'date_enrolled', 'is_enrolled', 'is_completed',
+            'id', 'course_id', 'date_enrolled', 'date_enrolled',
+            'is_enrolled', 'is_completed',
             'progress_percent', 'progress_details',
         ]
         read_only_fields = fields

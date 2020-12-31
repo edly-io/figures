@@ -539,11 +539,11 @@ def total_site_certificates_as_of_date(site, date_for):
     return data['num_learners_completed__sum']
     ```
     """
-    latest_daily_metrics = CourseDailyMetrics.objects.filter(
+    qs = CourseDailyMetrics.objects.filter(
         site=site,
-        date_for__lte=date_for).order_by('-date_for').first()
-    if latest_daily_metrics:
-        latest_date = latest_daily_metrics.date_for
+        date_for__lte=date_for).order_by('-date_for')
+    if qs:
+        latest_date = qs[0].date_for
         recs = CourseDailyMetrics.objects.filter(site=site,
                                                  date_for=latest_date)
         data = recs.aggregate(Sum('num_learners_completed'))
@@ -551,26 +551,6 @@ def total_site_certificates_as_of_date(site, date_for):
         return data['num_learners_completed__sum']
     else:
         return 0
-
-
-def get_total_course_completions_for_time_period(site, start_date, end_date):
-    """
-    This metric is not currently captured in SiteDailyMetrics, so retrieving from
-    course dailies instead
-    """
-    def calc_from_course_daily_metrics():
-        filter_args = dict(
-            site=site,
-            date_for__gt=prev_day(start_date),
-            date_for__lt=next_day(end_date),
-        )
-        qs = CourseDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
-        if qs:
-            return qs.aggregate(maxval=Max('num_learners_completed'))['maxval']
-        else:
-            return 0
-
-    return calc_from_course_daily_metrics()
 
 
 def get_total_course_completions_for_time_period(site, end_date, **_kwargs):

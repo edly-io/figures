@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from django.db.models import Sum, Q
 
 from figures.course import Course
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+from figures.helpers import as_course_key, as_datetime, next_day, prev_day
 from figures.mau import site_mau_1g_for_month_as_of_day
 from figures.models import CourseDailyMetrics, SiteDailyMetrics
 from figures.sites import (

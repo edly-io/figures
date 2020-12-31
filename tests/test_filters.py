@@ -180,9 +180,9 @@ class CourseEnrollmentFilterTest(TestCase):
                     reason='Django Filter backward compatibility not implemented')
 @pytest.mark.django_db
 class CourseOverviewFilterTest(TestCase):
-    """
-    Tests the CourseOverviewFilter filter class
-    """
+    '''Tests the CourseOverviewFilter filter class
+    '''
+
     def setUp(self):
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
 

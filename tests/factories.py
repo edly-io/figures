@@ -1,10 +1,12 @@
-"""Helpers to generate model instances for testing.
+'''Helpers to generate model instances for testing.
 
 Defines model factories for Figures, edX platform, and other models that we
 need to create for our tests.
 
 Uses Factory Boy: https://factoryboy.readthedocs.io/en/latest/
-"""
+
+'''
+
 from __future__ import absolute_import
 import datetime
 from dateutil.relativedelta import relativedelta

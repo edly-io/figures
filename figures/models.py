@@ -203,18 +203,146 @@ class EnrollmentDataManager(models.Manager):
     EnrollmentData instances.
 
     """
-
-    def get_for_enrollment(self, course_enrollment):
-        """Returns EnrollmentData object or None for the given CourseEnrollment
-
-        This is a context specific `get_or_none` function that uses the `user_id`
-        and `course_id` from the enrollment argument.
+    def set_enrollment_data(self, site, user, course_id, course_enrollment=False):
         """
-        try:
-            return self.get(user_id=course_enrollment.user_id,
-                            course_id=str(course_enrollment.course_id))
-        except EnrollmentData.DoesNotExist:
-            return None
+        This is an expensive call as it needs to call CourseGradeFactory if
+        there is not already a LearnerCourseGradeMetrics record for the learner
+        """
+        if not course_enrollment:
+            # For now, let it raise a `CourseEnrollment.DoesNotExist
+            # Later on we can add a try block and raise out own custom
+            # exception
+            course_enrollment = CourseEnrollment.objects.get(
+                user=user,
+                course_id=as_course_key(course_id))
+
+        defaults = dict(
+            is_enrolled=course_enrollment.is_active,
+            date_enrolled=course_enrollment.created,
+        )
+
+        # Note: doesn't use site for filtering
+        lcgm = LearnerCourseGradeMetrics.objects.latest_lcgm(
+            user=user,
+            course_id=str(course_id))
+        if lcgm:
+            # do we already have an enrollment data record
+            # We may change this to use
+            progress_data = dict(
+                date_for=lcgm.date_for,
+                is_completed=lcgm.completed,
+                progress_percent=lcgm.progress_percent,
+                points_possible=lcgm.points_possible,
+                points_earned=lcgm.points_earned,
+                sections_possible=lcgm.sections_possible,
+                sections_worked=lcgm.sections_worked
+            )
+        else:
+            ep = EnrollmentProgress(user=user, course_id=course_id)
+            # TODO: If we get progress worked and there is no LCGM, then we have
+            # a bug OR there was progress after the last daily metrics collection
+            progress_data = dict(
+                date_for=date.today(),
+                is_completed=ep.is_completed(),
+                progress_percent=ep.progress_percent(),
+                points_possible=ep.progress.get('points_possible', 0),
+                points_earned=ep.progress.get('points_earned', 0),
+                sections_possible=ep.progress.get('sections_possible', 0),
+                sections_worked=ep.progress.get('sections_worked', 0)
+            )
+        defaults.update(progress_data)
+
+        obj, created = self.update_or_create(
+            site=site,
+            user=user,
+            course_id=str(course_id),
+            defaults=defaults)
+        return obj, created
+
+
+@python_2_unicode_compatible
+class EnrollmentData(TimeStampedModel):
+    """Tracks most recent enrollment data for an enrollment
+
+    An enrollment is a unique site + user + course
+
+    This model stores basic enrollment information and latest progress
+    The purpose of this class is for query performance for the 'learner-metrics'
+    API endpoint which is needed for the learner progress overview page.
+
+    This is an intial take on caching current enrollment data with the dual
+    purposes of speeding up the learner-metrics endpoint needed for the LPO page
+    as well as doing so in clear maintainable code.
+
+    At some point in the future, we'll probably have to construct a key-value
+    high performance storage, but for now, we'd like to see how far we can get
+    with the basic Django architecture. Plus this simplifies running Figures on
+    small Open edX LMS deployments
+    """
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             on_delete=models.CASCADE)
+    course_id = models.CharField(max_length=255, db_index=True)
+    date_for = models.DateField(db_index=True)
+
+    # Date enrolled is from CourseEnrollment.created
+    date_enrolled = models.DateField(db_index=True)
+
+    # From CourseEnrollment.is_active
+    is_enrolled = models.BooleanField()
+
+    # From LCGM.completed property methods
+    is_completed = models.BooleanField()
+    progress_percent = models.FloatField(default=0.00)
+
+    # from LCGM fields
+    points_possible = models.FloatField()
+    points_earned = models.FloatField()
+    sections_worked = models.IntegerField()
+    sections_possible = models.IntegerField()
+
+    objects = EnrollmentDataManager()
+
+    class Meta:
+        unique_together = ('site', 'user', 'course_id')
+
+    def __str__(self):
+        return '{} {} {} {}'.format(
+            self.id, self.site.domain, self.user.email, self.course_id)
+
+    @property
+    def progress_details(self):
+        """This method gets the progress details
+        This method is a temporary fix until the serializers are updated.
+        """
+        return dict(
+            points_possible=self.points_possible,
+            points_earned=self.points_earned,
+            sections_worked=self.sections_worked,
+            sections_possible=self.sections_possible,
+        )
+
+
+class LearnerCourseGradeMetricsManager(models.Manager):
+    """Custom model manager for LearnerCourseGrades model
+    """
+    def latest_lcgm(self, user, course_id):
+        """Gets the most recent record for the given user and course
+
+        We have this because we implement sparse data, meaning we only create
+        new records when data has changed. this means that for a given course,
+        learners may not have the same "most recent date"
+
+        This means we have to be careful of where we use this method in our
+        API as it costs a query per call. We will likely require restructuring
+        or augmenting our data if we need to bulk retrieve
+
+        TODO: Consider if we want to add 'site' as a parameter and update the
+        uniqueness constraint to be: site, course_id, user, date_for
+        """
+        queryset = self.filter(user=user,
+                               course_id=str(course_id)).order_by('-date_for')
+        return queryset[0] if queryset else None
 
     def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
         """
