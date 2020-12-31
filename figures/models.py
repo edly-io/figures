@@ -3,6 +3,7 @@
 TODO: Create a base "SiteModel" or a "SiteModelMixin"
 """
 
+from __future__ import absolute_import
 from datetime import date
 from django.conf import settings
 from django.contrib.sites.models import Site
@@ -14,6 +15,10 @@ from django.utils.encoding import python_2_unicode_compatible
 from jsonfield import JSONField
 
 from model_utils.models import TimeStampedModel
+
+from figures.compat import CourseEnrollment
+from figures.helpers import as_course_key
+from figures.progress import EnrollmentProgress
 
 
 def default_site():
@@ -33,14 +38,15 @@ class CourseDailyMetrics(TimeStampedModel):
     adding a SiteDailyMetrics foreign key. This is subject to change as the code
     evolves.
     """
-    site = models.ForeignKey(Site)
-    date_for = models.DateField()
+    # TODO: Review the most appropriate on_delete behaviour
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    date_for = models.DateField(db_index=True)
 
     # Leaving as a simple string for initial development
     # TODO: Follow on to decide if we want to make this an FK to
     # the CourseOverview model or have the course_id be a
     # CourseKeyField
-    course_id = models.CharField(max_length=255)
+    course_id = models.CharField(max_length=255, db_index=True)
     enrollment_count = models.IntegerField()
     active_learners_today = models.IntegerField()
     # Do we want cumulative average progress for the month?
@@ -54,6 +60,9 @@ class CourseDailyMetrics(TimeStampedModel):
         )
 
     average_days_to_complete = models.IntegerField(blank=True, null=True)
+
+    # As of Figures 0.3.13, this is the total number of certificates granted
+    # for the course as of the "date_for"
     num_learners_completed = models.IntegerField()
 
     class Meta:
@@ -91,10 +100,10 @@ class SiteDailyMetrics(TimeStampedModel):
     When we upgrade to MAU 2G, we'll add a new field, 'active_users_today'
     and pull the data from the previous day's live active user capture
     """
-
-    site = models.ForeignKey(Site)
+    # TODO: Review the most appropriate on_delete behaviour
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
     # Date for which this record's data are collected
-    date_for = models.DateField()
+    date_for = models.DateField(db_index=True)
 
     # Under review for deletion
     cumulative_active_user_count = models.IntegerField(blank=True, null=True)
@@ -103,7 +112,11 @@ class SiteDailyMetrics(TimeStampedModel):
     total_user_count = models.IntegerField()
     course_count = models.IntegerField()
     total_enrollment_count = models.IntegerField()
+
+    # Should change this to default value of 0
     mau = models.IntegerField(blank=True, null=True)
+
+    # TODO: Add field for number of CDMs reported
 
     class Meta:
         """
@@ -149,8 +162,8 @@ class SiteMonthlyMetrics(TimeStampedModel):
 
 
     """
-
-    site = models.ForeignKey(Site)
+    # TODO: Review the most appropriate on_delete behaviour
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
     # Month for which this record's data are collected
     # Important fields are year and month
     month_for = models.DateField()
@@ -183,15 +196,153 @@ class SiteMonthlyMetrics(TimeStampedModel):
                                                            defaults=defaults)
 
 
+class EnrollmentDataManager(models.Manager):
+    """Custom model manager for EnrollmentData
+
+    Initial purpose is to handle the logic of creating and updating
+    EnrollmentData instances.
+
+    """
+    def set_enrollment_data(self, site, user, course_id, course_enrollment=False):
+        """
+        This is an expensive call as it needs to call CourseGradeFactory if
+        there is not already a LearnerCourseGradeMetrics record for the learner
+        """
+        if not course_enrollment:
+            # For now, let it raise a `CourseEnrollment.DoesNotExist
+            # Later on we can add a try block and raise out own custom
+            # exception
+            course_enrollment = CourseEnrollment.objects.get(
+                user=user,
+                course_id=as_course_key(course_id))
+
+        defaults = dict(
+            is_enrolled=course_enrollment.is_active,
+            date_enrolled=course_enrollment.created,
+        )
+
+        # Note: doesn't use site for filtering
+        lcgm = LearnerCourseGradeMetrics.objects.latest_lcgm(
+            user=user,
+            course_id=str(course_id))
+        if lcgm:
+            # do we already have an enrollment data record
+            # We may change this to use
+            progress_data = dict(
+                date_for=lcgm.date_for,
+                is_completed=lcgm.completed,
+                progress_percent=lcgm.progress_percent,
+                points_possible=lcgm.points_possible,
+                points_earned=lcgm.points_earned,
+                sections_possible=lcgm.sections_possible,
+                sections_worked=lcgm.sections_worked
+            )
+        else:
+            ep = EnrollmentProgress(user=user, course_id=course_id)
+            # TODO: If we get progress worked and there is no LCGM, then we have
+            # a bug OR there was progress after the last daily metrics collection
+            progress_data = dict(
+                date_for=date.today(),
+                is_completed=ep.is_completed(),
+                progress_percent=ep.progress_percent(),
+                points_possible=ep.progress.get('points_possible', 0),
+                points_earned=ep.progress.get('points_earned', 0),
+                sections_possible=ep.progress.get('sections_possible', 0),
+                sections_worked=ep.progress.get('sections_worked', 0)
+            )
+        defaults.update(progress_data)
+
+        obj, created = self.update_or_create(
+            site=site,
+            user=user,
+            course_id=str(course_id),
+            defaults=defaults)
+        return obj, created
+
+
+@python_2_unicode_compatible
+class EnrollmentData(TimeStampedModel):
+    """Tracks most recent enrollment data for an enrollment
+
+    An enrollment is a unique site + user + course
+
+    This model stores basic enrollment information and latest progress
+    The purpose of this class is for query performance for the 'learner-metrics'
+    API endpoint which is needed for the learner progress overview page.
+
+    This is an intial take on caching current enrollment data with the dual
+    purposes of speeding up the learner-metrics endpoint needed for the LPO page
+    as well as doing so in clear maintainable code.
+
+    At some point in the future, we'll probably have to construct a key-value
+    high performance storage, but for now, we'd like to see how far we can get
+    with the basic Django architecture. Plus this simplifies running Figures on
+    small Open edX LMS deployments
+    """
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             on_delete=models.CASCADE)
+    course_id = models.CharField(max_length=255, db_index=True)
+    date_for = models.DateField(db_index=True)
+
+    # Date enrolled is from CourseEnrollment.created
+    date_enrolled = models.DateField(db_index=True)
+
+    # From CourseEnrollment.is_active
+    is_enrolled = models.BooleanField()
+
+    # From LCGM.completed property methods
+    is_completed = models.BooleanField()
+    progress_percent = models.FloatField(default=0.00)
+
+    # from LCGM fields
+    points_possible = models.FloatField()
+    points_earned = models.FloatField()
+    sections_worked = models.IntegerField()
+    sections_possible = models.IntegerField()
+
+    objects = EnrollmentDataManager()
+
+    class Meta:
+        unique_together = ('site', 'user', 'course_id')
+
+    def __str__(self):
+        return '{} {} {} {}'.format(
+            self.id, self.site.domain, self.user.email, self.course_id)
+
+    @property
+    def progress_details(self):
+        """This method gets the progress details
+        This method is a temporary fix until the serializers are updated.
+        """
+        return dict(
+            points_possible=self.points_possible,
+            points_earned=self.points_earned,
+            sections_worked=self.sections_worked,
+            sections_possible=self.sections_possible,
+        )
+
+
 class LearnerCourseGradeMetricsManager(models.Manager):
     """Custom model manager for LearnerCourseGrades model
     """
-    def most_recent_for_learner_course(self, user, course_id):
-        queryset = self.filter(user=user, course_id=str(course_id))
-        if queryset:
-            return queryset.order_by('-date_for')[0]  # pylint: disable=E1101
-        else:
-            return None
+    def latest_lcgm(self, user, course_id):
+        """Gets the most recent record for the given user and course
+
+        We have this because we implement sparse data, meaning we only create
+        new records when data has changed. this means that for a given course,
+        learners may not have the same "most recent date"
+
+        This means we have to be careful of where we use this method in our
+        API as it costs a query per call. We will likely require restructuring
+        or augmenting our data if we need to bulk retrieve
+
+        TODO: Consider if we want to add 'site' as a parameter and update the
+        uniqueness constraint to be: site, course_id, user, date_for
+        """
+        queryset = self.filter(user=user,
+                               course_id=str(course_id)).order_by('-date_for')
+        return queryset[0] if queryset else None
 
     def most_recent_for_course(self, course_id):
         statement = """ \
@@ -232,7 +383,7 @@ class LearnerCourseGradeMetricsManager(models.Manager):
             # We do the string casting in case couse_ids are CourseKey instance
             filter_args['course_id__in'] = [str(key) for key in course_ids]
         if filter_args:
-            qs = qs.filter(**filter_args)  # pylint: disable=E1101
+            qs = qs.filter(**filter_args)
         return qs
 
     def completed_ids_for_site(self, site, **_kwargs):
@@ -270,9 +421,9 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
 
     Even though this is for a course enrollment, we're mapping to the user
     and providing course id instead of an FK relationship to the courseenrollment
-    Reason is we're likely more interested in the learner and the course than the specific
-    course enrollment. Also means that the Figures models do not have a hard
-    dependency on models in edx-platform
+    Reason is we're likely more interested in the learner and the course than
+    the specific course enrollment. Also means that the Figures models do not
+    have a hard dependency on models in edx-platform
 
     Considered using DecimalField for points as we can control the decimal places
     But for now, using float, as I'm not entirely sure how many decimal places are
@@ -282,14 +433,20 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     TODO: Add fields
         `is_active` - get the 'is_active' value from the enrollment at the time
         this record is created
-        `completed` - This lets us filter on a table column instead of calculating it
+        `completed` - This lets us filter on a table column instead of
+                      calculating it
     TODO: Add index on 'course_id', 'date_for', 'completed'
     """
-    site = models.ForeignKey(Site)
-    date_for = models.DateField()
+    # TODO: Review the most appropriate on_delete behaviour
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    date_for = models.DateField(db_index=True)
     # TODO: We should require the user
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True)
-    course_id = models.CharField(max_length=255, blank=True)
+    # TODO: Review the most appropriate on_delete behaviour
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             blank=True,
+                             null=True,
+                             on_delete=models.CASCADE)
+    course_id = models.CharField(max_length=255, blank=True, db_index=True)
     points_possible = models.FloatField()
     points_earned = models.FloatField()
     sections_worked = models.IntegerField()
@@ -337,7 +494,8 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
 
     @property
     def completed(self):
-        return self.sections_worked > 0 and self.sections_worked == self.sections_possible
+        return (self.sections_worked > 0 and
+                self.sections_worked == self.sections_possible)
 
 
 @python_2_unicode_compatible
@@ -363,8 +521,14 @@ class PipelineError(TimeStampedModel):
     error_data = JSONField()
     # Attributes for convenient querying
     course_id = models.CharField(max_length=255, blank=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True)
-    site = models.ForeignKey(Site, blank=True, null=True)
+    # TODO: Review the most appropriate on_delete behaviour
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             blank=True,
+                             null=True,
+                             on_delete=models.CASCADE)
+    site = models.ForeignKey(Site, blank=True,
+                             null=True,
+                             on_delete=models.CASCADE)
 
     class Meta:
         ordering = ['-created']
@@ -374,7 +538,8 @@ class PipelineError(TimeStampedModel):
 
 
 class BaseDateMetricsModel(TimeStampedModel):
-    site = models.ForeignKey(Site, default=default_site)
+    # TODO: Review the most appropriate on_delete behaviour
+    site = models.ForeignKey(Site, default=default_site, on_delete=models.CASCADE)
     date_for = models.DateField()
 
     class Meta:
@@ -397,8 +562,10 @@ class SiteMauMetricsManager(models.Manager):
         """Return the latest record for the given site, month, and year
         If no record found, returns 'None'
         """
-        queryset = self.filter(site=site, date_for__year=year, date_for__month=month)
-        return queryset.order_by('-modified').first()  # pylint: disable=no-member
+        queryset = self.filter(site=site,
+                               date_for__year=year,
+                               date_for__month=month)
+        return queryset.order_by('-modified').first()
 
 
 @python_2_unicode_compatible
@@ -448,7 +615,7 @@ class CourseMauMetricsManager(models.Manager):
             date_for__year=year,
             date_for__month=month,
         )
-        return queryset.order_by('-modified').first()  # pylint: disable=no-member
+        return queryset.order_by('-modified').first()
 
 
 @python_2_unicode_compatible

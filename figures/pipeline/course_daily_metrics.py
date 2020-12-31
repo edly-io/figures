@@ -11,27 +11,27 @@ Future: add a remote mode to pull data via REST API
 
 # TODO: Move extractors to figures.pipeline.extract module
 """
-import datetime
+from __future__ import absolute_import
 from decimal import Decimal
 import logging
 
 from django.db import transaction
-from django.utils.timezone import utc
 
-from courseware.models import StudentModule  # pylint: disable=import-error
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day
+from figures.compat import (CourseEnrollment,
+                            CourseOverview,
+                            GeneratedCertificate,
+                            StudentModule)
+from figures.helpers import as_course_key, as_datetime, next_day
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.logger import log_error
 import figures.pipeline.loaders
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
 from figures.serializers import CourseIndexSerializer
-from figures.compat import GeneratedCertificate
 import figures.sites
+from figures.pipeline.helpers import pipeline_date_for_rule
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
     staff = CourseStaffRole(course_locator).users_with_role()
     admins = CourseInstructorRole(course_locator).users_with_role()
     coaches = CourseCcxCoachRole(course_locator).users_with_role()
-    filter_args = dict(course_id=course_id, is_active=1)
+    filter_args = dict(course_id=course_locator, is_active=1)
 
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
@@ -185,6 +185,14 @@ def get_average_days_to_complete(course_id, date_for):
 
 
 def get_num_learners_completed(course_id, date_for):
+    """
+    Get the total number of certificates generated for the course up to the
+    'date_for' date
+
+    We will need to relabel this to "certificates"
+
+    We may want to get the number of certificates granted in the given day
+    """
     certificates = GeneratedCertificate.objects.filter(
         course_id=as_course_key(course_id),
         created_date__lt=as_datetime(next_day(date_for)))
@@ -217,7 +225,7 @@ class CourseDailyMetricsExtractor(object):
     BUT, we will then need to find a transform
     """
 
-    def extract(self, course_id, date_for=None, **_kwargs):
+    def extract(self, course_id, date_for, **_kwargs):
         """
             defaults = dict(
                 enrollment_count=data['enrollment_count'],
@@ -230,12 +238,6 @@ class CourseDailyMetricsExtractor(object):
         Add lazy loading method to load course enrollments
         - Create a method for each metric field
         """
-
-        # Update args if not assigned
-        if not date_for:
-            date_for = prev_day(
-                datetime.datetime.utcnow().replace(tzinfo=utc).date()
-            )
 
         # We can turn this series of calls into a parallel
         # set of calls defined in a ruleset instead of hardcoded here after
@@ -261,9 +263,18 @@ class CourseDailyMetricsExtractor(object):
         data['active_learners_today'] = active_learners_today
 
         # Average progress
-        progress_data = bulk_calculate_course_progress_data(course_id=course_id,
-                                                            date_for=date_for)
-        data['average_progress'] = progress_data['average_progress']
+        try:
+            progress_data = bulk_calculate_course_progress_data(course_id=course_id,
+                                                                date_for=date_for)
+            data['average_progress'] = progress_data['average_progress']
+        except Exception:  # pylint: disable=broad-except
+            # Broad exception for starters. Refine as we see what gets caught
+            # Make sure we set the average_progres to None so that upstream
+            # does not think things are normal
+            data['average_progress'] = None
+            msg = ('FIGURES:FAIL bulk_calculate_course_progress_data'
+                   ' date_for={date_for}, course_id="{course_id}"')
+            logger.exception(msg.format(date_for=date_for, course_id=course_id))
 
         data['average_days_to_complete'] = get_average_days_to_complete(
             course_id, date_for,)
@@ -326,11 +337,7 @@ class CourseDailyMetricsLoader(object):
         Raises ValidationError if invalid data is attempted to be saved to the
         course daily metrics model instance
         """
-        if not date_for:
-            date_for = prev_day(
-                datetime.datetime.utcnow().replace(tzinfo=utc).date())
-        else:
-            date_for = as_datetime(date_for).replace(tzinfo=utc)
+        date_for = pipeline_date_for_rule(date_for)
         try:
             cdm = CourseDailyMetrics.objects.get(course_id=self.course_id,
                                                  date_for=date_for)

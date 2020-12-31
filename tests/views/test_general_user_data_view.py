@@ -29,6 +29,7 @@ Front end expects data to be returned in the following form:
 
 '''
 
+from __future__ import absolute_import
 import pytest
 
 from django.contrib.auth import get_user_model
@@ -40,8 +41,7 @@ from rest_framework.test import (
     force_authenticate,
     )
 
-from student.models import CourseEnrollment
-
+from figures.compat import CourseEnrollment
 from figures.helpers import is_multisite
 from figures.views import GeneralUserDataViewSet
 

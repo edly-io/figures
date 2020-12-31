@@ -1,4 +1,4 @@
-'''Tests Figures UserIndexView class
+"""Tests Figures UserIndexView class
 
 TODO: make reasonable endpoint
 
@@ -27,8 +27,9 @@ Front end expects data to be returned in the following form:
 ]
 
 
-'''
+"""
 
+from __future__ import absolute_import
 import mock
 import pytest
 
@@ -41,8 +42,7 @@ from rest_framework.test import (
     force_authenticate,
     )
 
-from student.models import CourseEnrollment
-
+from figures.compat import CourseEnrollment
 from figures.helpers import as_course_key
 from figures.serializers import LearnerCourseDetailsSerializer
 from figures.sites import get_course_enrollments_for_site
@@ -60,6 +60,7 @@ from tests.factories import (
 
 from tests.views.base import BaseViewTest
 from tests.helpers import organizations_support_sites
+from six.moves import range
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -137,7 +138,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
     def setup(self, db, settings):
         super(TestLearnerDetailsViewSetStandalone, self).setup(db)
         self.course_overviews = [
-            CourseOverviewFactory() for i in xrange(0,4)
+            CourseOverviewFactory() for i in range(0,4)
         ]
         self.users = [UserFactory() for i in range(3)]
 
@@ -245,7 +246,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         self.other_site_org = OrganizationFactory(sites=[self.other_site])
 
         self.my_course_overviews = [
-            CourseOverviewFactory() for i in xrange(0,4)
+            CourseOverviewFactory() for i in range(0,4)
         ]
 
         for co in self.my_course_overviews:

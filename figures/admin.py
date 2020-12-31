@@ -3,12 +3,19 @@
 Filters are in this module because they are specific to the admin console
 """
 
+from __future__ import absolute_import
 from django.contrib import admin
 from django.contrib.admin.filters import (
     AllValuesFieldListFilter,
     RelatedOnlyFieldListFilter)
-from django.core.urlresolvers import reverse
 from django.utils.html import format_html
+
+try:
+    # Django 2.0+
+    from django.urls import reverse
+except ImportError:
+    # Django <1.9
+    from django.core.urlresolvers import reverse
 
 import figures.models
 
@@ -60,19 +67,15 @@ class SiteMonthlyMetricsAdmin(admin.ModelAdmin):
         'month_for')
 
 
-@admin.register(figures.models.LearnerCourseGradeMetrics)
-class LearnerCourseGradeMetricsAdmin(admin.ModelAdmin):
-    """Defines the admin interface for the LearnerCourseGradeMetrics model
+class UserRelatedMixin(object):
+    """Provides search box on user properties and a user link method
+
+    To use:
+    1. Include this class in the base classes
+    2. add 'user_link' to 'list_display'
+
     """
-    list_display = ('id', 'date_for', 'site', 'user_link', 'course_id',
-                    'progress_percent', 'points_possible', 'points_earned',
-                    'sections_worked', 'sections_possible')
-    list_filter = (
-        ('site', RelatedOnlyDropdownFilter),
-        ('course_id', AllValuesDropdownFilter),
-        ('user', RelatedOnlyFieldListFilter),
-        'date_for')
-    read_only_fields = ('user', 'user_link')
+    search_fields = ('user__username', 'user__email', 'user__profile__name')
 
     def user_link(self, obj):
         if obj.user:
@@ -81,7 +84,40 @@ class LearnerCourseGradeMetricsAdmin(admin.ModelAdmin):
                 reverse("admin:auth_user_change", args=(obj.user.pk,)),
                 obj.user.email)
         else:
-            return 'no user in this record'
+            return 'Missing user'
+
+
+@admin.register(figures.models.EnrollmentData)
+class EnrollmentDataAdmin(UserRelatedMixin, admin.ModelAdmin):
+    """Defines the admin interface for the EnrollmentData model
+    """
+    list_display = (
+        'id', 'site', 'user_link', 'course_id', 'date_enrolled', 'date_for',
+        'is_enrolled', 'is_completed', 'progress_percent', 'points_earned',
+        'points_possible', 'sections_worked', 'sections_possible'
+    )
+    read_only_fields = ('site', 'user', 'user_link', 'course_id')
+    list_filter = (
+        ('site', RelatedOnlyDropdownFilter),
+        ('course_id', AllValuesDropdownFilter),
+        'date_for',
+        'date_enrolled',
+        'is_enrolled',
+        'is_completed')
+
+
+@admin.register(figures.models.LearnerCourseGradeMetrics)
+class LearnerCourseGradeMetricsAdmin(UserRelatedMixin, admin.ModelAdmin):
+    """Defines the admin interface for the LearnerCourseGradeMetrics model
+    """
+    list_display = ('id', 'date_for', 'site', 'user_link', 'course_id',
+                    'progress_percent', 'points_possible', 'points_earned',
+                    'sections_worked', 'sections_possible')
+    list_filter = (
+        ('site', RelatedOnlyDropdownFilter),
+        ('course_id', AllValuesDropdownFilter),
+        'date_for')
+    read_only_fields = ('user', 'user_link')
 
 
 @admin.register(figures.models.PipelineError)

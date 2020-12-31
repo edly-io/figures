@@ -22,6 +22,7 @@ or restructure into fixtures and standalone test functions, depending on how
 figures.sites evolves
 """
 
+from __future__ import absolute_import
 import mock
 import pytest
 
@@ -30,10 +31,7 @@ from django.contrib.sites.models import Site
 
 import organizations
 
-from openedx.core.djangoapps.content.course_overviews.models import (
-    CourseOverview,
-)
-
+from figures.compat import CourseOverview
 import figures.helpers
 import figures.sites
 
@@ -47,6 +45,7 @@ from tests.factories import (
     UserFactory,
 )
 from tests.helpers import organizations_support_sites
+from six.moves import range
 
 
 if organizations_support_sites():
@@ -198,8 +197,11 @@ class TestHandlersForMultisiteMode(object):
         course_overview = CourseOverviewFactory()
         OrganizationCourseFactory(organization=self.organization,
                                   course_id=str(course_overview.id))
+        uoms = [UserOrganizationMappingFactory(
+            organization=self.organization) for i in range(ce_count)]
         expected_ce = [CourseEnrollmentFactory(
-            course_id=course_overview.id) for i in range(ce_count)]
+            course_id=course_overview.id,
+            user=uoms[i].user) for i in range(ce_count)]
         course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
         assert set([ce.id for ce in course_enrollments]) == set(
                    [ce.id for ce in expected_ce])
@@ -331,3 +333,81 @@ def test_site_iterator():
         collected_ids.append(site_id)
 
     assert set(collected_ids) == set([site.id for site in sites])
+
+
+@pytest.mark.django_db
+@pytest.fixture
+def enrollment_data(db):
+    """Test data for course id filtering
+    """
+    course_overviews = [CourseOverviewFactory() for i in range(2)]
+    expected_enrollments = []
+    for co in course_overviews:
+        expected_enrollments += [CourseEnrollmentFactory(course_id=co.id)
+                                 for i in range(2)]
+    # Create enrollment we don't want
+    other_enrollment = CourseEnrollmentFactory()
+    return dict(
+        course_overviews=course_overviews,
+        expected_enrollments=expected_enrollments,
+        other_enrollment=other_enrollment)
+
+
+def test_enrollments_for_course_ids(enrollment_data):
+    course_ids = [co.id for co in enrollment_data['course_overviews']]
+    expected_enrollments = enrollment_data['expected_enrollments']
+    enrollments = figures.sites.enrollments_for_course_ids(course_ids)
+    assert set(enrollments) == set(expected_enrollments)
+
+
+def test_users_enrolled_in_courses(enrollment_data):
+    course_ids = [co.id for co in enrollment_data['course_overviews']]
+    expected_enrollments = enrollment_data['expected_enrollments']
+    expected_users = [ce.user for ce in expected_enrollments]
+    users = figures.sites.users_enrolled_in_courses(course_ids)
+    assert set(users) == set(expected_users)
+
+
+@pytest.mark.django_db
+def test_site_course_ids(monkeypatch):
+    site = SiteFactory()
+    course_overviews = [CourseOverviewFactory() for i in range(2)]
+    if organizations_support_sites():
+        monkeypatch.setattr('figures.sites.is_multisite', lambda: True)
+        our_org = OrganizationFactory(sites=[site])
+        # associate the course overviews with our org
+        for co in course_overviews:
+            OrganizationCourseFactory(course_id=co.id, organization=our_org)
+        other_org = OrganizationFactory(sites=[SiteFactory()])
+        # create a course associated with another org
+        co = CourseOverviewFactory()
+        OrganizationCourseFactory(course_id=co.id, organization=other_org)
+        
+    course_ids = figures.sites.site_course_ids(site)
+    assert set(course_ids) == set([str(co.id) for co in course_overviews])
+
+
+@pytest.mark.django_db
+def test_student_modules_for_course_enrollment(monkeypatch):
+    """Test we get the correct student modules for the given course enrollment
+    """
+    site = SiteFactory()
+    ce = CourseEnrollmentFactory()
+    ce_sm = [StudentModuleFactory(student=ce.user, course_id=ce.course_id)]
+    # Create another student module record to make sure this is not in our
+    # query results
+    StudentModuleFactory()
+
+    if organizations_support_sites():
+        monkeypatch.setattr('figures.sites.is_multisite', lambda: True)
+        our_org = OrganizationFactory(sites=[site])
+        other_org = OrganizationFactory(sites=[SiteFactory()])
+        other_org_ce = CourseEnrollmentFactory()
+        other_sm = StudentModuleFactory(student=other_org_ce.user,
+                                        course_id=other_org_ce.course_id)
+        UserOrganizationMappingFactory(user=ce.user,organization=our_org)
+        UserOrganizationMappingFactory(user=other_org_ce.user,
+                                       organization=other_org)
+
+    sm = figures.sites.student_modules_for_course_enrollment(site, ce)
+    assert set(sm) == set(ce_sm)

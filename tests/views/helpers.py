@@ -2,7 +2,15 @@
 
 '''
 
+from __future__ import absolute_import
 from tests.factories import UserFactory
+
+from tests.helpers import organizations_support_sites
+
+
+if organizations_support_sites():
+    from tests.factories import UserOrganizationMappingFactory
+
 
 def create_test_users():
     '''
@@ -26,8 +34,22 @@ def is_response_paginated(response_data):
     Returns True if it finds all the paginated keys, False otherwise
     """
     try:
-        keys = response_data.keys()
+        keys = list(response_data.keys())
     except AttributeError:
         # If we can't get keys, wer'e certainly not paginated
         return False
     return set(keys) == set([u'count', u'next', u'previous', u'results'])
+
+
+def make_caller(org):
+    """Convenience method to create the API caller user
+    """
+    if organizations_support_sites():
+        # TODO: set is_staff to False after we have test coverage
+        caller = UserFactory(is_staff=True)
+        UserOrganizationMappingFactory(user=caller,
+                                       organization=org,
+                                       is_amc_admin=True)
+    else:
+        caller = UserFactory(is_staff=True)
+    return caller

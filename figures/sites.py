@@ -10,6 +10,7 @@ TODO:
 Document how organization site mapping works
 """
 
+from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
@@ -17,12 +18,13 @@ from django.conf import settings
 # TODO: Add exception handling
 import organizations
 
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from courseware.models import StudentModule  # pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
-
-from figures.helpers import as_course_key
-import figures.helpers
+from figures.compat import (
+    CourseEnrollment,
+    CourseOverview,
+    GeneratedCertificate,
+    StudentModule,
+)
+from figures.helpers import as_course_key, is_multisite
 
 
 class CrossSiteResourceError(Exception):
@@ -104,7 +106,7 @@ def get_site_for_course(course_id):
     TODO: Figure out how we want to handle ``DoesNotExist``
     whether to let it raise back up raw or handle with a custom exception
     """
-    if figures.helpers.is_multisite():
+    if is_multisite():
         org_courses = organizations.models.OrganizationCourse.objects.filter(
             course_id=str(course_id))
         if org_courses:
@@ -132,15 +134,35 @@ def get_organizations_for_site(site):
     """
     TODO: Refactor the functions in this module that make this call
     """
-    return organizations.models.Organization.objects.filter(sites__in=[site])
+    if is_multisite():
+        return organizations.models.Organization.objects.filter(sites__in=[site])
+    else:
+
+        return organizations.models.Organization.all()
+
+
+def site_course_ids(site):
+    """Return a list of string course ids for the site
+    """
+    if is_multisite():
+        return organizations.models.OrganizationCourse.objects.filter(
+                organization__sites__in=[site]).values_list('course_id', flat=True)
+    else:
+        # Needs work. See about returning a queryset
+        return [str(key) for key in CourseOverview.objects.all().values_list(
+            'id', flat=True)]
 
 
 def get_course_keys_for_site(site):
-    if figures.helpers.is_multisite():
-        orgs = organizations.models.Organization.objects.filter(sites__in=[site])
-        org_courses = organizations.models.OrganizationCourse.objects.filter(
-            organization__in=orgs)
-        course_ids = org_courses.values_list('course_id', flat=True)
+    """
+
+    Developer note: We could improve this function with caching
+    Question is which is the most efficient way to know cache expiry
+
+    We may also be able to reduce the queries here to also improve performance
+    """
+    if is_multisite():
+        course_ids = site_course_ids(site)
     else:
         course_ids = CourseOverview.objects.all().values_list('id', flat=True)
     return [as_course_key(cid) for cid in course_ids]
@@ -151,7 +173,7 @@ def get_courses_for_site(site):
 
     This function relies on Appsembler's fork of edx-organizations
     """
-    if figures.helpers.is_multisite():
+    if is_multisite():
         course_keys = get_course_keys_for_site(site)
         courses = CourseOverview.objects.filter(id__in=course_keys)
     else:
@@ -160,32 +182,32 @@ def get_courses_for_site(site):
 
 
 def get_user_ids_for_site(site):
-    if figures.helpers.is_multisite():
-        orgs = organizations.models.Organization.objects.filter(sites__in=[site])
-        mappings = organizations.models.UserOrganizationMapping.objects.filter(
-            organization__in=orgs)
-        user_ids = mappings.values_list('user', flat=True)
+    if is_multisite():
+        user_ids = get_users_for_site(site).values_list('id', flat=True)
     else:
         user_ids = get_user_model().objects.all().values_list('id', flat=True)
     return user_ids
 
 
 def get_users_for_site(site):
-    if figures.helpers.is_multisite():
-        user_ids = get_user_ids_for_site(site)
-        users = get_user_model().objects.filter(id__in=user_ids)
+    if is_multisite():
+        users = get_user_model().objects.filter(organizations__sites__in=[site])
     else:
         users = get_user_model().objects.all()
     return users
 
 
 def get_course_enrollments_for_site(site):
-    course_keys = get_course_keys_for_site(site)
-    return CourseEnrollment.objects.filter(course_id__in=course_keys)
+    if is_multisite():
+        course_enrollments = CourseEnrollment.objects.filter(
+            user__organizations__sites__in=[site])
+    else:
+        course_enrollments = CourseEnrollment.objects.all()
+    return course_enrollments
 
 
 def get_student_modules_for_course_in_site(site, course_id):
-    if figures.helpers.is_multisite():
+    if is_multisite():
         site_id = site.id
         check_site = get_site_for_course(course_id)
         if not check_site or site_id != check_site.id:
@@ -195,21 +217,65 @@ def get_student_modules_for_course_in_site(site, course_id):
 
 
 def get_student_modules_for_site(site):
-    course_ids = get_course_keys_for_site(site)
-    return StudentModule.objects.filter(course_id__in=course_ids)
+    course_keys = get_course_keys_for_site(site)
+    return StudentModule.objects.filter(course_id__in=course_keys)
 
 
 def course_enrollments_for_course(course_id):
     """Return a queryset of all `CourseEnrollment` records for a course
 
+    TODO: Update this to require the site
     Relies on the fact that course_ids are globally unique
     """
     return CourseEnrollment.objects.filter(course_id=as_course_key(course_id))
 
 
-def student_modules_for_course_enrollment(ce):
-    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`1
-
-    Relies on the fact that course_ids are globally unique
+def enrollments_for_course_ids(course_ids):
     """
-    return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id)
+    TODO: Update this to require the site
+    """
+    ckeys = [as_course_key(cid) for cid in course_ids]
+    return CourseEnrollment.objects.filter(course_id__in=ckeys)
+
+
+def users_enrolled_in_courses(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    enrollments = enrollments_for_course_ids(course_ids)
+    user_ids = enrollments.order_by('user_id').values('user_id').distinct()
+    return get_user_model().objects.filter(id__in=user_ids)
+
+
+def student_modules_for_course_enrollment(site, course_enrollment):
+    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`
+    """
+    qs = StudentModule.objects.filter(student=course_enrollment.user,
+                                      course_id=course_enrollment.course_id)
+    if is_multisite():
+        # We _could eamake this generic if 'StudentModule' didn't go all snowflake
+        # and decided that 'user' had to be 'student'
+        qs = qs.filter(student__organizations__sites__in=[site])
+    return qs
+
+
+def site_certificates(site):
+    """
+    If we want to be clever, we can abstract a function:
+    ```
+    def site_user_related(site, model_class):
+        if is_multisite():
+            return model_class.objects.filter(user__organizations__sites__in=[site])
+        else:
+            return model_class.objects.all()
+
+    def site_certificates(site):
+        return site_user_related(GeneratedCertificate)
+    ```
+    Then:
+    """
+    if is_multisite():
+        return GeneratedCertificate.objects.filter(
+            user__organizations__sites__in=[site])
+    else:
+        return GeneratedCertificate.objects.all()
