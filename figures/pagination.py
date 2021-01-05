@@ -10,6 +10,9 @@ class FiguresPageLevelPagination(PageNumberPagination):
     """
     Custom Figures paginator to make the number of records returned consistent
     """
+
+    page_size_query_param = 'page_size'
+
     def get_paginated_response(self, data):
         return Response({
             'count': self.page.paginator.count,
