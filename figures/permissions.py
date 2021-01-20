@@ -27,6 +27,15 @@ def is_active_staff_or_superuser(request):
            request.user.is_staff or request.user.is_superuser)
 
 
+def has_insights_access(request):
+    """
+    Validate request User has Insights access.
+    """
+    return request.user.groups.filter(
+        name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
+    ).exists()
+
+
 def is_site_admin_user(request):
     """
     Determines if the requesting user has access to site admin data
@@ -72,11 +81,11 @@ class IsSiteAdminUser(BasePermission):
     Would `has_object_permission` help simplify filtering by site?
     """
     def has_permission(self, request, view):
-        return is_site_admin_user(request)
+        return is_site_admin_user(request) or has_insights_access(request)
 
 
 class IsStaffUserOnDefaultSite(BasePermission):
     """Allow access to only global staff or superusers accessing the default site
     """
     def has_permission(self, request, view):
-        return is_staff_user_on_default_site(request)
+        return is_staff_user_on_default_site(request) or has_insights_access(request)
