@@ -6,6 +6,7 @@ from rest_framework.permissions import BasePermission
 
 from django.conf import settings
 import django.contrib.sites.shortcuts
+from django.conf import settings
 
 from organizations.models import Organization
 
