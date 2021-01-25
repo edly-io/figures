@@ -5,8 +5,8 @@ Settings file to run automated tests
 
 from __future__ import absolute_import, unicode_literals
 
-import os
 from os.path import abspath, dirname, join
+import environ
 import sys
 
 from figures.settings.lms_production import (
@@ -16,6 +16,9 @@ from figures.settings.lms_production import (
 )
 
 
+COURSE_ID_PATTERN = r'(?P<course_id>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
+
+
 def root(*args):
     """
     Get the absolute path of the given path relative to the project root.
@@ -23,12 +26,15 @@ def root(*args):
     return join(abspath(dirname(__file__)), *args)
 
 
-OPENEDX_RELEASE = os.environ.get('OPENEDX_RELEASE', 'HAWTHORN').upper()
+env = environ.Env(
+    OPENEDX_RELEASE=(str, 'HAWTHORN'),
+)
 
-if OPENEDX_RELEASE == 'GINKGO':
-    MOCKS_DIR = 'ginkgo'
-else:
-    MOCKS_DIR = 'hawthorn'
+environ.Env.read_env()
+
+OPENEDX_RELEASE = env('OPENEDX_RELEASE').upper()
+
+MOCKS_DIR = 'mocks/{}'.format(OPENEDX_RELEASE.lower())
 
 sys.path.append(root('mocks', MOCKS_DIR))
 
@@ -49,6 +55,7 @@ DATABASES = {
 
 
 INSTALLED_APPS = [
+    'django.contrib.admin',  # Why did it work without this before?
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sites',
@@ -62,17 +69,22 @@ INSTALLED_APPS = [
     # edx-platform apps. Mocks are used by default
     # See: edx-figures/tests/mocks/
     # Also note the paths set in edx-figures/pytest.ini
-    'courseware',
     'openedx.core.djangoapps.content.course_overviews',
     'openedx.core.djangoapps.course_groups',
     'student',
-    'organizations',
+    'organizations'
 ]
 
 if OPENEDX_RELEASE == 'GINKGO':
     INSTALLED_APPS.append('certificates')
+    INSTALLED_APPS.append('courseware')
+elif OPENEDX_RELEASE == 'HAWTHORN':
+    INSTALLED_APPS.append('lms.djangoapps.certificates')
+    INSTALLED_APPS.append('courseware')
 else:
     INSTALLED_APPS.append('lms.djangoapps.certificates')
+    INSTALLED_APPS.append('lms.djangoapps.courseware')
+
 
 TEMPLATES = [
     {

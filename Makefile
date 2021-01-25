@@ -28,8 +28,10 @@ python.clean:  ## Removes generated Python bytecode files
 	find devsite -type f -name "*.pyc" -exec rm -f {} \;
 	find mocks -type f -name "*.pyc" -exec rm -f {} \;
 	find tests -type d -name __pycache__ -exec rm -r {} \+
+	find figures -type d -name __pycache__ -exec rm -r {} \+
 	find devsite -type d -name __pycache__ -exec rm -r {} \+
 	find mocks -type d -name __pycache__ -exec rm -r {} \+
+	find . -type d -name .pytest_cache -exec rm -r {} \+
 
 # Clean the Python dist build
 python.build.clean:  ## Removes Python packaging build files
@@ -55,6 +57,9 @@ ginkgo.pytest:  ## Run Pytest for the Ginkgo environment
 
 ginkgo.tox:  ## Run tox just for the Ginkgo environment
 	tox -e py27-ginkgo
+
+juniper.pytest:  ## Run Pytest for the Juniper environment
+	OPENEDX_RELEASE=JUNIPER pytest -c pytest-juniper.ini
 
 ### Devsite Docker targets
 

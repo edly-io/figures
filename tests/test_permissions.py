@@ -1,6 +1,7 @@
 """Test the permission classes we define in Figures
 """
 
+from __future__ import absolute_import
 import pytest
 
 from django.conf import settings

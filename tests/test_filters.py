@@ -1,10 +1,32 @@
-'''Tests Figures filter classes
+"""Tests Figures filter classes
 
 Currently uses Django TestCase style classes instead of pytest style classes
 so that we can use TestCase.assertQuerysetEqual
 
-'''
 
+Test Debt
+=========
+Field parameters 'lookup_type' and 'lookup_expr'
+
+We are not adequately testing 'lookup_exr', which is supported only in
+Django Filter 1.0.0 and greater. Prior to Django Filters 1.0.0, 'lookup_type'
+was used.
+
+* Open edX Ginkgo uses Django Filter 0.11.0
+* Open edX Hawthorn uses Django Filter 1.0.4
+* Open edX Juniper uses Django Fitler 2.2.0
+
+TODO: Create mock view that tests the filters
+
+Doing this instead of directly calling the filter make sure that the execution
+chain is called. One of the defects we find is that our tests currently don't
+adequately tests for method signature differences for our custom filter methods.
+We need to make sure that our custom methods are properly handled by the
+different versions of "Django Filter", as different major relases are used by
+different Open edX releases.
+"""
+
+from __future__ import absolute_import
 from dateutil.parser import parse as dateutil_parse
 
 import pytest
@@ -12,9 +34,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import TestCase
 
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from student.models import CourseEnrollment
-
+from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
     CourseDailyMetricsFilter,
     CourseEnrollmentFilter,
@@ -44,8 +64,10 @@ from tests.factories import (
     SiteMauMetricsFactory,
     SiteFactory,
     UserFactory,
-    )
+)
 from tests.helpers import make_course_key_str, django_filters_pre_v1
+import six
+from six.moves import range
 
 # Because we are testing filtering on CourseOverview fields, we want to set
 # specific values to facilitate filtering
@@ -222,6 +244,7 @@ class CourseOverviewFilterTest(TestCase):
 class CourseDailyMetricsFilterTest(TestCase):
     '''Tests the CourseDailyMetricsFilter filter class
     '''
+
     def setUp(self):
         self.models = [
             CourseDailyMetricsFactory() for i in range(1, 10)
@@ -253,6 +276,7 @@ class CourseDailyMetricsFilterTest(TestCase):
 class SiteDailyMetricsFilterTest(TestCase):
     '''Tests the SiteDailyMetricsFilter filter class
     '''
+
     def setUp(self):
         self.site_daily_metrics = [
             SiteDailyMetricsFactory() for i in range(1, 10)
@@ -280,6 +304,7 @@ class SiteDailyMetricsFilterTest(TestCase):
 class CourseMauMetricsFilterTest(TestCase):
     '''Tests the CourseMauMetricsFilter filter class
     '''
+
     def setUp(self):
         self.models = [
             CourseMauMetricsFactory() for i in range(1, 10)
@@ -311,6 +336,7 @@ class CourseMauMetricsFilterTest(TestCase):
 class SiteMauMetricsFilterTest(TestCase):
     '''Tests the SiteDailyMetricsFilter filter class
     '''
+
     def setUp(self):
         self.models = [
             SiteMauMetricsFactory() for i in range(1, 10)
@@ -339,6 +365,7 @@ class EnrollmentMetricsFilterTest(TestCase):
     """
     Initially adding coverage where view tests are not covering
     """
+
     def setUp(self):
         self.site = SiteFactory()
 
@@ -391,6 +418,7 @@ class SiteFilterSetTest(TestCase):
 
     Did not add test for filtering on mulitple filter terms
     """
+
     def setUp(self):
         """There should be an existing site with domain and name of u'example.com'
         """
@@ -436,13 +464,14 @@ class SiteFilterSetTest(TestCase):
 class UserFilterSetTest(TestCase):
     '''Tests the UserFilterSet filter class
     '''
+
     def setUp(self):
         self.User = get_user_model()
         self.users = [make_user(**data) for data in USER_DATA]
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
-                CourseEnrollmentFactory(course_id=self.course_overview.id,
-                                        user=self.users[i]) for i in range(2)]
+            CourseEnrollmentFactory(course_id=self.course_overview.id,
+                                    user=self.users[i]) for i in range(2)]
 
     def tearDown(self):
         pass
@@ -470,7 +499,7 @@ class UserFilterSetTest(TestCase):
         res = UserFilterSet().filter_enrolled_in_course_id(
             queryset=self.User.objects.all(),
             name='course_id',
-            value=unicode(self.course_overview.id))
+            value=six.text_type(self.course_overview.id))
 
         self.assertQuerysetEqual(
             res,

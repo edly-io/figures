@@ -12,20 +12,19 @@ Future: add a remote mode to pull data via REST API
 # TODO: Move extractors to figures.pipeline.extract module
 """
 import datetime
-import figures.metrics
 import figures.pipeline.loaders
-import figures.sites
+from __future__ import absolute_import
 import logging
 from courseware.models import StudentModule  # pylint: disable=import-error
 from decimal import Decimal
 from django.contrib.auth.models import User
-from django.db import transaction
-from django.db.models import Q
-from django.utils.timezone import utc
+from django.db import transaction, Q
 from figures.compat import GeneratedCertificate
 from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
+from figures.pipeline.helpers import pipeline_date_for_rule
 from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
@@ -33,6 +32,8 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 from util.query import read_replica_or_default
+import figures.sites
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
     staff = CourseStaffRole(course_locator).users_with_role()
     admins = CourseInstructorRole(course_locator).users_with_role()
     coaches = CourseCcxCoachRole(course_locator).users_with_role()
-    filter_args = dict(course_id=course_id, is_active=1)
+    filter_args = dict(course_id=course_locator, is_active=1)
 
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
@@ -255,12 +256,6 @@ class CourseDailyMetricsExtractor(object):
         - Create a method for each metric field
         """
 
-        # Update args if not assigned
-        if not date_for:
-            date_for = prev_day(
-                datetime.datetime.utcnow().replace(tzinfo=utc).date()
-            )
-
         # We can turn this series of calls into a parallel
         # set of calls defined in a ruleset instead of hardcoded here after
         # retrieving the core quersets
@@ -345,11 +340,7 @@ class CourseDailyMetricsLoader(object):
         Raises ValidationError if invalid data is attempted to be saved to the
         course daily metrics model instance
         """
-        if not date_for:
-            date_for = prev_day(
-                datetime.datetime.utcnow().replace(tzinfo=utc).date())
-        else:
-            date_for = as_datetime(date_for).replace(tzinfo=utc)
+        date_for = pipeline_date_for_rule(date_for)
         try:
             cdm = CourseDailyMetrics.objects.using(read_replica_or_default()).get(course_id=self.course_id,
                                                  date_for=date_for)

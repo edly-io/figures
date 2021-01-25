@@ -37,6 +37,7 @@ test suite so that we can do much more robust data validation with bigger time
 series sets
 
 '''
+from __future__ import absolute_import
 import datetime
 
 from dateutil.rrule import rrule, DAILY
@@ -58,7 +59,6 @@ from figures.metrics import (
     get_total_course_completions_for_time_period,
     get_total_enrollments_for_time_period,
     get_total_site_courses_for_time_period,
-    get_total_site_users_for_time_period,
     get_total_site_users_joined_for_time_period,
     get_total_active_courses_for_time_period,
     get_total_site_staff_users_for_time_period,
@@ -78,6 +78,8 @@ from tests.factories import (
     UserFactory,
     )
 from tests.helpers import organizations_support_sites
+import six
+from six.moves import range
 
 if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
@@ -154,7 +156,7 @@ def create_site_daily_metrics_data(site, start_date, end_date):
             site=site,
             **data))
         data.update(
-            {key: val + incr_func(key) for key, val in data.iteritems()})
+            {key: val + incr_func(key) for key, val in six.iteritems(data)})
     return metrics
 
 
@@ -342,25 +344,7 @@ class TestSiteMetricsGettersStandalone(object):
         count = get_active_users_for_time_period(site=self.site,
                                                  start_date=start_date,
                                                  end_date=end_date)
-        assert count == len(sm_in) -1
-
-    def test_get_total_site_users_for_time_period(self):
-        '''
-        TODO: add users who joined before and after the time period, and
-        compare the count to the users created on or before the end date
-
-        TODO: Create
-        '''
-        users = create_users_joined_over_time(
-            site=self.site,
-            is_multisite=figures.helpers.is_multisite(),
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        count = get_total_site_users_for_time_period(
-            site=self.site,
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        assert count == len(users)
+        assert count == len(sm_in) - 1
 
     def test_get_total_site_users_joined_for_time_period(self):
         '''
@@ -400,21 +384,6 @@ class TestSiteMetricsGettersStandalone(object):
 
         assert count == self.site_daily_metrics[-1].course_count
 
-    def test_get_total_course_completions_for_time_period(self):
-        '''
-        We're incrementing values for test data, so the last SiteDailyMetrics
-        record will have the max value
-        '''
-
-        cdm = create_course_daily_metrics_data(
-            site=self.site,
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        count = get_total_course_completions_for_time_period(site=self.site,
-                                                             start_date=self.data_start_date,
-                                                             end_date=self.data_end_date)
-        assert count == cdm[-1].num_learners_completed
-
     def test_get_monthly_site_metrics(self):
         '''
         Since we are testing results for individual getters in other test
@@ -435,7 +404,7 @@ class TestSiteMetricsGettersStandalone(object):
         actual = get_monthly_site_metrics(site=self.site)
 
         assert set(actual.keys()) == set(expected_top_lvl_keys)
-        for key, val in actual.iteritems():
+        for key, val in six.iteritems(actual):
             assert set(val.keys()) == set(expected_2nd_lvl_keys)
             assert len(val['history']) > 0
             assert set(val['history'][0].keys()) == set(expected_history_elem_keys)
@@ -493,23 +462,6 @@ class TestSiteMetricsGettersMultisite(object):
 
         assert count == len(student_module_sets)
 
-    def test_get_total_site_users_for_time_period(self):
-        '''
-        TODO: add users who joined before and after the time period, and
-        compare the count to the users created on or before the end date
-
-        TODO: Create
-        '''
-        users = create_users_joined_over_time(
-            site=self.alpha_site,
-            is_multisite=figures.helpers.is_multisite(),
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        count = get_total_site_users_for_time_period(site=self.alpha_site,
-                                                     start_date=self.data_start_date,
-                                                     end_date=self.data_end_date)
-        assert count == len(users)
-
     def test_get_total_site_users_joined_for_time_period(self):
         '''
         TODO: add users who joined before and after the time period, and
@@ -545,22 +497,6 @@ class TestSiteMetricsGettersMultisite(object):
                                                        end_date=self.data_end_date)
         assert count == self.alpha_site_daily_metrics[-1].course_count
 
-    def test_get_total_course_completions_for_time_period(self):
-        '''
-        We're incrementing values for test data, so the last SiteDailyMetrics
-        record will have the max value
-        '''
-
-        cdm = create_course_daily_metrics_data(
-            site=self.alpha_site,
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        count = get_total_course_completions_for_time_period(
-            site=self.alpha_site,
-            start_date=self.data_start_date,
-            end_date=self.data_end_date)
-        assert count == cdm[-1].num_learners_completed
-
     def test_get_monthly_site_metrics(self):
         '''
         Since we are testing results for individual getters in other test
@@ -581,7 +517,7 @@ class TestSiteMetricsGettersMultisite(object):
         actual = get_monthly_site_metrics(site=self.alpha_site)
 
         assert set(actual.keys()) == set(expected_top_lvl_keys)
-        for key, val in actual.iteritems():
+        for key, val in six.iteritems(actual):
             assert set(val.keys()) == set(expected_2nd_lvl_keys)
             assert len(val['history']) > 0
             assert set(val['history'][0].keys()) == set(expected_history_elem_keys)

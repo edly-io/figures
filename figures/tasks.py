@@ -2,8 +2,11 @@
 Figures Celery tasks. Initially this module contains tasks for the ETL pipeline.
 
 '''
+from __future__ import absolute_import
 import datetime
 import time
+
+import six
 
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
@@ -12,10 +15,10 @@ from celery import chord
 from celery.app import shared_task
 from celery.utils.log import get_task_logger
 
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
-
+from figures.backfill import backfill_enrollment_data_for_site
+from figures.compat import CourseEnrollment, CourseOverview
 from figures.helpers import as_course_key, as_date
+from figures.log import log_exec_time
 from figures.models import PipelineError
 from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
 from figures.pipeline.site_daily_metrics import SiteDailyMetricsLoader
@@ -40,6 +43,8 @@ logger = get_task_logger(__name__)
 @shared_task
 def populate_single_cdm(course_id, date_for=None, force_update=False):
     '''Populates a CourseDailyMetrics record for the given date and course
+
+    TODO: cdm needs to handle course_id as the string
     '''
     if date_for:
         date_for = as_date(date_for)
@@ -72,7 +77,28 @@ def populate_site_daily_metrics(site_id, **kwargs):
         force_update=kwargs.get('force_update', False),
         )
     logger.debug(
-        'done running populate_site_daily_metrics for site_id={}"'.format(site_id))
+        'done running populate_site_daily_metrics for site_id={}'.format(site_id))
+
+
+@shared_task
+def update_enrollment_data(site_id, **_kwargs):
+    """
+    This can be an expensive task as it iterates over all th
+    """
+    try:
+        site = Site.objects.get(id=site_id)
+        results = backfill_enrollment_data_for_site(site)
+        if results.get('errors'):
+            for rec in results['errors']:
+                logger.error('figures.tasks.update_enrollment_data. Error:{}'.format(rec))
+    except Site.DoesNotExist:
+        logger.error(
+            'figurs.tasks.update_enrollment_data: site_id={} does not exist'.format(
+                site_id))
+    except Exception:  # pylint: disable=broad-except
+        msg = ('FIGURES:FAIL daily metrics:update_enrollment_data'
+               ' for site_id={}'.format(site_id))
+        logger.exception(msg)
 
 
 @shared_task
@@ -129,13 +155,26 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     logger=logger,
                     log_pipeline_errors_to_db=True,
                     )
+
         populate_site_daily_metrics(
-            site_id=site.id,
-            date_for=date_for,
-            force_update=force_update)
+                site_id=site.id,
+                date_for=date_for,
+                force_update=force_update)
+
+            # Until we implement signal triggers
+        try:
+            update_enrollment_data(site_id=site.id)
+        except Exception:  # pylint: disable=broad-except
+            msg = ('FIGURES:FAIL figures.tasks update_enrollment_data '
+                    ' unhandled exception. site[{}]:{}')
+            logger.exception(msg.format(site.id, site.domain))
+
+        except Exception:  # pylint: disable=broad-except
+            msg = ('FIGURES:FAIL populate_daily_metrics unhandled site level'
+                   ' exception for site[{}]={}')
+            logger.exception(msg.format(site.id, site.domain))
         logger.info("figures.populate_daily_metrics: finished Site {:04d} of {:04d}".format(
             i, sites_count))
-
     logger.info('Finished task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
@@ -177,7 +216,7 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
     courses = CourseOverview.objects.using(read_replica_or_default()).all()
     cdm_tasks = [
         populate_single_cdm.s(
-            course_id=unicode(course.id),  # noqa: F821
+            course_id=six.text_type(course.id),  # noqa: F821
             date_for=date_for,
             force_update=force_update) for course in courses if include_course(course)
     ]

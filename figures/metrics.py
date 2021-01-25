@@ -21,12 +21,13 @@ parameter to support multi-tenancy
 
 """
 
+from __future__ import absolute_import
 import datetime
 from decimal import Decimal
 import math
 
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Max, Q
+from django.db.models import Avg, Max, , Sum, Q
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from courseware.courses import get_course_by_id  # pylint: disable=import-error
@@ -38,6 +39,8 @@ from figures.compat import (
     GeneratedCertificate,
     chapter_grade_values,
     course_grade,
+    StudentModule,
+    get_course_by_id
 )
 from figures.helpers import (
     as_course_key,
@@ -69,7 +72,6 @@ def period_str(month_tuple, fmt='%Y/%m'):
     """Returns display date for the given month tuple containing year, month, day
     """
     return datetime.date(*month_tuple).strftime(fmt)
-
 
 #
 # Learner specific data/metrics
@@ -331,7 +333,7 @@ def get_active_learners_for_time_period(site, start_date, end_date, course_ids=N
         **filter_args).using(read_replica_or_default()).values('student__id').distinct().count()
 
 
-def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
+def get_total_site_users_for_time_period(site, start_date, end_date, **_kwargs):
     """
     Returns the maximum number of users who joined before or on the end date
 
@@ -364,7 +366,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
     if kwargs.get('calc_from_sdm'):
         return calc_from_site_daily_metrics()
     else:
-        return calc_from_user_model()
+        return 0
 
 
 def get_total_site_users_joined_for_time_period(site, start_date, end_date,
@@ -373,6 +375,7 @@ def get_total_site_users_joined_for_time_period(site, start_date, end_date,
 
     NOTE: Untested and not yet used in the general site metrics, but we'll want to add it
     TODO: Rename this function to be "new_users" for consistency with the API endpoint
+    TODO: When we implement this, add data to Figures model space for performance
     """
 
     def calc_from_user_model():
@@ -514,10 +517,44 @@ def get_total_site_courses_for_time_period(site, start_date, end_date, **kwargs)
         return calc_from_site_daily_metrics()
 
 
-def get_total_course_completions_for_time_period(site, start_date, end_date):
+def total_site_certificates_as_of_date(site, date_for):
+    """Get the total site certificates granted as of the given date
+
+    This function queries CourseDailyMetrics:
+
+    First, see if we have any records. If so, then get a record with the most
+    recent date
+
+    If we do, then get all records for that date and return the sum of
+    "num_learners_completed"
+
+    This implementation is a workaround until John can dig in and find out why
+    The following does not work
+
+    ```
+    site_cdm = CourseDailyMetrics.objects.filter(site=site,
+        date_for__lte=date_for)
+    recs = site_cdm.order_by('course_id').values('course_id').annotate(
+        latest_date=Max('date_for')).order_by('course_id')
+    data = recs.aggregate(Sum('num_learners_completed'))
+    return data['num_learners_completed__sum']
+    ```
     """
-    This metric is not currently captured in SiteDailyMetrics, so retrieving from
-    course dailies instead
+    qs = CourseDailyMetrics.objects.filter(
+        site=site,
+        date_for__lte=date_for).order_by('-date_for')
+    if qs:
+        latest_date = qs[0].date_for
+        recs = CourseDailyMetrics.objects.filter(site=site,
+                                                 date_for=latest_date)
+        data = recs.aggregate(Sum('num_learners_completed'))
+
+        return data['num_learners_completed__sum']
+    else:
+        return 0
+
+
+def get_total_course_completions_for_time_period(site, end_date, **_kwargs):
     """
 
     def calc_from_course_daily_metrics():
@@ -532,7 +569,10 @@ def get_total_course_completions_for_time_period(site, start_date, end_date):
         else:
             return 0
 
-    return calc_from_course_daily_metrics()
+    We want to rework this to just get the total certificates as of the
+    given date (so just one date not a date range)
+    """
+    return total_site_certificates_as_of_date(site=site, date_for=end_date)
 
 
 def get_total_active_courses_for_time_period(site, start_date, end_date):

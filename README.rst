@@ -8,6 +8,127 @@ Reporting and data retrieval app for `Open edX <https://open.edx.org/>`__.
 
 .. _notice_section:
 
+
+TBD Dec 2020 - Figures release 0.4.0 - prerelease
+=================================================
+
+_WIP release notes for 0.4.0_
+
+* Juniper upgrade
+
+  * https://github.com/appsembler/figures/pull/264
+
+* MAU 2G data model and signal trigger
+
+  * Needs to be added to Figures `master` branch
+
+* Add database indexing
+
+  * WIP
+
+* Fix Figures URL wildcard placement
+
+  * https://github.com/appsembler/figures/pull/284
+
+* Documentation update
+
+  * WIP
+
+30 Oct 2020 - Figures release 0.3.19
+====================================
+
+* Fix the comparison showing N/A when comparing to zero
+
+  * https://github.com/appsembler/figures/pull/277
+
+* Fix Figures devsite settings
+
+  * https://github.com/appsembler/figures/pull/278
+
+
+26 Oct 2020 - Figures release 0.3.18
+====================================
+
+* FIX - Removed dependency on 'packaging.versions'
+
+  * https://github.com/appsembler/figures/pull/272
+  * NOTE: This PR updates a previous commit that required the `packaging` package
+
+
+16 Oct 2020 - Figures release 0.3.17
+====================================
+
+* Reworked SiteMonthlyMetrics registered users metric. This was causing the `/figures/api/site-monthly-metrics/registered_users` endpoint to timeout with a 500 error
+
+  * https://github.com/appsembler/figures/pull/268
+
+* Fixed Ginkgo (Django Filter 0.11.0) Backward compatibility issues
+
+  * https://github.com/appsembler/figures/pull/266
+  * https://github.com/appsembler/figures/pull/269
+
+* UI Bug fix: Add success feedback to csv export dialog
+
+  * https://github.com/appsembler/figures/pull/265
+
+* Bump http-proxy from 1.18.0 to 1.18.1 in /frontend
+
+  * https://github.com/appsembler/figures/pull/254
+
+
+28 Sep 2020 - Figures release 0.3.16
+====================================
+
+* Add Learners Progress Overview to main menu
+
+  * https://github.com/appsembler/figures/pull/256
+
+* Performance and test improvement for LearnerMetricsViewSet
+
+  * https://github.com/appsembler/figures/pull/260
+
+* Fix code that doesn't work on Ginkgo (Django 1.8)
+
+  * https://github.com/appsembler/figures/pull/261
+
+
+11 Sep 2020 - Figures release 0.3.15
+====================================
+
+* Learner progress overview UI improvements
+
+  * https://github.com/appsembler/figures/pull/255
+
+
+24 Aug 2020 - Figures release 0.3.14
+====================================
+
+* Added multi-course filtering to the `learner-metrics` API endpoint
+
+  * https://github.com/appsembler/figures/pull/248
+
+* Small cosmetic issues in new Learners Progress Overview page
+
+  * https://github.com/appsembler/figures/pull/247
+
+
+14 Aug 2020 - Figures release 0.3.13
+====================================
+
+* Learner metrics Prerelease API and UI
+
+  * https://github.com/appsembler/figures/pull/239
+  * https://github.com/appsembler/figures/pull/240
+
+* Improve logging for monthly metrics pipeline and set default to run the monthly metrics pipeline task
+
+  * https://github.com/appsembler/figures/pull/242
+
+* Bug fix: Site level certificate metrics
+
+  * https://github.com/appsembler/figures/pull/244
+
+
 15 Jul 2020 - Figures release 0.3.12
 ====================================
 

@@ -1,6 +1,7 @@
 """
 This module provides MAU metrics retrieval functionality
 """
+from __future__ import absolute_import
 
 from datetime import datetime
 from django.db.models import Q
@@ -122,6 +123,7 @@ def mau_1g_for_month_as_of_day(sm_queryset, date_for):
     This function queries `courseware.models.StudentModule` to identify users
     who are active in the site
 
+    Retrieves records based on date of the `StudentModule.modified` field
     Returns a queryset of distinct user ids
     """
     month_sm = sm_queryset.filter(modified__year=date_for.year,

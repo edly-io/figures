@@ -10,6 +10,7 @@ TODO:
 Document how organization site mapping works
 """
 
+from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
@@ -25,7 +26,7 @@ from openedx.features.edly.models import (
 )  # pylint: disable=import-error
 from courseware.models import StudentModule  # pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
-
+from figures.compat import GeneratedCertificate
 from figures.helpers import as_course_key
 import figures.helpers
 from util.query import read_replica_or_default
@@ -154,8 +155,19 @@ def get_course_keys_for_site(site):
     else:
         course_ids = CourseOverview.objects.using(
             read_replica_or_default()).all().values_list('id', flat=True)
+
     return [as_course_key(cid) for cid in course_ids]
 
+def site_course_ids(site):
+    """Return a list of string course ids for the site
+    """
+    if figures.helpers.is_multisite():
+        return organizations.models.OrganizationCourse.objects.filter(
+                organization__sites__in=[site]).values_list('course_id', flat=True)
+    else:
+        # Needs work. See about returning a queryset
+        return [str(key) for key in CourseOverview.objects.all().values_list(
+            'id', flat=True)]
 
 def get_courses_for_site(site):
     """Returns the courses accessible by the user on the site
@@ -168,7 +180,6 @@ def get_courses_for_site(site):
     else:
         courses = CourseOverview.objects.using(read_replica_or_default()).all()
     return courses
-
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
@@ -228,14 +239,51 @@ def get_student_modules_for_site(site):
 def course_enrollments_for_course(course_id):
     """Return a queryset of all `CourseEnrollment` records for a course
 
+    TODO: Update this to require the site
     Relies on the fact that course_ids are globally unique
     """
     return CourseEnrollment.objects.filter(course_id=as_course_key(course_id)).using(read_replica_or_default())
 
 
-def student_modules_for_course_enrollment(ce):
-    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`1
+def enrollments_for_course_ids(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    ckeys = [as_course_key(cid) for cid in course_ids]
+    return CourseEnrollment.objects.filter(course_id__in=ckeys)
 
-    Relies on the fact that course_ids are globally unique
+
+def users_enrolled_in_courses(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    enrollments = enrollments_for_course_ids(course_ids)
+    user_ids = enrollments.order_by('user_id').values('user_id').distinct()
+    return get_user_model().objects.filter(id__in=user_ids)
+
+
+def student_modules_for_course_enrollment(ce):
+    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`
     """
     return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id).using(read_replica_or_default())
+
+def site_certificates(site):
+    """
+    If we want to be clever, we can abstract a function:
+    ```
+    def site_user_related(site, model_class):
+        if is_multisite():
+            return model_class.objects.filter(user__organizations__sites__in=[site])
+        else:
+            return model_class.objects.all()
+
+    def site_certificates(site):
+        return site_user_related(GeneratedCertificate)
+    ```
+    Then:
+    """
+    if figures.helpers.is_multisite():
+        return GeneratedCertificate.objects.filter(
+            user__organizations__sites__in=[site])
+    else:
+        return GeneratedCertificate.objects.all()

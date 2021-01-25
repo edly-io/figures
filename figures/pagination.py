@@ -1,6 +1,7 @@
 """
 Paginators for Figures
 """
+from __future__ import absolute_import
 
 from rest_framework.pagination import LimitOffsetPagination, PageNumberPagination
 from rest_framework.response import Response
