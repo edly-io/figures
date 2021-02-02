@@ -26,6 +26,7 @@ from openedx.core.djangoapps.course_groups.models import (
     CourseUserGroup,
     CohortMembership,
 )
+from openedx.features.edly.tests.factories import EdlyUserProfileFactory
 
 from figures.compat import StudentModule, CourseKeyField, GeneratedCertificate
 
@@ -94,6 +95,7 @@ class UserFactory(DjangoModelFactory):
 
     # TODO: Figure out if this can be a SubFactory and the advantages
     profile = factory.RelatedFactory(UserProfileFactory, 'user')
+    edly_profile = factory.RelatedFactory(EdlyUserProfileFactory, 'user')
 
     @factory.post_generation
     def teams(self, create, extracted, **kwargs):
@@ -180,6 +182,10 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
     end = factory.fuzzy.FuzzyDateTime(datetime.datetime(
         2018, 6, 1, tzinfo=factory.compat.UTC))
     self_paced = False
+
+    @factory.lazy_attribute
+    def _location(self):
+        return as_course_key(self.id).make_usage_key('course', 'course')
 
 
 class CourseTeamFactory(DjangoModelFactory):

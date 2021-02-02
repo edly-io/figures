@@ -25,6 +25,7 @@ from figures.views import figures_home, UNAUTHORIZED_USER_REDIRECT_URL
 from tests.factories import UserFactory
 from tests.views.helpers import create_test_users
 #
+@pytest.mark.skip(reason='figures home is not required')
 @pytest.mark.django_db
 class TestFiguresHomeView(object):
 

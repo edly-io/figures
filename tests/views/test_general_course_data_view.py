@@ -45,10 +45,10 @@ USER_DATA = [
 ]
 
 COURSE_DATA = [
-    { 'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg', 'number': u'A001' },
-    { 'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg', 'number': u'A002' },
-    { 'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg', 'number': u'B001' },
-    { 'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg', 'number': u'B002' },
+    { 'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg'},
+    { 'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg'},
+    { 'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg'},
+    { 'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg'},
 ]
 
 SEARCH_TERMS = [
@@ -79,8 +79,7 @@ def make_course(**kwargs):
     return CourseOverviewFactory(
         id=kwargs['id'],
         display_name=kwargs['name'],
-        org=kwargs['org'],
-        number=kwargs['number']
+        org=kwargs['org']
     )
 
 def make_course_enrollments(user, courses, **kwargs):
@@ -114,7 +113,7 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
             'end_date', 'self_paced', 'staff', 'metrics',
         ]
         if is_multisite():
-            self.organization = OrganizationFactory(sites=[self.site])
+            self.organization = self.edly_org.edx_organization
             for co in self.course_overviews:
                 OrganizationCourseFactory(organization=self.organization,
                                           course_id=str(co.id))
@@ -126,6 +125,7 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
             `figures.serializers.UserIndexSerializer`
         '''
         request = APIRequestFactory().get(self.request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
@@ -244,6 +244,7 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
         """
         request_path = self.request_path + '?search=' + search_term['term']
         request = APIRequestFactory().get(request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)

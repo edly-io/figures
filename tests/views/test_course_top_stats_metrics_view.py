@@ -10,9 +10,7 @@ from rest_framework.test import (
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
-from openedx.core.djangoapps.content.course_overviews.models import (
-    CourseOverview,
-)
+from figures.compat import CourseOverview
 from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
 )
@@ -74,6 +72,7 @@ class TestCourseTopStatsViewSet(object):
         Tests retrieving a list of courses with maximum number of enrollments.
         """
         request = RequestFactory(SERVER_NAME=self.site.domain).get(self.request_path_top_enrollments)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
@@ -94,6 +93,7 @@ class TestCourseTopStatsViewSet(object):
         Tests retrieving a list of courses with maximum number of completions.
         """
         request = RequestFactory(SERVER_NAME=self.site.domain).get(self.request_path_top_completions)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)

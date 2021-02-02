@@ -251,7 +251,6 @@ class TestCollectMetricsForEnrollment(object):
                             lambda val: self.progress_data)
 
         # assert isinstance(lcgm.date_for, date)
-        # import pdb; pdb.set_trace()
         assert _enrollment_metrics_needs_update(lcgm, self.learner_sm[0])
         metrics = collect_metrics_for_enrollment(site=self.site,
                                                  course_enrollment=self.course_enrollment,
@@ -368,7 +367,6 @@ class TestEnrollmentMetricsUpdateCheck(object):
         assert not _enrollment_metrics_needs_update(lcgm, None)
         last_log = caplog.records[-1]
         assert last_log.message.startswith('FIGURES:PIPELINE:LCGM')
-        # import pdb; pdb.set_trace()
         assert lcgm.course_id in last_log.message
         assert str(lcgm.id) in last_log.message
         assert str(lcgm.user.id) in last_log.message

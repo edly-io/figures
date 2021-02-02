@@ -274,7 +274,7 @@ class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
         queryset = figures.sites.get_course_enrollments_for_site(site)
         return queryset
 
@@ -374,7 +374,7 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         course_id_str = kwargs.get('pk', '')
         course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = getattr(request, 'site', django.contrib.sites.shortcuts.get_current_site(request))
         if figures.helpers.is_multisite():
             if site != figures.sites.get_site_for_course(course_key):
                 # Raising NotFound instead of PermissionDenied
@@ -392,7 +392,7 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CourseTopStatsSerializer
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
         course_ids = figures.sites.get_course_keys_for_site(site)
         queryset = self.model.objects.filter(
             course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
@@ -459,7 +459,7 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['username', 'email', 'profile__name', 'is_active', 'date_joined']
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        site = getattr(self.request, 'sites', django.contrib.sites.shortcuts.get_current_site(self.request))
         queryset = figures.sites.get_users_for_site(site)
         return queryset
 
@@ -567,6 +567,7 @@ class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 raise NotFound()
             else:
                 course_keys = param_course_keys
+
         return self.get_enrolled_users(site=site, course_keys=course_keys)
 
     def get_serializer_context(self):

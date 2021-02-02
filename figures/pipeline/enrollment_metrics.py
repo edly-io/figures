@@ -165,7 +165,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
     # The following are two different ways to avoide the dreaded error
     #     "Instance of 'list' has no 'order_by' member (no-member)"
     # See: https://github.com/PyCQA/pylint-django/issues/165
-    student_modules = course_sm.filter(
+    student_modules = student_modules.filter(
         student_id=course_enrollment.user.id).using(read_replica_or_default()).order_by('-modified')
     if student_modules:
         most_recent_sm = student_modules[0]
@@ -173,9 +173,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
         most_recent_sm = None
 
     if not student_modules:
-        student_modules = student_modules_for_course_enrollment(
-            site=site,
-            course_enrollment=course_enrollment).order_by('-modified')
+        student_modules = student_modules_for_course_enrollment(course_enrollment).order_by('-modified')
 
     # check if there are any StudentModule records for the enrollment
     # if not, no progress to report
@@ -186,7 +184,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
         return None
 
     most_recent_sm = student_modules[0]
-    most_recent_lcgm = LearnerCourseGradeMetrics.objects.latest_lcgm(
+    lcgm = LearnerCourseGradeMetrics.objects.filter(
         user=course_enrollment.user,
         course_id=str(course_enrollment.course_id)).using(read_replica_or_default())
     most_recent_lcgm = lcgm.order_by('date_for').last()  # pylint: disable=E1101

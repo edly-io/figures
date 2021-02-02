@@ -55,7 +55,7 @@ from tests.views.base import BaseViewTest
 COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 
 USER_DATA = [
-    {'id': 101, 'username': u'alpha', 'email': u'alpha02@example.com',
+    {'id': 101, 'username': u'alpha', 'email': u'alpha01@example.com',
      'fullname': u'Alpha One', 'is_active': True, 'country': 'CA'},
     {'id': 102, 'username': u'alpha02', 'email': u'alpha02@example.com',
      'fullname': u'Alpha Two', 'is_active': False, 'country': 'UK'},
@@ -67,13 +67,13 @@ USER_DATA = [
 
 COURSE_DATA = [
     {'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1',
-     'org': u'AlphaOrg', 'number': u'A001'},
+     'org': u'AlphaOrg'},
     {'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2',
-     'org': u'AlphaOrg', 'number': u'A002'},
+     'org': u'AlphaOrg'},
     {'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1',
-     'org': u'BravoOrg', 'number': u'B001'},
+     'org': u'BravoOrg'},
     {'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2',
-     'org': u'BravoOrg', 'number': u'B002'},
+     'org': u'BravoOrg'},
 ]
 
 SEARCH_TERMS = [
@@ -102,7 +102,7 @@ def make_user(**kwargs):
 
 def make_course(**kwargs):
     return CourseOverviewFactory(
-        id=kwargs['id'], display_name=kwargs['name'], org=kwargs['org'], number=kwargs['number'])
+        id=kwargs['id'], display_name=kwargs['name'], org=kwargs['org'])
 
 
 def make_course_enrollments(user, courses, **kwargs):
@@ -131,6 +131,11 @@ class TestGeneralUserViewSet(BaseViewTest):
         super(TestGeneralUserViewSet, self).setup(db)
         self.users = [make_user(**data) for data in USER_DATA]
         self.usernames = [data['username'] for data in USER_DATA]
+        for user in self.users:
+            user.edly_profile.edly_sub_organizations.add(self.edly_org)
+
+        self.users.append(self.staff_user)
+        self.usernames.append(self.staff_user.username)
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
         self.course_enrollments = [
             make_course_enrollments(user, self.course_overviews) for user in self.users]
@@ -160,13 +165,14 @@ class TestGeneralUserViewSet(BaseViewTest):
             return recs[0]
 
         request = APIRequestFactory().get(self.request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
-        assert len(response.data) == len(self.users)
+        assert len(response.data['results']) == len(self.users)
 
         User = get_user_model()
         qs = User.objects.filter(username__in=self.usernames)
@@ -202,11 +208,12 @@ class TestGeneralUserViewSet(BaseViewTest):
         """
         request_path = self.request_path + '?search=' + search_term['term']
         request = APIRequestFactory().get(request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
         assert response.status_code == 200
-        if not is_multisite():
+        if is_multisite():
             assert response.data['count'] == search_term['expected_result']
             assert len(response.data['results']) == \
                 search_term['expected_result']

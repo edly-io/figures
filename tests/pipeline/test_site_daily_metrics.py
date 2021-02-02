@@ -23,6 +23,7 @@ from figures.helpers import as_datetime, prev_day, days_from, is_multisite
 from figures.models import SiteDailyMetrics
 from figures.pipeline import site_daily_metrics as pipeline_sdm
 import figures.sites
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
 from tests.factories import (
     CourseDailyMetricsFactory,
@@ -107,7 +108,11 @@ class TestCourseDailyMetricsMissingCdm(object):
         self.course_overviews = [CourseOverviewFactory(
             created=self.date_for) for i in range(self.course_count)]
         if is_multisite():
-            self.organization = OrganizationFactory(sites=[self.site])
+            self.organization = OrganizationFactory()
+            EdlySubOrganizationFactory(
+                site=self.site,
+                edx_organization=self.organization
+            )
             for co in self.course_overviews:
                 OrganizationCourseFactory(organization=self.organization,
                                           course_id=str(co.id))
@@ -232,7 +237,11 @@ class TestSiteDailyMetricsExtractor(object):
             **SDM_DATA[1])
 
         if is_multisite():
-            self.organization = OrganizationFactory(sites=[self.site])
+            self.organization = OrganizationFactory()
+            EdlySubOrganizationFactory(
+                site=self.site,
+                edx_organization=self.organization
+            )
             for co in self.course_overviews:
                 OrganizationCourseFactory(organization=self.organization,
                                           course_id=str(co.id))

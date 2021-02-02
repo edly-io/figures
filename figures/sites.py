@@ -24,9 +24,7 @@ from openedx.features.edly.models import (
     EdlySubOrganization,
     EdlyUserProfile,
 )  # pylint: disable=import-error
-from courseware.models import StudentModule  # pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
-from figures.compat import GeneratedCertificate
+from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key
 import figures.helpers
 from util.query import read_replica_or_default

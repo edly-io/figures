@@ -27,11 +27,7 @@ from decimal import Decimal
 import math
 
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Max, , Sum, Q
-
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from courseware.courses import get_course_by_id  # pylint: disable=import-error
-from courseware.models import StudentModule  # pylint: disable=import-error
+from django.db.models import Avg, Max, Sum, Q
 
 import organizations
 
@@ -40,7 +36,8 @@ from figures.compat import (
     chapter_grade_values,
     course_grade,
     StudentModule,
-    get_course_by_id
+    get_course_by_id,
+    CourseOverview,
 )
 from figures.helpers import (
     as_course_key,
@@ -363,7 +360,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **_kwargs):
         else:
             return 0
 
-    if kwargs.get('calc_from_sdm'):
+    if _kwargs.get('calc_from_sdm'):
         return calc_from_site_daily_metrics()
     else:
         return 0

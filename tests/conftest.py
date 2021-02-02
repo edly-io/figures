@@ -85,11 +85,13 @@ def make_site_data(num_users=3, num_courses=2):
         org = OrganizationFactory(sites=[site])
     else:
         org = OrganizationFactory()
+
+    edly_sub_org = EdlySubOrganizationFactory(lms_site=site, edx_organization=org)
     courses = [CourseOverviewFactory() for i in range(num_courses)]
     users = [UserFactory() for i in range(num_users)]
     enrollments = []
 
-    users = [UserFactory() for i in range(num_users)]
+    users = [UserFactory(edly_profile__edly_sub_organizations=[edly_sub_org]) for i in range(num_users)]
 
     enrollments = []
     for i, user in enumerate(users):
@@ -100,11 +102,11 @@ def make_site_data(num_users=3, num_courses=2):
                 CourseEnrollmentFactory(course=courses[j-1], user=user)
             )
 
-    if organizations_support_sites():
-        for course in courses:
-            OrganizationCourseFactory(organization=org,
-                                      course_id=str(course.id))
+    for course in courses:
+        OrganizationCourseFactory(organization=org,
+                                    course_id=str(course.id))
 
+    if organizations_support_sites():
         # Set up user mappings
         map_users_to_org(org, users)
 
