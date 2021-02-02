@@ -217,7 +217,7 @@ def _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
         needs_update = False
     elif most_recent_lcgm and most_recent_sm:
         # Learner has past course activity
-        needs_update = most_recent_lcgm.date_for < most_recent_sm.modified.date()
+        needs_update = most_recent_lcgm.date_for <= most_recent_sm.modified.date()
     elif not most_recent_lcgm and most_recent_sm:
         # No LCGM recs, so Learner started on course after last collection
         # This could also happen
@@ -263,7 +263,6 @@ def _add_enrollment_metrics_record(site, course_enrollment, progress_data, date_
     """
     enrollment_metrics = LearnerCourseGradeMetrics.objects.update_or_create(
         defaults={
-            'site': site,
             'points_possible': progress_data['points_possible'],
             'points_earned': progress_data['points_earned'],
             'sections_worked': progress_data['sections_worked'],
@@ -272,6 +271,7 @@ def _add_enrollment_metrics_record(site, course_enrollment, progress_data, date_
             'letter_grade': progress_data.get('grade', {}).get('letter_grade', ''),
             'passed_timestamp': progress_data.get('passed_timestamp', None),
         },
+        site=site,
         user=course_enrollment.user,
         course_id=str(course_enrollment.course_id),
         date_for=date_for,
