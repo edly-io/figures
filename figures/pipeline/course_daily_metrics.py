@@ -13,15 +13,18 @@ Future: add a remote mode to pull data via REST API
 """
 from __future__ import absolute_import
 import datetime
+import figures.pipeline.loaders
+import logging
 from decimal import Decimal
 from django.contrib.auth.models import User
-
 from django.db import transaction
 from django.db.models import Q
-from figures.compat import GeneratedCertificate
+from figures.compat import GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
+from figures.pipeline.helpers import pipeline_date_for_rule
 from figures.pipeline.enrollment_metrics_next import (
     calculate_course_progress as calculate_course_progress_next
 )
@@ -32,10 +35,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 
-import figures.metrics
-import figures.pipeline.loaders
 import figures.sites
-from figures.pipeline.helpers import pipeline_date_for_rule
 from util.query import read_replica_or_default
 
 

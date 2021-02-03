@@ -258,7 +258,9 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
     """
 
     course_id = char_method_filter(method='filter_course_id')
-    is_active = boolean_filter(field_name='is_active')
+    username = char_method_filter(method='filter_user_username')
+    fullname = char_method_filter(method='filter_user_fullname')
+    is_active = boolean_filter(field_name='is_active', )
 
     def filter_course_id(self, queryset, name, value):  # pylint: disable=unused-argument
         """

@@ -49,6 +49,7 @@ from figures.sites import get_course_enrollments_for_site
 from figures.views import LearnerDetailsViewSet
 import figures.settings
 
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from tests.factories import (
     CourseEnrollmentFactory,
     CourseOverviewFactory,
@@ -140,7 +141,14 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         self.course_overviews = [
             CourseOverviewFactory() for i in range(0,4)
         ]
-        self.users = [UserFactory() for i in range(3)]
+        for course_overview in self.course_overviews:
+            OrganizationCourseFactory(
+                organization=self.edly_org.edx_organization,
+                course_id=str(course_overview.id)
+            )
+
+        self.users = [UserFactory(edly_profile__edly_sub_organizations=[self.edly_org]) for i in range(3)]
+        self.users.append(self.staff_user)
 
         self.enrollments = [
             CourseEnrollmentFactory(course=self.course_overviews[0],
@@ -155,7 +163,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         ]
 
         self.expected_result_keys = [
-            'id', 'username', 'name', 'email', 'country', 'is_active',
+            'id', 'username', 'name', 'email', 'country', 'is_active', 'last_login',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined',
             'bio', 'courses', 'language_proficiencies', 'profile_image'
         ]
@@ -209,7 +217,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
             ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
         results = response.data['results']
-        assert len(results) == len(self.users) + len(self.callers)
+        assert len(results) == len(self.users)
         enrollments = get_course_enrollments_for_site(self.site)
         assert enrollments.count() == len(self.enrollments)
 

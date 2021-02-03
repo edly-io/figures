@@ -24,6 +24,7 @@ from tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
+    UserFactory,
 )
 from tests.helpers import organizations_support_sites
 from tests.views.base import BaseViewTest
@@ -60,17 +61,16 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
             CourseEnrollmentFactory(
+                user__edly_profile__edly_sub_organizations=[self.edly_org],
                 course_id=self.course_overview.id) for i in range(1, 5)
         ]
 
         self.sample_course_id = self.course_enrollments[0].course_id
 
         if is_multisite():
-            self.organization = OrganizationFactory(sites=[self.site])
+            self.organization = self.edly_org.edx_organization
             OrganizationCourseFactory(organization=self.organization,
                                       course_id=str(self.course_overview.id))
-            for ce in self.course_enrollments:
-                UserOrganizationMappingFactory(user=ce.user, organization=self.organization)
 
     @pytest.mark.parametrize('query_params, filter_args', [
             ('', {}),
@@ -80,8 +80,9 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
     def test_get_course_enrollments(self, query_params, filter_args):
         expected_data = CourseEnrollment.objects.filter(**filter_args)
         request = APIRequestFactory().get(self.request_path + query_params)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
-        view = self. view_class.as_view({'get': 'list'})
+        view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         assert response.status_code == 200

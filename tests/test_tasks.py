@@ -80,7 +80,7 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
     assert not CourseOverview.objects.count()
 
     def mock_get_courses_fail(site):
-        raise Exception(message=error_message)
+        raise Exception(error_message)
 
     assert SiteDailyMetrics.objects.count() == 0
     assert CourseDailyMetrics.objects.count() == 0

@@ -25,7 +25,7 @@ class TestSiteViewSet(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         super(TestSiteViewSet, self).setup(db)
-        assert Site.objects.count() == 1
+        assert Site.objects.count() == 2
         self.sites = [
             Site.objects.first(),
             SiteFactory(domain=u'alpha.test.site', name=u'Alpha Group'),

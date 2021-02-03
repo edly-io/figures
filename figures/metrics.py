@@ -40,7 +40,8 @@ from figures.compat import (
     chapter_grade_values,
     course_grade,
     StudentModule,
-    get_course_by_id
+    get_course_by_id,
+    CourseOverview,
 )
 from figures.helpers import (
     as_course_key,
@@ -362,7 +363,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
         else:
             return 0
 
-    if kwargs.get('calc_from_sdm'):
+    if _kwargs.get('calc_from_sdm'):
         return calc_from_site_daily_metrics()
     else:
         return calc_from_user_model()

@@ -92,9 +92,7 @@ def bulk_calculate_course_progress_data(course_id, date_for=None):
     # enrollment (CE) records as we can ignore any learners without SM records
     # since that means they don't have any course progress
     for ce in course_enrollments_for_course(course_id):
-        sm = student_modules_for_course_enrollment(
-            site=site,
-            course_enrollment=ce).order_by('-modified')
+        sm = student_modules_for_course_enrollment(ce).order_by('-modified')
         if sm:
             metrics = collect_metrics_for_enrollment(site=site,
                                                      course_enrollment=ce,
@@ -179,6 +177,7 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
     if not student_modules:
         return None
 
+    most_recent_sm = student_modules[0]
     lcgm = LearnerCourseGradeMetrics.objects.filter(
         user=course_enrollment.user,
         course_id=str(course_enrollment.course_id)).using(read_replica_or_default())

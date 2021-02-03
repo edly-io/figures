@@ -103,7 +103,6 @@ class CourseIndexSerializer(serializers.Serializer):
     id = serializers.CharField()
     name = serializers.CharField(source='display_name_with_default_escaped')
     org = serializers.CharField(source='display_org_with_default')
-    number = serializers.CharField(source='display_number_with_default')
 
 
 class UserIndexSerializer(serializers.Serializer):

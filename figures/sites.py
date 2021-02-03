@@ -21,21 +21,14 @@ from django.db.models import Q
 # TODO: Add exception handling
 import organizations
 
-from figures.compat import (
-    CourseEnrollment,
-    CourseOverview,
-    GeneratedCertificate,
-    StudentModule,
-)
 from figures.helpers import as_course_key, is_multisite, import_from_path
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from openedx.features.edly.models import (
     EdlySubOrganization,
     EdlyUserProfile,
 )  # pylint: disable=import-error
-from courseware.models import StudentModule  # pylint: disable=import-error
-from student.models import CourseEnrollment  # pylint: disable=import-error
-
+from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
+from figures.helpers import as_course_key
 import figures.helpers
 from util.query import read_replica_or_default
 
