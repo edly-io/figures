@@ -13,6 +13,7 @@ from rest_framework.test import (
     # RequestsClient, Not supported in older  rest_framework versions
     force_authenticate,
 )
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
 from tests.helpers import django_filters_pre_v1
 from tests.views.helpers import create_test_users
@@ -32,6 +33,7 @@ class BaseViewTest(object):
     def setup(self, db):
         self.callers = create_test_users()
         self.site = Site.objects.first()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
 
     @pytest.mark.skip()
     @pytest.mark.parametrize('username, status_code', [
@@ -65,4 +67,6 @@ class BaseViewTest(object):
 
     @property
     def staff_user(self):
-        return get_user_model().objects.get(username='staff_user')
+        staff_user = get_user_model().objects.get(username='staff_user')
+        staff_user.edly_profile.edly_sub_organizations.add(self.edly_org)
+        return staff_user

@@ -28,7 +28,7 @@ import figures.sites
 import mock
 import organizations
 import pytest
-from courseware.tests.factories import StudentModuleFactory
+from lms.djangoapps.courseware.tests.factories import StudentModuleFactory
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from openedx.core.djangoapps.content.course_overviews.models import (
@@ -433,5 +433,5 @@ def test_student_modules_for_course_enrollment(monkeypatch):
         UserOrganizationMappingFactory(user=other_org_ce.user,
                                        organization=other_org)
 
-    sm = figures.sites.student_modules_for_course_enrollment(site, ce)
+    sm = figures.sites.student_modules_for_course_enrollment(ce)
     assert set(sm) == set(ce_sm)

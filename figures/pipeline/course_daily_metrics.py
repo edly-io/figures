@@ -11,15 +11,15 @@ Future: add a remote mode to pull data via REST API
 
 # TODO: Move extractors to figures.pipeline.extract module
 """
+from __future__ import absolute_import
 import datetime
 import figures.pipeline.loaders
-from __future__ import absolute_import
 import logging
-from courseware.models import StudentModule  # pylint: disable=import-error
 from decimal import Decimal
 from django.contrib.auth.models import User
-from django.db import transaction, Q
-from figures.compat import GeneratedCertificate
+from django.db import transaction
+from django.db.models import Q
+from figures.compat import GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError

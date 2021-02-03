@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 from rest_framework.permissions import BasePermission
 
+from django.conf import settings
 import django.contrib.sites.shortcuts
 
 from organizations.models import Organization

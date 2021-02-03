@@ -57,6 +57,27 @@ if RELEASE_LINE == 'ginkgo':
 else:  # Assume Hawthorn or greater
     from lms.djangoapps.certificates.models import GeneratedCertificate  # noqa pylint: disable=unused-import,import-error
 
+if RELEASE_LINE in ['ginkgo', 'hawthorn']:
+    from courseware.models import StudentModule  # noqa pylint: disable=unused-import,import-error
+else:  # Assume Juniper or greater
+    from lms.djangoapps.courseware.models import StudentModule  # noqa pylint: disable=unused-import,import-error
+
+if RELEASE_LINE in ['ginkgo', 'hawthorn']:
+    from courseware.courses import get_course_by_id  # noqa pylint: disable=unused-import,import-error
+else:  # Assume Juniper or greater
+    from lms.djangoapps.courseware.courses import get_course_by_id  # noqa pylint: disable=unused-import,import-error
+
+if RELEASE_LINE == 'ginkgo':
+    from openedx.core.djangoapps.xmodule_django.models import CourseKeyField  # noqa pylint: disable=unused-import,import-error
+else:  # Assume Hawthorn or greater
+    from opaque_keys.edx.django.models import CourseKeyField  # noqa pylint: disable=unused-import,import-error
+
+# preemptive addition. Added it here to avoid adding to figures.models
+# In fact, we should probably do a refactoring that makes all Figures import it
+# from here
+from student.models import CourseAccessRole, CourseEnrollment  # noqa pylint: disable=unused-import,import-error
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=unused-import,import-error
+
 from lms.djangoapps.grades.models import PersistentCourseGrade
 from util.query import read_replica_or_default
 
