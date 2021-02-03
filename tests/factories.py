@@ -215,6 +215,7 @@ class GeneratedCertificateFactory(DjangoModelFactory):
 class StudentModuleFactory(DjangoModelFactory):
     class Meta:
         model = StudentModule
+        django_get_or_create = ('student', 'course_id')
 
     student = factory.SubFactory(
         UserFactory,

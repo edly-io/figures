@@ -433,5 +433,5 @@ def test_student_modules_for_course_enrollment(monkeypatch):
         UserOrganizationMappingFactory(user=other_org_ce.user,
                                        organization=other_org)
 
-    sm = figures.sites.student_modules_for_course_enrollment(site, ce)
+    sm = figures.sites.student_modules_for_course_enrollment(ce)
     assert set(sm) == set(ce_sm)

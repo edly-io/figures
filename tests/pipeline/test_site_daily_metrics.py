@@ -110,7 +110,7 @@ class TestCourseDailyMetricsMissingCdm(object):
         if is_multisite():
             self.organization = OrganizationFactory()
             EdlySubOrganizationFactory(
-                site=self.site,
+                lms_site=self.site,
                 edx_organization=self.organization
             )
             for co in self.course_overviews:
@@ -239,7 +239,7 @@ class TestSiteDailyMetricsExtractor(object):
         if is_multisite():
             self.organization = OrganizationFactory()
             EdlySubOrganizationFactory(
-                site=self.site,
+                lms_site=self.site,
                 edx_organization=self.organization
             )
             for co in self.course_overviews:
