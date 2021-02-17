@@ -9,8 +9,10 @@ from dateutil.relativedelta import relativedelta
 
 from django.utils.timezone import utc
 
+from courseware.models import StudentModule
 from figures.sites import get_student_modules_for_site
 from figures.pipeline.site_monthly_metrics import fill_month
+from openedx.features.edly.models import EdlyUserProfile
 
 
 def backfill_monthly_metrics_for_site(site, overwrite=False):
@@ -36,3 +38,15 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
         backfilled.append(dict(obj=obj, created=created, dt=dt))
 
     return backfilled
+
+
+def backfill_course_activity_date():
+    """
+    Backfill historical "course_activity_date" for learners who performed course activity in the past.
+    """
+    student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
+    for student_id in student_ids:
+        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        EdlyUserProfile.objects.filter(
+            user_id=student_activity.student_id,
+        ).update(course_activity_date=student_activity.modified)

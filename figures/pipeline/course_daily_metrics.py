@@ -30,6 +30,7 @@ from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from openedx.features.edly.models import EdlyUserProfile
 from student.models import CourseEnrollment  # pylint: disable=import-error
 from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 from util.query import read_replica_or_default
@@ -125,6 +126,24 @@ def get_average_progress_deprecated(course_id, date_for, course_enrollments):
         average_progress = 0.0
 
     return average_progress
+
+
+def update_learners_activity_for_date(date_for):
+    """
+    Update EdlyUserProfile for learners who performed course activity for given date.
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    student_ids = StudentModule.objects.filter(
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        modified__day=date_for_as_datetime.day
+    ).values_list('student__id', flat=True).distinct()
+
+    for student_id in student_ids:
+        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        EdlyUserProfile.objects.filter(
+            user_id=student_activity.student_id,
+        ).update(course_activity_date=student_activity.modified)
 
 
 def get_days_to_complete(site, course_id, date_for):
@@ -360,5 +379,6 @@ class CourseDailyMetricsLoader(object):
             # record not found, move on to creating
             pass
 
+        update_learners_activity_for_date(date_for=date_for)
         data = self.get_data(date_for=date_for)
         return self.save_metrics(date_for=date_for, data=data)
