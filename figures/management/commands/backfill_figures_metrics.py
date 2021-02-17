@@ -9,7 +9,7 @@ from textwrap import dedent
 from django.contrib.sites.models import Site
 from django.core.management.base import BaseCommand
 
-from figures.backfill import backfill_monthly_metrics_for_site
+from figures.backfill import backfill_monthly_metrics_for_site, backfill_course_activity_date
 
 
 def get_site(identifier):
@@ -70,5 +70,7 @@ class Command(BaseCommand):
             sites = Site.objects.all()
         for site in sites:
             backfill_site(site, overwrite=options['overwrite'])
+
+        backfill_course_activity_date()
 
         print('DONE: Backfill Figures Metrics')
