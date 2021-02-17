@@ -12,7 +12,7 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from figures.backfill import backfill_monthly_metrics_for_site
+from figures.backfill import backfill_monthly_metrics_for_site, backfill_course_activity_date
 
 
 def get_site(identifier):
@@ -80,5 +80,7 @@ class Command(BaseCommand):
             overwrite=options['overwrite'],
             site=options['site']
         )
+
+        backfill_course_activity_date()
 
         print('DONE: Backfill Figures Metrics')
