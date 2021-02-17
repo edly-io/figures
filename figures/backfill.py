@@ -42,7 +42,7 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
 
 def backfill_course_activity_date():
     """
-    Backfill historical course_activity_date for learners who performed course activity in the past.
+    Backfill historical "course_activity_date" for learners who performed course activity in the past.
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
     for student_id in student_ids:
