@@ -724,6 +724,8 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         allow_blank=True, required=False,)
     bio = serializers.CharField(source='profile.bio', required=False)
 
+    course_activity_date = serializers.CharField(source='edly_profile.course_activity_date', required=False)
+
     # We may want to exclude this unless we want to show
     # profile images in Figures
     profile_image = serializers.SerializerMethodField()
@@ -738,7 +740,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         model = get_user_model()
         editable = False
         fields = (
-            'id', 'username', 'name', 'email', 'country', 'is_active',
+            'id', 'username', 'name', 'email', 'country', 'is_active', 'course_activity_date',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
             'bio', 'courses', 'language_proficiencies', 'profile_image',
             )
