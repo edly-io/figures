@@ -10,13 +10,14 @@ from dateutil.relativedelta import relativedelta
 
 from django.utils.timezone import utc
 
-from figures.compat import CourseNotFound
+from figures.compat import CourseNotFound, StudentModule
 from figures.sites import (
   get_course_enrollments_for_site,
   get_student_modules_for_site
 )
 from figures.pipeline.site_monthly_metrics import fill_month
 from figures.models import EnrollmentData
+from openedx.features.edly.models import EdlyUserProfile
 
 
 def backfill_monthly_metrics_for_site(site, overwrite=False):
@@ -44,6 +45,7 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
     return backfilled
 
 
+<<<<<<< HEAD
 def backfill_enrollment_data_for_site(site):
     """Convenience function to fill EnrollmentData records
 
@@ -72,3 +74,15 @@ def backfill_enrollment_data_for_site(site):
                                      ce_id=rec.id))
 
     return dict(results=enrollment_data, errors=errors)
+=======
+def backfill_course_activity_date():
+    """
+    Backfill historical "course_activity_date" for learners who performed course activity in the past.
+    """
+    student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
+    for student_id in student_ids:
+        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        EdlyUserProfile.objects.filter(
+            user_id=student_activity.student_id,
+        ).update(course_activity_date=student_activity.modified)
+>>>>>>> develop-multisite
