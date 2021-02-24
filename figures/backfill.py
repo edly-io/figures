@@ -45,7 +45,6 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
     return backfilled
 
 
-<<<<<<< HEAD
 def backfill_enrollment_data_for_site(site):
     """Convenience function to fill EnrollmentData records
 
@@ -74,7 +73,6 @@ def backfill_enrollment_data_for_site(site):
                                      ce_id=rec.id))
 
     return dict(results=enrollment_data, errors=errors)
-=======
 def backfill_course_activity_date():
     """
     Backfill historical "course_activity_date" for learners who performed course activity in the past.
@@ -85,4 +83,3 @@ def backfill_course_activity_date():
         EdlyUserProfile.objects.filter(
             user_id=student_activity.student_id,
         ).update(course_activity_date=student_activity.modified)
->>>>>>> develop-multisite
