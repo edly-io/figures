@@ -50,6 +50,6 @@ def pipeline_date_for_rule(date_for):
             msg = 'Attempted pipeline call with future date: "{date_for}"'
             raise DateForCannotBeFutureError(msg.format(date_for=date_for))
         elif date_for == today:
-            return prev_day(today)
+            return today
 
     return date_for
