@@ -211,11 +211,21 @@ def get_users_for_site(site):
 
 
 def get_course_enrollments_for_site(site):
-    log.info("----------------------------------")
-    log.info("Site Domain: {}".format(site.domain))
-    log.info("Site Id: {}".format(site.id))
-    log.info("----------------------------------")
     course_keys = get_course_keys_for_site(site)
+    if 'arbisoft' in site.domain:
+        log.info("----------------------------------")
+        log.info("Course keys: {}".format(course_keys))
+        log.info("###################################")
+        enrollments = CourseEnrollment.objects.filter(
+            course_id__in=course_keys
+        ).filter(
+            ~Q(user__courseaccessrole__role='course_creator_group'),
+            user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+            user__is_staff=False,
+            user__is_superuser=False,
+        ).using(read_replica_or_default())
+        log.info("Enrollments: {}".format(enrollments))
+        log.info("----------------------------------")
     return CourseEnrollment.objects.filter(
         course_id__in=course_keys
     ).filter(
