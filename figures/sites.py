@@ -11,6 +11,7 @@ Document how organization site mapping works
 """
 
 from __future__ import absolute_import
+import logging
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
@@ -28,6 +29,8 @@ from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key
 import figures.helpers
 from util.query import read_replica_or_default
+
+log = logging.getLogger(__name__)
 
 
 class CrossSiteResourceError(Exception):
@@ -208,6 +211,10 @@ def get_users_for_site(site):
 
 
 def get_course_enrollments_for_site(site):
+    log.info("----------------------------------")
+    log.info("Site Domain: {}".format(site.domain))
+    log.info("Site Id: {}".format(site.id))
+    log.info("----------------------------------")
     course_keys = get_course_keys_for_site(site)
     return CourseEnrollment.objects.filter(
         course_id__in=course_keys
