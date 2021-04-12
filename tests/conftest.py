@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from datetime import datetime
+from datetime import datetime, date
 import pytest
 from django.utils.timezone import utc
 from six.moves import range
@@ -35,8 +35,9 @@ def sm_test_data(db):
     """
     WIP StudentModule test data to test MAU
     """
-    year_for = 2019
-    month_for = 10
+    date_today = date.today()
+    year_for = date_today.year
+    month_for = date_today.month
     created_date = datetime(year_for, month_for, 1).replace(tzinfo=utc)
     modified_date = datetime(year_for, month_for, 10).replace(tzinfo=utc)
     course_overviews = [CourseOverviewFactory() for i in range(3)]
@@ -54,11 +55,15 @@ def sm_test_data(db):
             user=user,
             edly_sub_organizations=[edly_sub_organization]
         )
-        sm += [StudentModuleFactory(course_id=co.id,
-                                    created=created_date,
-                                    modified=modified_date,
-                                    student=user,
-                                    ) for co in course_overviews]
+        OrganizationCourseFactory(organization=org, course_id=str(co.id))
+        sm.append(
+            StudentModuleFactory(
+                course_id=co.id,
+                created=created_date,
+                modified=modified_date,
+                student=user,
+            )
+        )
 
     if organizations_support_sites():
         org = OrganizationFactory(sites=[site])

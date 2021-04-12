@@ -97,5 +97,6 @@ def test_get_total_site_users_for_month(sdm_test_data):
     count = get_total_site_users_for_time_period(
         site=my_site,
         start_date=start_date,
-        end_date=end_date)
+        end_date=end_date,
+        calc_from_sdm=True)
     assert count == sdm_test_data['expected_count']

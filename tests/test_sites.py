@@ -86,12 +86,12 @@ class TestHandlersForStandaloneMode(object):
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             co = CourseOverviewFactory()
             site = figures.sites.get_site_for_course(str(co.id))
-            assert site == Site.objects.first()
+            assert site == self.default_site
 
     @pytest.mark.parametrize('course_count', [0, 1, 2])
     def test_get_course_keys_for_site(self, course_count):
         sites = Site.objects.all()
-        assert sites.count() == 1
+        assert sites.count() == 2
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             course_overviews = [CourseOverviewFactory() for i in range(course_count)]
             course_keys = figures.sites.get_course_keys_for_site(sites[0])
@@ -117,7 +117,9 @@ class TestHandlersForStandaloneMode(object):
                 [user.id for user in expected_users])
 
     def test_get_course_enrollments_for_site(self):
-        expected_ce = [CourseEnrollmentFactory() for i in range(3)]
+        expected_ce = [CourseEnrollmentFactory(
+            user__edly_profile__edly_sub_organizations=[self.edly_sub_organization]
+        ) for i in range(3)]
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
             assert set([ce.id for ce in course_enrollments]) == set(
@@ -395,18 +397,16 @@ def test_users_enrolled_in_courses(enrollment_data):
 @pytest.mark.django_db
 def test_site_course_ids(monkeypatch):
     site = SiteFactory()
+    edly_sub_org = EdlySubOrganizationFactory(lms_site=site)
     course_overviews = [CourseOverviewFactory() for i in range(2)]
-    if organizations_support_sites():
-        monkeypatch.setattr('figures.sites.is_multisite', lambda: True)
-        our_org = OrganizationFactory(sites=[site])
-        # associate the course overviews with our org
-        for co in course_overviews:
-            OrganizationCourseFactory(course_id=co.id, organization=our_org)
-        other_org = OrganizationFactory(sites=[SiteFactory()])
-        # create a course associated with another org
-        co = CourseOverviewFactory()
-        OrganizationCourseFactory(course_id=co.id, organization=other_org)
-        
+    for co in course_overviews:
+        OrganizationCourseFactory(course_id=co.id, organization=edly_sub_org.edx_organization)
+
+    other_org = OrganizationFactory()
+    # create a course associated with another org
+    co = CourseOverviewFactory()
+    OrganizationCourseFactory(course_id=co.id, organization=other_org)
+
     course_ids = figures.sites.site_course_ids(site)
     assert set(course_ids) == set([str(co.id) for co in course_overviews])
 
