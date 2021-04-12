@@ -13,6 +13,9 @@ from django.utils.timezone import utc
 
 from figures.pipeline.backfill import backfill_monthly_metrics_for_site
 from figures.models import SiteMonthlyMetrics
+
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
+
 from tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
@@ -61,6 +64,13 @@ def backfill_test_data(db):
                                            organization=org)
     else:
         org = OrganizationFactory()
+        edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=site,
+            edx_organization=org
+        )
+        for co in course_overviews:
+            OrganizationCourseFactory(organization=org, course_id=str(co.id))
+
 
     return dict(
         site=site,

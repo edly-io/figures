@@ -1,0 +1,36 @@
+version: 2
+jobs:
+  build:
+    # directory where steps are run
+    working_directory: ~/circleci-figures
+    docker:
+      # CircleCI Python images available at: https://hub.docker.com/r/circleci/python/
+      - image: circleci/python:3.5.4
+        environment:
+          BASH_ENV: ~/.bashrc
+    steps: # steps that comprise the `build` job
+      - checkout # check out source code to working directory
+      - restore_cache:
+          key: figures-test-deps-{{ checksum "devsite/requirements/py35_juniper.txt" }}
+      - run:
+          name: "Install python requirements"
+          command: |
+            sudo pip install --upgrade pip==20.0.2
+            sudo pip install virtualenv
+            virtualenv venv
+            . venv/bin/activate
+            pip install -r devsite/requirements/py35_juniper.txt
+      - save_cache:
+          key: figures-test-deps-{{ checksum "devsite/requirements/py35_juniper.txt" }}
+          paths:
+            - "venv"
+      - run:
+          name: "Run Tests"
+          command: |
+            . venv/bin/activate
+            make juniper.pytest
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: tr

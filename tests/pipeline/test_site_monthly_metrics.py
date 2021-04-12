@@ -28,7 +28,7 @@ def smm_test_data(db):
     Minimal test data for very simple test case
     """
     site = SiteFactory()
-    mock_today = datetime(year=2020, month=2, day=1, tzinfo=utc)
+    mock_today = datetime.now()
     last_month = mock_today - relativedelta(months=1)
     month_before = last_month - relativedelta(months=1)
     month_before_sm = [StudentModuleFactory(created=month_before,
@@ -68,7 +68,9 @@ def test_fill_month_with_sm_wo_overwrite(monkeypatch, smm_test_data):
     assert obj and created
     assert obj.active_user_count == len(smm_test_data['month_before_sm'])
     assert obj.site == site
-    assert obj.month_for == smm_test_data['month_before'].date()
+    expected_month_before = smm_test_data['month_before'].date()
+    assert obj.month_for.month  == expected_month_before.month
+    assert obj.month_for.year == expected_month_before.year
 
 
 @pytest.mark.skipif(RELEASE_LINE=='ginkgo',
@@ -105,4 +107,6 @@ def test_fill_last_month_wo_overwrite(monkeypatch, smm_test_data):
     assert obj and created
     assert obj.active_user_count == len(smm_test_data['last_month_sm'])
     assert obj.site == site
-    assert obj.month_for == smm_test_data['last_month'].date()
+    expected_last_month = smm_test_data['last_month'].date()
+    assert obj.month_for.month  == expected_last_month.month
+    assert obj.month_for.year == expected_last_month.year

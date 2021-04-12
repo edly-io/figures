@@ -165,6 +165,17 @@ def get_course_keys_for_site(site):
             read_replica_or_default()).all().values_list('id', flat=True)
     return [as_course_key(cid) for cid in course_ids]
 
+def site_course_ids(site):
+    """Return a list of string course ids for the site
+    """
+    if figures.helpers.is_multisite():
+        return organizations.models.OrganizationCourse.objects.filter(
+                organization__edlysuborganization=site.edly_sub_org_for_lms
+            ).values_list('course_id', flat=True)
+    else:
+        # Needs work. See about returning a queryset
+        return [str(key) for key in CourseOverview.objects.all().values_list(
+            'id', flat=True)]
 
 def get_courses_for_site(site):
     """Returns the courses accessible by the user on the site
@@ -192,7 +203,7 @@ def get_user_ids_for_site(site):
         user_ids = edly_user_profiles.values_list('user', flat=True)
     else:
         user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
-            user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         ).values_list('id', flat=True)
     return user_ids
 

@@ -69,7 +69,7 @@ def test_bulk_calculate_course_progress_data_happy_path(db, monkeypatch):
     # monkeypatch.setattr('figures.pipeline.enrollment_metrics.student_modules_for_course_enrollment',
     #                     mock_get_student_modules)
     monkeypatch.setattr('figures.pipeline.enrollment_metrics.student_modules_for_course_enrollment',
-                        lambda **_kwargs: StudentModule.objects.all())
+                        lambda *args, **_kwargs: StudentModule.objects.all())
     data = bulk_calculate_course_progress_data(course_overview.id)
     assert data['average_progress'] == 0.5
 
@@ -156,7 +156,7 @@ class TestCollectMetricsForEnrollment(object):
         else:
             self.org = OrganizationFactory()
 
-        self.datetime_1 = datetime(2020, 2, 2, tzinfo=utc)
+        self.datetime_1 = datetime(self.today.year, self.today.month - 1, self.today.day, tzinfo=utc)
         self.datetime_2 = self.datetime_1 + relativedelta(months=1)  # future of date_1
         self.course_overview = CourseOverviewFactory()
         self.course_enrollment = CourseEnrollmentFactory(course_id=self.course_overview.id)
@@ -375,7 +375,7 @@ class TestEnrollmentMetricsUpdateCheck(object):
     def test_dates_lcgm_is_current_is_false(self):
         lcgm = LearnerCourseGradeMetricsFactory(
             date_for=self.student_module.modified.date())
-        assert not _enrollment_metrics_needs_update(lcgm, self.student_module)
+        assert _enrollment_metrics_needs_update(lcgm, self.student_module)
 
     def test_dates_lcgm_is_future_is_false(self):
         """
@@ -438,6 +438,8 @@ def test_collect_progress_data(db, monkeypatch):
 
     # Simply checking the keys
     assert set(progress_data.keys()) == set(['count',
+                                             'grade',
+                                             'passed_timestamp',
                                              'sections_worked',
                                              'points_possible',
                                              'points_earned'])

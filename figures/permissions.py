@@ -34,7 +34,7 @@ def has_insights_access(request):
     """
     Validate request User has Insights access.
     """
-    return request.user.groups.filter(
+    return request.user.is_active and request.user.groups.filter(
         name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
     ).exists()
 

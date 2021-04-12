@@ -78,14 +78,14 @@ class TestCourseTopStatsViewSet(object):
         response = view(request)
 
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
-        assert len(response.data['results']) == len(self.course_overviews)
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
+        assert len(response.data) == len(self.course_overviews)
 
-        for rec in response.data['results']:
+        for rec in response.data:
             assert CourseOverview.objects.get(id=as_course_key(rec['course_id']))
             assert CourseOverview.objects.get(display_name=rec['course_name'])
-        assert response.data['results'][0]['enrollment_count'] >= response.data['results'][1]['enrollment_count']
+        assert response.data[0]['enrollment_count'] >= response.data[1]['enrollment_count']
 
 
     def test_get_list_top_completions(self):
@@ -99,10 +99,10 @@ class TestCourseTopStatsViewSet(object):
         response = view(request)
 
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
-        assert len(response.data['results']) == len(self.course_overviews)
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous', ])
+        assert len(response.data) == len(self.course_overviews)
 
-        for rec in response.data['results']:
+        for rec in response.data:
             assert CourseOverview.objects.get(display_name=rec['course_name'])
-        assert response.data['results'][0]['num_learners_completed'] >= response.data['results'][1]['num_learners_completed']
+        assert response.data[0]['num_learners_completed'] >= response.data[1]['num_learners_completed']

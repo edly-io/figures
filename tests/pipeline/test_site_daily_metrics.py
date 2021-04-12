@@ -152,7 +152,7 @@ class TestSiteDailyMetricsPipelineFunctions(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.date_for = datetime.date(2018, 6, 1)
+        self.date_for = datetime.date.today()
         self.site = Site.objects.first()
         self.cdm_recs = [CourseDailyMetricsFactory(
             site=self.site,
@@ -218,7 +218,7 @@ class TestSiteDailyMetricsExtractor(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.date_for = datetime.date(2018, 10, 1)
+        self.date_for = datetime.date.today()
         self.site = Site.objects.first()
         self.users = [UserFactory(
             date_joined=as_datetime(self.date_for - datetime.timedelta(days=60))
@@ -242,6 +242,9 @@ class TestSiteDailyMetricsExtractor(object):
                 lms_site=self.site,
                 edx_organization=self.organization
             )
+            for user in self.users:
+                user.edly_profile.edly_sub_organizations.add(self.organization.edlysuborganization)
+
             for co in self.course_overviews:
                 OrganizationCourseFactory(organization=self.organization,
                                           course_id=str(co.id))

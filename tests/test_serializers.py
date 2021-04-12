@@ -55,6 +55,7 @@ from tests.factories import (
     UserFactory,
     SiteFactory,
     )
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
 from tests.helpers import as_datetime_utc, platform_release
 import six
@@ -146,7 +147,7 @@ class TestCourseDetailsSerializer(object):
         # model (UserProfile) data
         assert data['course_id'] == str(self.course_overview.id)
         assert data['course_name'] == self.course_overview.display_name
-        assert data['course_code'] == self.course_overview.number
+        assert data['course_code'] == self.course_overview.display_number_with_default
         assert data['org'] == self.course_overview.org
         assert as_datetime_utc(data['start_date']) == self.course_overview.start
         assert as_datetime_utc(data['end_date']) == self.course_overview.end
@@ -165,6 +166,10 @@ class TestCourseEnrollmentSerializer(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        self.site = SiteFactory()
+        EdlySubOrganizationFactory(
+            lms_site=self.site
+        )
         self.model =  CourseEnrollment
         # self.special_fields = set(['course', 'created', 'user', 'course_overview' ])
         self.special_fields = set(['created', 'user', 'course_id' ])
@@ -173,7 +178,10 @@ class TestCourseEnrollmentSerializer(object):
         field_names = (o.name for o in self.model._meta.fields
             if o.name not in self.date_fields )
         self.model_obj = CourseEnrollmentFactory()
-        self.serializer = CourseEnrollmentSerializer(instance=self.model_obj)
+        self.serializer = CourseEnrollmentSerializer(
+            instance=self.model_obj,
+            context=dict(site=self.site)
+        )
 
     def test_has_fields(self):
         '''
@@ -292,7 +300,7 @@ class TestSiteDailyMetricsSerializer(object):
         '''
 
         '''
-        self.site = Site.objects.first()
+        self.site = SiteFactory()
         self.date_fields = set(['date_for', 'created', 'modified',])
         self.expected_results_keys = set([o.name for o in SiteDailyMetrics._meta.fields])
         self.site_daily_metrics = SiteDailyMetricsFactory()
@@ -378,7 +386,7 @@ class TestGeneralCourseDataSerializer(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.site = Site.objects.first()
+        self.site = SiteFactory()
         self.course_overview = CourseOverviewFactory()
         self.users = [ UserFactory(), UserFactory()]
         self.course_access_roles = [
@@ -405,7 +413,7 @@ class TestGeneralCourseDataSerializer(object):
         # model (UserProfile) data
         assert data['course_id'] == str(self.course_overview.id)
         assert data['course_name'] == self.course_overview.display_name
-        assert data['course_code'] == self.course_overview.number
+        assert data['course_code'] == self.course_overview.display_number_with_default
         assert data['org'] == self.course_overview.org
         assert as_datetime_utc(data['start_date']) == self.course_overview.start
         assert as_datetime_utc(data['end_date']) == self.course_overview.end
@@ -484,7 +492,7 @@ class TestLearnerCourseDetailsSerializer(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.site = Site.objects.first()
+        self.site = SiteFactory()
         self.certificate_date = datetime.datetime(2018, 4, 1, tzinfo=utc)
         self.course_enrollment = CourseEnrollmentFactory(
             )
@@ -568,15 +576,24 @@ class TestLearnerDetailsSerializer(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.site = Site.objects.first()
+        self.site = SiteFactory()
+        self.edly_sub_org = EdlySubOrganizationFactory(
+            lms_site=self.site
+        )
         self.user_attributes = {
             'username': 'alpha_one',
             'profile__name': 'Alpha One',
             'profile__country': 'CA',
+            'edly_profile__edly_sub_organizations': [self.edly_sub_org]
         }
         self.user = UserFactory(**self.user_attributes)
         self.serializer = LearnerDetailsSerializer(
-            instance=self.user, context=dict(site=self.site))
+            instance=self.user,
+            context=dict(
+                site=self.site,
+                required_fields={}
+            )
+        )
 
     def test_has_fields(self):
         '''Tests that the serialized UserIndex data has specific keys and values
@@ -590,8 +607,8 @@ class TestLearnerDetailsSerializer(object):
         '''
         expected_fields = set([
         'id', 'username', 'name', 'email', 'country', 'is_active', 'year_of_birth',
-        'level_of_education', 'gender', 'date_joined', 'bio', 'courses',
-        'language_proficiencies', 'profile_image', 'course_activity_date'
+        'level_of_education', 'gender', 'date_joined', 'bio', 'courses', 'last_login',
+        'language_proficiencies', 'profile_image', 'course_activity_date', 'registration_fields'
         ])
         data = self.serializer.data
         assert set(data.keys()) == expected_fields
@@ -635,7 +652,7 @@ class TestUserIndexSerializer(object):
         '''
         data = self.serializer.data
 
-        assert set(data.keys()) == set(['id', 'username', 'fullname', ])
+        assert set(data.keys()) == set(['id', 'username', 'fullname', 'email', 'date_joined', 'last_login'])
         
         # This is to make sure that the serializer retrieves the correct nested
         # model (UserProfile) data

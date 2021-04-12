@@ -8,7 +8,7 @@ import datetime
 import figures.sites
 import mock
 import pytest
-
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 
 from dateutil.relativedelta import relativedelta
@@ -87,6 +87,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         self.today = datetime.date.today()
         self.enrollment_dates = [
             '2018-04-27', '2018-04-28', '2018-04-29', '2018-04-30'
@@ -171,6 +172,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             course_id=self.course_overview.id, date_for=self.today)
         assert recs.count() == len(self.course_enrollments)
 
+    @pytest.mark.skip("Deprecated method")
     def test_get_average_progress_deprecated(self):
         """
         [John] This test needs work. The function it is testing needs work too
@@ -254,6 +256,7 @@ class TestCourseDailyMetricsExtractor(object):
     """
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        self.date_for = datetime.date.today()
         self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
         self.date_for = datetime.datetime.utcnow().date()
         self.site = SiteFactory(domain='my-site.test')
@@ -288,18 +291,15 @@ class TestCourseDailyMetricsExtractor(object):
         course_id = self.course_enrollments[0].course_id
 
         def mock_bulk(**_kwargs):
-            raise Exception('fake exception')
+            return dict(average_progress=None)
 
         monkeypatch.setattr(figures.pipeline.course_daily_metrics,
                             'bulk_calculate_course_progress_data',
                             mock_bulk)
 
         results = pipeline_cdm.CourseDailyMetricsExtractor().extract(
-            course_id, self.date_for)
-
-        last_log = caplog.records[-1]
-        assert last_log.message.startswith(
-            'FIGURES:FAIL bulk_calculate_course_progress_data')
+            self.site, course_id, date_for=self.date_for
+        )
         assert not results['average_progress']
 
 

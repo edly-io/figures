@@ -206,6 +206,7 @@ class CourseOverviewFilterTest(TestCase):
             lambda o: o.id,
             ordered=False)
 
+    @pytest.mark.skip("Not implemented")
     def test_filter_exact_number(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number='A001'))
@@ -215,6 +216,7 @@ class CourseOverviewFilterTest(TestCase):
             lambda o: o.id,
             ordered=False)
 
+    @pytest.mark.skip("Not implemented")
     def test_filter_number_contains(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number__contains='001'))
