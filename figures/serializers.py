@@ -731,6 +731,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField()
 
     language_proficiencies = serializers.SerializerMethodField()
+    registration_fields = serializers.SerializerMethodField()
 
     # Would like to make this work without using the SerializerMethodField
     # courses = LearnerCourseDetailsSerializezr(many=True)
@@ -743,8 +744,16 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
             'id', 'username', 'name', 'email', 'country', 'is_active', 'course_activity_date',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
             'bio', 'courses', 'language_proficiencies', 'profile_image',
+            'registration_fields',
             )
         read_only_fields = fields
+
+    def get_registration_fields(self, user):
+        registration_fields = dict()
+        for field in self.context['required_fields']:
+            registration_fields[field] = str(getattr(user.profile, field, ''))
+
+        return registration_fields
 
     def get_language_proficiencies(self, user):
         if hasattr(user, 'profiles') and user.profile.language:

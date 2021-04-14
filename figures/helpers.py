@@ -215,3 +215,29 @@ def period_as_month(month_tuple, fmt='%b-%Y'):
     Returns display date for the given month tuple containing year, month
     """
     return datetime.date(*month_tuple).strftime(fmt)
+
+def get_required_registration_fields_for_user(user, site):
+    """
+    Returns only required registration fields from user profile of given site.
+
+    Arguments:
+        user (User): request user
+        site (Site): request site
+
+    Returns:
+        list: required registration fields
+    """
+    registration_fields = site.configuration.site_values.get(
+        'DJANGO_SETTINGS_OVERRIDE',
+        {}
+    ).get('REGISTRATION_EXTRA_FIELDS', {})
+
+    required_registration_fields = [
+        field for field, value in registration_fields.items()
+        if value == 'required'
+    ]
+    user_required_fields = [
+        field for field in required_registration_fields
+        if hasattr(user.profile, field)
+    ]
+    return user_required_fields
