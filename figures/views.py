@@ -498,6 +498,10 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     def get_serializer_context(self):
         context = super(LearnerDetailsViewSet, self).get_serializer_context()
         context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
+            self.request.user,
+            context['site'],
+        )
         return context
 
 
