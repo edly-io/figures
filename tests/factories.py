@@ -36,6 +36,7 @@ from lms.djangoapps.teams.models import CourseTeam, CourseTeamMembership
 
 import organizations
 
+from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from figures.helpers import as_course_key
 from figures.models import (
     CourseDailyMetrics,
@@ -64,6 +65,21 @@ class SiteFactory(DjangoModelFactory):
         django_get_or_create = ('domain', )
     domain = factory.Sequence(lambda n: 'site-{}.example.com'.format(n))
     name = factory.Sequence(lambda n: 'Site {}'.format(n))
+
+
+class SiteConfigurationFactory(DjangoModelFactory):
+    """
+    Factory class for SiteConfiguration model
+    """
+    class Meta(object):
+        model = SiteConfiguration
+
+    enabled = True
+    site = factory.SubFactory(SiteFactory)
+
+    @factory.lazy_attribute
+    def site_values(self):
+        return {}
 
 
 class UserFactory(DjangoModelFactory):
