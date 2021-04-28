@@ -363,7 +363,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **_kwargs):
     if _kwargs.get('calc_from_sdm'):
         return calc_from_site_daily_metrics()
     else:
-        return 0
+        return calc_from_user_model()
 
 
 def get_total_site_users_joined_for_time_period(site, start_date, end_date,

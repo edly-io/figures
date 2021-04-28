@@ -15,6 +15,7 @@ from rest_framework.test import (
 )
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
+from tests.factories import SiteConfigurationFactory
 from tests.helpers import django_filters_pre_v1
 from tests.views.helpers import create_test_users
 
@@ -33,6 +34,7 @@ class BaseViewTest(object):
     def setup(self, db):
         self.callers = create_test_users()
         self.site = Site.objects.first()
+        SiteConfigurationFactory(site=self.site)
         self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
 
     @pytest.mark.skip()

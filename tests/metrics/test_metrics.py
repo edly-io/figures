@@ -86,8 +86,8 @@ if organizations_support_sites():
 
 
 # Test with a date range where there is at least one month in the middle
-DEFAULT_START_DATE = datetime.datetime(2018, 1, 1, 0, 0, tzinfo=utc)
-DEFAULT_END_DATE = datetime.datetime(2018, 3, 1, 0, 0, tzinfo=utc)
+DEFAULT_START_DATE = datetime.datetime.now()
+DEFAULT_END_DATE = datetime.datetime.now() + datetime.timedelta(weeks=12)
 
 
 def create_student_module_test_data(start_date, end_date):
@@ -320,15 +320,18 @@ class TestSiteMetricsGettersStandalone(object):
         assert count == len(student_module_sets)
 
     def test_get_active_users_for_month(self):
-        date_before = datetime.date(2019, 8, 30)
+        date_today = datetime.date.today()
+        year_today = date_today.year
+        month_today = date_today.month
+        date_before = datetime.date(year_today, month_today - 2, 1)
         dates_in = [
-            datetime.date(2019, 9, 1),
-            datetime.date(2019, 9, 15),
-            datetime.date(2019, 9, 30)
+            datetime.date(year_today, month_today, 1),
+            datetime.date(year_today, month_today, 15),
+            datetime.date(year_today, month_today, 30)
         ]
         start_date = dates_in[0]
         end_date = dates_in[-1]
-        date_after = datetime.date(2019, 10, 1)
+        date_after = datetime.date(year_today, month_today + 2, 1)
         sm_out = [
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_before)),
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_after)),

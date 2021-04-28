@@ -89,7 +89,7 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
 
     figures.tasks.populate_daily_metrics(date_for=date_for)
 
-    last_log = caplog.records[-1]
+    last_log = caplog.records[0]
     assert last_log.message.startswith(
         'FIGURES:FAIL populate_daily_metrics unhandled site level exception for site')
 

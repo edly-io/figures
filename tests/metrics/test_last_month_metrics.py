@@ -62,8 +62,8 @@ class TestGetLastMonthSiteMetrics(object):
 
     def test_get_last_month_site_metrics(self):
         expected_data = {
-            'active_users': 0,
-            'active_learners': 0,
+            'active_users': len(self.students_data),
+            'active_learners': len(self.students_data),
             'site_courses': 0,
             'course_enrollments': 0,
             'registered_users': len(self.students_data),

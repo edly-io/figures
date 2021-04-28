@@ -130,7 +130,15 @@ def populate_daily_metrics(date_for=None, force_update=False):
 
     sites_count = Site.objects.using(read_replica_or_default()).count()
     for i, site in enumerate(Site.objects.using(read_replica_or_default()).all()):
-        for course in figures.sites.get_courses_for_site(site):
+        try:
+            courses = figures.sites.get_courses_for_site(site)
+        except Exception:  # pylint: disable=broad-except
+            courses = []
+            msg = ('FIGURES:FAIL populate_daily_metrics unhandled site level'
+                   ' exception for site[{}]={}')
+            logger.exception(msg.format(site.id, site.domain))
+
+        for course in courses:
             try:
                 populate_single_cdm(
                     course_id=course.id,
@@ -169,10 +177,6 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     ' unhandled exception. site[{}]:{}')
             logger.exception(msg.format(site.id, site.domain))
 
-        except Exception:  # pylint: disable=broad-except
-            msg = ('FIGURES:FAIL populate_daily_metrics unhandled site level'
-                   ' exception for site[{}]={}')
-            logger.exception(msg.format(site.id, site.domain))
         logger.info("figures.populate_daily_metrics: finished Site {:04d} of {:04d}".format(
             i, sites_count))
     logger.info('Finished task "figures.populate_daily_metrics" for date "{}"'.format(

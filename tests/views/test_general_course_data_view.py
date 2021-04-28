@@ -132,11 +132,11 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
 
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous',])
-        assert len(response.data['results']) == len(self.course_overviews)
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous',])
+        assert len(response.data) == len(self.course_overviews)
 
-        for rec in response.data['results']:
+        for rec in response.data:
             course_overview = CourseOverview.objects.get(id=as_course_key(rec['course_id']))
 
             # Test top level vars
@@ -250,6 +250,6 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
         response = view(request)
 
         assert response.status_code == 200
-        assert response.data['count'] == search_term['expected_result']
-        assert len(response.data['results']) == \
+        # assert response.data['count'] == search_term['expected_result']
+        assert len(response.data) == \
             search_term['expected_result']

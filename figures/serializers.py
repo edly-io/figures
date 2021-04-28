@@ -157,9 +157,8 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
     courses = serializers.SerializerMethodField()
 
     def get_courses(self, obj):
-        course_enrollments = figures.sites.get_course_enrollments_for_site(
-            self.context['request'].site
-        ).filter(
+        site = self.context.get('site', getattr(self.context.get('request'), 'site', None))
+        course_enrollments = figures.sites.get_course_enrollments_for_site(site).filter(
             user=obj.user
         ).using(read_replica_or_default())
 
@@ -767,9 +766,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         related serializers to explicitly link models not linked via FK
 
         """
-
-        course_enrollments = figures.sites.get_course_enrollments_for_site(
-            self.context.get('site')).filter(user=user).using(read_replica_or_default())
+        site = self.context.get('site', getattr(self.context.get('request'), 'site', None))
+        course_enrollments = figures.sites.get_course_enrollments_for_site(site).filter(
+            user=user).using(read_replica_or_default())
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 
     def get_profile_image(self, user):

@@ -86,11 +86,11 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
         response = view(request)
 
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
-        assert len(response.data['results']) == len(expected_data)
+        assert len(response.data) == len(expected_data)
 
-        for data in response.data['results']:
+        for data in response.data:
             db_rec = expected_data.get(id=data['id'])
             assert parse(data['created']) == db_rec.created

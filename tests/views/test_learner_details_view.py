@@ -164,8 +164,8 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
 
         self.expected_result_keys = [
             'id', 'username', 'name', 'email', 'country', 'is_active', 'last_login',
-            'year_of_birth', 'level_of_education', 'gender', 'date_joined',
-            'bio', 'courses', 'language_proficiencies', 'profile_image'
+            'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'registration_fields',
+            'bio', 'courses', 'language_proficiencies', 'profile_image', 'course_activity_date'
         ]
 
     def test_serializer(self):
@@ -190,6 +190,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         expected_enrollments = CourseEnrollment.objects.filter(user=user)
         request_path = self.request_path + '{}/'.format(user.id)
         request = APIRequestFactory().get(request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'retrieve'})
         response = view(request, pk=user.id)
@@ -207,16 +208,17 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
 
         """
         request = APIRequestFactory().get(self.request_path)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
-        results = response.data['results']
+        results = response.data
         assert len(results) == len(self.users)
         enrollments = get_course_enrollments_for_site(self.site)
         assert enrollments.count() == len(self.enrollments)
@@ -296,7 +298,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         self.expected_result_keys = [
             'id', 'username', 'name', 'email', 'country', 'is_active',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
-            'bio', 'courses', 'language_proficiencies', 'profile_image'
+            'bio', 'courses', 'language_proficiencies', 'profile_image', 'registration_fields',
         ]
 
     def test_serializer(self):
