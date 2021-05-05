@@ -15,6 +15,7 @@ from celery import chord
 from celery.app import shared_task
 from celery.utils.log import get_task_logger
 
+from openedx.features.edly.models import EdlySubOrganization
 from figures.backfill import backfill_enrollment_data_for_site
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.helpers import as_course_key, as_date
@@ -128,8 +129,9 @@ def populate_daily_metrics(date_for=None, force_update=False):
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
-    sites_count = Site.objects.using(read_replica_or_default()).count()
-    for i, site in enumerate(Site.objects.using(read_replica_or_default()).all()):
+    lms_sites = EdlySubOrganization.objects.using(read_replica_or_default()).values_list('lms_site')
+    sites_count = len(lms_sites)
+    for i, site in enumerate(Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites)):
         try:
             courses = figures.sites.get_courses_for_site(site)
         except Exception:  # pylint: disable=broad-except
