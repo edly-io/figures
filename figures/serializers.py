@@ -749,8 +749,15 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
 
     def get_registration_fields(self, user):
         registration_fields = dict()
-        for field in self.context['required_fields']:
-            registration_fields[field] = str(getattr(user.profile, field, ''))
+        user_profile = user.profile
+        for user_field in user_profile._meta.fields:
+            if user_field.name in self.context['required_fields']:
+                if user_field.choices:
+                    value = user_profile._get_FIELD_display(user_field)
+                else:
+                    value = getattr(user_profile, user_field.name)
+
+                registration_fields[user_field.name] = value
 
         return registration_fields
 
