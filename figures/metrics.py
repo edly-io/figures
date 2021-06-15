@@ -172,7 +172,7 @@ class LearnerCourseGrades(object):
         """
         return [section for section in self.sections(only_graded=only_graded)]
 
-    def progress(self):
+    def progress(self, only_graded=True):
         """
         TODO: FIGURE THIS OUT
         There are two ways we can go about measurig progress:
@@ -183,7 +183,7 @@ class LearnerCourseGrades(object):
         """
         count = points_possible = points_earned = sections_worked = 0
 
-        for section in self.sections(only_graded=True):
+        for section in self.sections(only_graded=only_graded):
             if section.all_total.earned > 0:
                 sections_worked += 1
                 points_earned += section.all_total.earned
@@ -214,6 +214,18 @@ class LearnerCourseGrades(object):
             return float(progress_details['sections_worked']) / float(
                 progress_details['count'])
 
+    def total_progress_percent(self, progress_details=None):
+        """
+        Calculate total progress of the course.
+        """
+        if not progress_details:
+            progress_details = self.progress(only_graded=False)
+        if not progress_details['count']:
+            return 0.0
+        else:
+            return float(progress_details['sections_worked']) / float(
+                progress_details['count'])
+
     @staticmethod
     def course_progress(course_enrollment):
         lcg = LearnerCourseGrades(
@@ -223,7 +235,9 @@ class LearnerCourseGrades(object):
         course_progress_details = lcg.progress()
         return dict(
             course_progress_details=course_progress_details,
-            progress_percent=lcg.progress_percent(course_progress_details))
+            progress_percent=lcg.progress_percent(course_progress_details),
+            total_progress_percent=lcg.total_progress_percent(course_progress_details),
+        )
 
 
 # Support Methods for Both Course and Site-wide Aggregate Metrics

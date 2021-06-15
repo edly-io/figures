@@ -12,6 +12,7 @@ from organizations.models import Organization
 # Ginkgo is the earliest supported platform
 GINKGO = 'GINKGO'
 HAWTHORN = 'HAWTHORN'
+JUNIPER = 'JUNIPER'
 
 
 def platform_release():

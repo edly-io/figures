@@ -2,7 +2,6 @@
 Custom fields
 """
 
-
 from django.db.models.fields import AutoField
 
 
@@ -10,6 +9,7 @@ class UnsignedBigIntAutoField(AutoField):
     """
     An unsigned 8-byte integer for auto-incrementing primary keys.
     """
+
     def db_type(self, connection):
         if connection.settings_dict['ENGINE'] == 'django.db.backends.mysql':
             return "bigint UNSIGNED AUTO_INCREMENT"

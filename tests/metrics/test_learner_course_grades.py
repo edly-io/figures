@@ -17,22 +17,22 @@ from tests.factories import (
     GeneratedCertificateFactory,
     )
 
-from tests.helpers import OPENEDX_RELEASE, GINKGO
+from tests.helpers import OPENEDX_RELEASE, GINKGO, JUNIPER, HAWTHORN
 
 # Mock objects to test course and course section grade metrics
 if OPENEDX_RELEASE == GINKGO:
     from lms.djangoapps.grades.new.course_grade import (
         MockAggregatedScore,
         MockSubsectionGrade,
-        )
+    )
 
-else:
+elif OPENEDX_RELEASE == HAWTHORN:
     from lms.djangoapps.grades.course_grade import (
         MockAggregatedScore,
         MockSubsectionGrade,
-        )
+    )
 
-
+@pytest.mark.skipif(OPENEDX_RELEASE == JUNIPER, reason='Mock functions for course grade no longer exist')
 @pytest.mark.django_db
 class TestLearnerCourseGrades(object):
 
@@ -201,7 +201,7 @@ class TestLearnerCourseGrades(object):
 # Test LearnerCourseGrades static methods
 #
 
-
+@pytest.mark.skipif(OPENEDX_RELEASE == JUNIPER, reason='Mock functions for course grade no longer exist')
 @pytest.mark.django_db
 def test_lcg_course_progress():
     '''
@@ -214,6 +214,7 @@ def test_lcg_course_progress():
     '''
     expected = dict(
         progress_percent=0.5,
+        total_progress_percent=0.5,
         course_progress_details=dict(
             count=2,
             sections_worked=1,
@@ -225,6 +226,7 @@ def test_lcg_course_progress():
             ),
             passed_timestamp=None
             ))
+
     course_enrollment = CourseEnrollmentFactory()
     course_progress = LearnerCourseGrades.course_progress(course_enrollment)
     assert course_progress == expected

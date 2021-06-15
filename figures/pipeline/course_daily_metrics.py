@@ -98,7 +98,9 @@ def get_average_progress_deprecated(course_id, date_for, course_enrollments):
                 site=figures.sites.get_site_for_course(course_id),
                 date_for=date_for,
                 course_enrollment=ce,
-                course_progress_details=course_progress['course_progress_details'])
+                course_progress_details=course_progress['course_progress_details'],
+                total_progress_percent=course_progress['total_progress_percent'],
+            )
         # TODO: Use more specific database-related exception
         except Exception as e:  # pylint: disable=broad-except
             error_data = dict(

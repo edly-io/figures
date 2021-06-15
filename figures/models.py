@@ -455,6 +455,7 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     letter_grade = models.CharField(max_length=255, blank=True, default='')
     percent_grade = models.FloatField(default=0.0)
     passed_timestamp = models.DateTimeField(default=None, null=True)
+    total_progress_percent = models.FloatField(default=0.0)
 
     objects = LearnerCourseGradeMetricsManager()
 

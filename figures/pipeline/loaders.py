@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from figures.models import LearnerCourseGradeMetrics
 
 
-def save_learner_course_grades(site, date_for, course_enrollment, course_progress_details):
+def save_learner_course_grades(site, date_for, course_enrollment, course_progress_details, total_progress_percent=0.0):
     """
 
     ``course_progress_details`` data are the ``course_progress_details`` from the
@@ -18,7 +18,8 @@ def save_learner_course_grades(site, date_for, course_enrollment, course_progres
         points_possible=course_progress_details['points_possible'],
         points_earned=course_progress_details['points_earned'],
         sections_worked=course_progress_details['sections_worked'],
-        sections_possible=course_progress_details['count']
+        sections_possible=course_progress_details['count'],
+        total_progress_percent=total_progress_percent
         )
     obj, created = LearnerCourseGradeMetrics.objects.update_or_create(
         site=site,

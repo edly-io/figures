@@ -534,6 +534,7 @@ class TestLearnerCourseDetailsSerializer(object):
             'course_progress_history': [],
             'course_progress_details': None,
             'course_progress': 0.0,
+            'total_progress_percent': 0.0,
             'course_completed': False,
             'letter_grade': '',
             'percent_grade': 0.0,
