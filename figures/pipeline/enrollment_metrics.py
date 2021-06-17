@@ -52,6 +52,18 @@ from decimal import Decimal
 import logging
 
 from django.utils.timezone import utc
+from django.db.models.functions import Coalesce
+from django.db.models import Sum, Case, When, IntegerField
+
+from completion.models import BlockCompletion
+from opaque_keys.edx.keys import CourseKey
+from openedx.core.djangoapps.content.block_structure.api import get_course_in_cache
+
+from edly_panel_app.api.v1.helpers import (
+    accumulate_total_block_counts,
+    serialize_course_block_structure,
+)
+
 from figures.metrics import LearnerCourseGrades
 from figures.models import LearnerCourseGradeMetrics, PipelineError
 from figures.pipeline.logger import log_error
@@ -60,7 +72,8 @@ from figures.sites import (
     student_modules_for_course_enrollment,
     course_enrollments_for_course,
     UnlinkedCourseError,
-    )
+)
+from student.models import User
 from util.query import read_replica_or_default
 
 logger = logging.getLogger(__name__)
@@ -282,6 +295,7 @@ def _new_enrollment_metrics_record(site, course_enrollment, progress_data, date_
             'percent_grade': progress_data.get('grade', {}).get('percent_grade', 0.0),
             'letter_grade': progress_data.get('grade', {}).get('letter_grade', ''),
             'passed_timestamp': progress_data.get('passed_timestamp', None),
+            'total_progress_percent': progress_data.get('total_progress_percent', 0.0),
         },
         site=site,
         user=course_enrollment.user,
@@ -300,4 +314,66 @@ def _collect_progress_data(student_module):
     lcg = LearnerCourseGrades(user_id=student_module.student_id,
                               course_id=student_module.course_id)
     course_progress_details = lcg.progress()
+    course_progress_details['total_progress_percent'] = _collect_total_progress_data(
+        user_id=student_module.student_id,
+        course_id=str(student_module.course_id)
+    )
     return course_progress_details
+
+
+def _collect_total_progress_data(user_id, course_id):
+    """
+    Get total course progress data for the learner
+    """
+    user = User.objects.get(id=user_id)
+    course_key = CourseKey.from_string(course_id)
+    CORE_BLOCK_TYPES = ['html', 'video', 'problem']
+    completed_percentage = 0.0
+
+    if not course_key:
+        return completed_percentage
+
+    course_block_structure = get_course_in_cache(course_key)
+    serialized_course_block_structure, course_blocks_keys = serialize_course_block_structure(
+        request={},
+        course_block_structure=course_block_structure
+    )
+
+    total_block_types = accumulate_total_block_counts(
+        list(serialized_course_block_structure.get('blocks').values())[0].get('block_counts')
+    )
+    total_blocks = sum(total_block_types.values())
+
+    completions = BlockCompletion.objects.filter(
+        user=user,
+        context_key=course_key,
+        block_key__in=course_blocks_keys
+    )
+    total_completed_block_types = completions.aggregate(
+        video=Coalesce(
+            Sum(Case(When(block_type='video', then=1), default=0, output_field=IntegerField())),
+            0
+        ),
+        problem=Coalesce(
+            Sum(Case(When(block_type='problem', then=1), default=0, output_field=IntegerField())),
+            0
+        ),
+        html=Coalesce(
+            Sum(Case(When(block_type='html', then=1), default=0, output_field=IntegerField())),
+            0
+        ),
+        other=Coalesce(
+            Sum(Case(When(block_type__in=CORE_BLOCK_TYPES, then=0), default=1, output_field=IntegerField())),
+            0
+        ),
+    )
+    total_completed_block_types = {block_type: block_count or 0 for block_type, block_count in
+                                   total_completed_block_types.items()}
+    total_completed_blocks = sum(total_completed_block_types.values())
+
+    if not total_blocks == 0:
+        completed_percentage = float(total_completed_blocks) / float(total_blocks)
+    else:
+        completed_percentage = 0.0
+
+    return completed_percentage

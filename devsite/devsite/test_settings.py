@@ -76,6 +76,8 @@ INSTALLED_APPS = [
     'lms.djangoapps.grades',
     'openedx.core.djangoapps.catalog',
     'openedx.core.djangoapps.content.course_overviews',
+    'openedx.core.djangoapps.django_comment_common',
+    'openedx.features.content_type_gating',
     'openedx.core.djangoapps.course_groups',
     'openedx.core.djangoapps.site_configuration',
     'openedx.core.djangoapps.video_pipeline',
@@ -98,7 +100,24 @@ elif OPENEDX_RELEASE == 'HAWTHORN':
 else:
     INSTALLED_APPS.append('lms.djangoapps.certificates')
     INSTALLED_APPS.append('lms.djangoapps.courseware')
+    INSTALLED_APPS.append('openedx.core.djangoapps.content.block_structure')
+    INSTALLED_APPS.append('completion')
+    INSTALLED_APPS.append('edx_django_utils')
 
+BLOCK_STRUCTURES_SETTINGS = dict(
+    # Delay, in seconds, after a new edit of a course is published
+    # before updating the block structures cache.  This is needed
+    # for a better chance at getting the latest changes when there
+    # are secondary reads in sharded mongoDB clusters. See TNL-5041
+    # for more info.
+    COURSE_PUBLISH_TASK_DELAY=30,
+
+    # Delay, in seconds, between retry attempts if a task fails.
+    TASK_DEFAULT_RETRY_DELAY=30,
+
+    # Maximum number of retries per task.
+    TASK_MAX_RETRIES=5,
+)
 
 TEMPLATES = [
     {

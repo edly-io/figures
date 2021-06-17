@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     'openedx.core.djangoapps.content.course_overviews',
     'openedx.core.djangoapps.course_groups',
     'student',
+    'completion',
 ]
 
 if ENABLE_DEVSITE_CELERY:

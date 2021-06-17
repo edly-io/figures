@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from datetime import date
 
 import django.utils.timezone
 import model_utils.fields
@@ -65,8 +64,8 @@ class Migration(migrations.Migration):
                 ('grade', models.FloatField(db_index=True, null=True, blank=True)),
                 ('max_grade', models.FloatField(null=True, blank=True)),
                 ('done', models.CharField(default='na', max_length=8, db_index=True, choices=[('na', 'NOT_APPLICABLE'), ('f', 'FINISHED'), ('i', 'INCOMPLETE')])),
-                ('created', models.DateTimeField(default=date.today, db_index=True)),
-                ('modified', models.DateTimeField(default=date.today, db_index=True)),
+                ('created', models.DateTimeField(auto_now_add=True, db_index=True)),
+                ('modified', models.DateTimeField(auto_now=True, db_index=True)),
                 ('student', models.ForeignKey(to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
             ],
         ),

@@ -26,7 +26,11 @@ class MockCourse(object):
 
     def __init__(self, course_locator, **kwargs):
         self.grading_policy = None
+        self.location = None
+        self.grade_cutoffs = None
+        self.grader = None
         self.id = course_locator
+
     def set_grading_policy(self, grading_policy):
         self.grading_policy = grading_policy
 

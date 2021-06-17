@@ -619,6 +619,7 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         """
         # Default values if we can't retrieve progress data
         progress_percent = 0.0
+        total_progress_percent = 0.0
         course_progress_details = None
         course_completed = False
         letter_grade = ''
@@ -635,6 +636,7 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
                 percent_grade = obj.percent_grade
                 passed_timestamp = obj.passed_timestamp
                 progress_percent = obj.progress_percent
+                total_progress_percent = obj.total_progress_percent
                 course_progress_details = obj.progress_details
         except Exception as e:  # pylint: disable=broad-except
             # TODO: Use more specific database-related exception
@@ -656,6 +658,7 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         data = dict(
             course_completed=course_completed,
             course_progress=round((progress_percent / 1) * 100, 2),
+            total_progress_percent=round((total_progress_percent / 1) * 100, 2),
             course_progress_details=course_progress_details,
             course_progress_history=course_progress_history,
             letter_grade=letter_grade,
