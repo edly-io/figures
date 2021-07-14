@@ -328,7 +328,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
             This lets us override this functionality, in particular to simplify
             testing
         '''
-        return metrics.get_monthly_site_metrics
+        return metrics.get_edly_monthly_site_metrics
 
     def get(self, request, format=None):  # pylint: disable=redefined-builtin
         '''

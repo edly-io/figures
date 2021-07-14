@@ -1108,3 +1108,49 @@ def get_monthly_site_metrics(site, date_for=None, **kwargs):
         total_course_completions=total_course_completions,
         total_active_courses=total_active_courses,
     )
+
+
+def get_edly_monthly_site_metrics(site, date_for=None, **kwargs):
+    """
+    Gets current metrics with history
+    :type site: django.contrib.sites.models.Site
+    :type date_for: datetime.datetime, datetime.date, or date as a string
+    :return: Site metrics for a a month ending on the ``date_for`` or "today"
+    if date_for is not specified
+    :rtype: dict
+
+    """
+    date_for = as_date(date_for) if date_for else datetime.datetime.utcnow().date()
+    months_back = kwargs.get('months_back', 6)
+
+    total_site_learners = get_monthly_history_metric(
+        func=get_total_site_learners_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
+    total_site_staff_users = get_monthly_history_metric(
+        func=get_total_site_staff_users_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
+    total_site_courses = get_monthly_history_metric(
+        func=get_total_site_courses_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
+    total_active_courses = get_monthly_history_metric(
+        func=get_total_active_courses_for_time_period,
+        site=site,
+        date_for=date_for,
+        months_back=months_back,
+    )
+
+    return dict(
+        total_site_learners=total_site_learners,
+        total_site_staff_users=total_site_staff_users,
+        total_site_courses=total_site_courses,
+        total_active_courses=total_active_courses,
+    )

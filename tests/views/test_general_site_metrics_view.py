@@ -18,15 +18,12 @@ from tests.views.base import BaseViewTest
 
 def mock_get_monthly_site_metrics(date_for=None, **kwargs):
     return dict(
-        monthly_active_users=1,
-        total_site_users=2,
         total_site_learners=3,
         total_site_staff_users=4,
         total_site_coures=5,
-        total_course_enrollments=6,
-        total_course_completions=7,
         total_active_courses=8,
     )
+
 
 @pytest.mark.django_db
 class TestGeneralSiteMetricsView(BaseViewTest):
@@ -54,4 +51,3 @@ class TestGeneralSiteMetricsView(BaseViewTest):
         assert response.status_code == 200
 
         assert response.data == mock_get_monthly_site_metrics()
-
