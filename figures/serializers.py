@@ -682,13 +682,6 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
       "date_joined": "2018-05-06T14:01:58Z",
       "last_login": "2018-05-06T14:01:58Z",
       "bio": null,
-      "profile_image": {
-            "image_url_full": "http://localhost:8000/static/images/profiles/default_500.png",
-            "image_url_large": "http://localhost:8000/static/images/profiles/default_120.png",
-            "image_url_medium": "http://localhost:8000/static/images/profiles/default_50.png",
-            "image_url_small": "http://localhost:8000/static/images/profiles/default_30.png",
-            "has_image": false
-        },
       "level_of_education": "b",
       "language_proficiencies": [],
       "email": "maxi+localtest@appsembler.com",
@@ -727,16 +720,10 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
     bio = serializers.CharField(source='profile.bio', required=False)
 
     course_activity_date = serializers.CharField(source='edly_profile.course_activity_date', required=False)
-
-    # We may want to exclude this unless we want to show
-    # profile images in Figures
-    profile_image = serializers.SerializerMethodField()
-
-    language_proficiencies = serializers.SerializerMethodField()
     registration_fields = serializers.SerializerMethodField()
 
     # Would like to make this work without using the SerializerMethodField
-    # courses = LearnerCourseDetailsSerializezr(many=True)
+    # courses = LearnerCourseDetailsSerializer(many=True)
     courses = serializers.SerializerMethodField()
 
     class Meta:
@@ -745,8 +732,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'name', 'email', 'country', 'is_active', 'course_activity_date',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
-            'bio', 'courses', 'language_proficiencies', 'profile_image',
-            'registration_fields',
+            'bio', 'courses', 'registration_fields',
             )
         read_only_fields = fields
 
@@ -767,12 +753,6 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
 
         return registration_fields
 
-    def get_language_proficiencies(self, user):
-        if hasattr(user, 'profiles') and user.profile.language:
-            return [user.profile.language]
-        else:
-            return []
-
     def get_courses(self, user):
         """
         This method is a hack until I figure out customizing DRF fields and/or
@@ -783,13 +763,6 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         course_enrollments = figures.sites.get_course_enrollments_for_site(site).filter(
             user=user).using(read_replica_or_default())
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
-
-    def get_profile_image(self, user):
-        if hasattr(user, 'profile'):
-            return AccountLegacyProfileSerializer.get_profile_image(
-                            user.profile, user, None)
-        else:
-            return None
 
 
 class CourseMauMetricsSerializer(serializers.ModelSerializer):
