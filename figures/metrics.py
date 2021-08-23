@@ -595,11 +595,13 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
     """
 
     def calc_from_courses_overview():
-        edx_organizations = organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(read_replica_or_default())
+        edx_organizations = organizations.models.Organization.objects.filter(
+            edlysuborganization__lms_site=site
+        ).using(read_replica_or_default()).values_list('id', flat=True)
 
         if edx_organizations:
             return CourseOverview.objects.filter(
-                org=edx_organizations[0].short_name
+                org__in=edx_organizations
             ).filter(
                 Q(
                     Q(start__lt=prev_day(start_date)) & Q(end__gt=next_day(end_date))

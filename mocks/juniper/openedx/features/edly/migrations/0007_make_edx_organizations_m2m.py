@@ -4,14 +4,14 @@
 
 import django.core.validators
 from django.db import migrations, models
-from django.db.models.deletion import CASCADE
 
 
 def seed_edx_organizations(apps, schema_editor):
     EdlySubOrganization = apps.get_model('edly', 'EdlySubOrganization')
-    EdlySubOrganization.objects.all().update(
-        edx_organizations=models.F('edx_organization')
-    )
+    for edly_sub_org in EdlySubOrganization.objects.all():
+        edly_sub_org.edx_organizations.add(edly_sub_org.edx_organization)
+        edly_sub_org.save()
+
 
 def unseed_edx_organizations(apps, schema_editor):
     EdlySubOrganization = apps.get_model('edly', 'EdlySubOrganization')
@@ -19,8 +19,8 @@ def unseed_edx_organizations(apps, schema_editor):
         edly_sub_org.edx_organization = edly_sub_org.edx_organizations.first()
         edly_sub_org.save()
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
         ('organizations', '0001_squashed_0007_historicalorganization'),
         ('edly', '0006_edlyuserprofile_course_activity_date'),
