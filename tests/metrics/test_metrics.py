@@ -222,7 +222,7 @@ def create_staff_users_joined_over_time(site, start_date, end_date):
     """
     edx_org = OrganizationFactory()
     edly_sub_org = EdlySubOrganizationFactory(
-        edx_organization=edx_org,
+        edx_organizations=[edx_org],
         lms_site=site
     )
 

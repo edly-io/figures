@@ -50,7 +50,7 @@ class TestCourseTopStatsViewSet(object):
             self.organization = OrganizationFactory()
             self.edly_sub_organization = EdlySubOrganizationFactory(
                 lms_site=self.site,
-                edx_organization=self.organization
+                edx_organizations=[self.organization]
             )
             for course_overview in self.course_overviews:
                 OrganizationCourseFactory(
