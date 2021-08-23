@@ -143,7 +143,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         ]
         for course_overview in self.course_overviews:
             OrganizationCourseFactory(
-                organization=self.edly_org.edx_organization,
+                organization=self.organization,
                 course_id=str(course_overview.id)
             )
 
@@ -260,8 +260,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         ]
 
         for co in self.my_course_overviews:
-            OrganizationCourseFactory(organization=self.my_site_org,
-                                      course_id=str(co.id))
+            OrganizationCourseFactory(organization=self.my_site_org, course_id=str(co.id))
 
         # Set up users and enrollments for 'my site'
         self.my_site_users = [UserFactory() for i in range(3)]
@@ -290,8 +289,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         self.my_site_users.append(self.caller)
         # Set up other site's data
         self.other_site_enrollment =CourseEnrollmentFactory()
-        OrganizationCourseFactory(organization=self.other_site_org,
-                                  course_id=self.other_site_enrollment.course.id)
+        OrganizationCourseFactory(organization=self.other_site_org, course_id=self.other_site_enrollment.course.id)
         UserOrganizationMappingFactory(user=self.other_site_enrollment.user,
                                        organization=self.other_site_org)
 

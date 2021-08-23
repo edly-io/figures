@@ -87,6 +87,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
         settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         self.today = datetime.date.today()
         self.course_overview = CourseOverviewFactory()
+        self.organization = OrganizationFactory()
         if OPENEDX_RELEASE == GINKGO:
             self.course_enrollments = [CourseEnrollmentFactory(
                 course_id=self.course_overview.id) for i in range(4)]
@@ -96,10 +97,13 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
         self.site = SiteFactory(domain='my-site.test')
         self.edly_sub_organization = EdlySubOrganizationFactory(
-            lms_site=self.site
+            lms_site=self.site,
+            edx_organization=self.organization,
+            edx_organizations=[self.organization]
         )
+
         OrganizationCourseFactory(
-            organization=self.edly_sub_organization.edx_organization,
+            organization=self.organization,
             course_id=str(self.course_overview.id)
         )
         for course_enrollment in self.course_enrollments:
@@ -253,7 +257,7 @@ class TestCourseDailyMetricsExtractor(object):
         self.org = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=self.site,
-            edx_organization=self.org
+            edx_organizations=[self.org]
         )
         self.user = UserFactory()
         EdlyUserProfileFactory(
@@ -299,12 +303,15 @@ class TestCourseDailyMetricsLoader(object):
         self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
 
         self.site = SiteFactory(domain='my-site.test')
+        self.organization = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
-            lms_site=self.site
+            lms_site=self.site,
+            edx_organization=self.organization,
+            edx_organizations=[self.organization]
         )
         for course_enrollment in self.course_enrollments:
             OrganizationCourseFactory(
-                organization=self.edly_sub_organization.edx_organization,
+                organization=self.organization,
                 course_id=str(course_enrollment.course.id),
             )
 

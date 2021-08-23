@@ -52,10 +52,9 @@ class TestCoursesIndexViewSet(BaseViewTest):
         super(TestCoursesIndexViewSet, self).setup(db)
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
         if is_multisite():
-            self.organization = self.edly_org.edx_organization
+            self.organizations = self.edly_org.edx_organizations
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization,
-                                          course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization,course_id=str(co.id))
 
     def test_get_all(self):
         expected_data = COURSE_DATA

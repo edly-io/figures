@@ -111,11 +111,10 @@ class TestCourseDailyMetricsMissingCdm(object):
             self.organization = OrganizationFactory()
             EdlySubOrganizationFactory(
                 lms_site=self.site,
-                edx_organization=self.organization
+                edx_organizations=[self.organization]
             )
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization,
-                                          course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))
 
     def test_no_missing(self):
         [CourseDailyMetricsFactory(
@@ -238,20 +237,19 @@ class TestSiteDailyMetricsExtractor(object):
 
         if is_multisite():
             self.organization = OrganizationFactory()
-            EdlySubOrganizationFactory(
+            edly_sub_org = EdlySubOrganizationFactory(
                 lms_site=self.site,
-                edx_organization=self.organization
+                edx_organizations=[self.organization]
             )
             for user in self.users:
-                user.edly_profile.edly_sub_organizations.add(self.organization.edlysuborganization)
+                user.edly_profile.edly_sub_organizations.add(edly_sub_org)
 
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization,
-                                          course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))
+
             if organizations_support_sites():
                 for user in self.users:
-                    UserOrganizationMappingFactory(user=user,
-                                                   organization=self.organization)
+                    UserOrganizationMappingFactory(user=user, organization=self.organization)
 
     def test_extract(self, monkeypatch):
         previous_cumulative_active_user_count = 50
