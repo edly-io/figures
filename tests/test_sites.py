@@ -75,7 +75,7 @@ class TestHandlersForStandaloneMode(object):
         self.organization = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=self.site,
-            edx_organization=self.organization
+            edx_organizations=[self.organization]
         )
 
         assert Site.objects.count() == 2
@@ -148,7 +148,7 @@ class TestHandlersForMultisiteMode(object):
         self.organization = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=self.site,
-            edx_organization=self.organization
+            edx_organizations=[self.organization]
         )
         # Now verify that "EdlySubOrganizationFactory" has created a studio site along with the lms site
         assert Site.objects.count() == 3
@@ -288,7 +288,7 @@ class TestUserHandlersForMultisiteMode(object):
         self.organization = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=self.site,
-            edx_organization=self.organization
+            edx_organizations=[self.organization]
         )
         assert get_user_model().objects.count() == 0
         self.users = [UserFactory() for i in range(3)]
@@ -396,8 +396,10 @@ def test_users_enrolled_in_courses(enrollment_data):
 @pytest.mark.django_db
 def test_site_course_ids(monkeypatch):
     site = SiteFactory()
-    edly_sub_org = EdlySubOrganizationFactory(lms_site=site)
+    organization = OrganizationFactory()
+    edly_sub_org = EdlySubOrganizationFactory(lms_site=site, edx_organization=organization)
     course_overviews = [CourseOverviewFactory() for i in range(2)]
+
     for co in course_overviews:
         OrganizationCourseFactory(course_id=co.id, organization=edly_sub_org.edx_organization)
 

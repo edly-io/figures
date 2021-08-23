@@ -67,7 +67,7 @@ def course_test_data():
     else:
         org = OrganizationFactory()
 
-    EdlySubOrganizationFactory(edx_organization=org, lms_site=site)
+    EdlySubOrganizationFactory(edx_organizations=[org], lms_site=site)
     OrganizationCourseFactory(organization=org,
                               course_id=str(course_overview.id))
 
@@ -107,7 +107,7 @@ def sog_data():
         organization = OrganizationFactory(sites=[site])
     else:
         organization = OrganizationFactory()
-    EdlySubOrganizationFactory(edx_organization=organization, lms_site=site)
+    EdlySubOrganizationFactory(edx_organizations=[organization], lms_site=site)
     OrganizationCourseFactory(organization=organization,
                               course_id=str(course_overview.id))
     return dict(

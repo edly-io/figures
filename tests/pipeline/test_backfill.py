@@ -66,7 +66,7 @@ def backfill_test_data(db):
         org = OrganizationFactory()
         edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=site,
-            edx_organization=org
+            edx_organizations=[org]
         )
         for co in course_overviews:
             OrganizationCourseFactory(organization=org, course_id=str(co.id))

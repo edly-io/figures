@@ -14,6 +14,7 @@ from rest_framework.test import (
     force_authenticate,
 )
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
+from organizations.tests.factories import OrganizationFactory
 
 from tests.factories import SiteConfigurationFactory
 from tests.helpers import django_filters_pre_v1
@@ -35,7 +36,8 @@ class BaseViewTest(object):
         self.callers = create_test_users()
         self.site = Site.objects.first()
         SiteConfigurationFactory(site=self.site)
-        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
+        self.organization = OrganizationFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site, edx_organizations=[self.organization])
 
     @pytest.mark.skip()
     @pytest.mark.parametrize('username, status_code', [

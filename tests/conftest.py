@@ -44,7 +44,7 @@ def sm_test_data(db):
     org = OrganizationFactory()
     edly_sub_organization = EdlySubOrganizationFactory(
         lms_site=site,
-        edx_organization=org
+        edx_organizations=[org]
     )
 
     sm = []
@@ -90,7 +90,7 @@ def make_site_data(num_users=3, num_courses=2):
     else:
         org = OrganizationFactory()
 
-    edly_sub_org = EdlySubOrganizationFactory(lms_site=site, edx_organization=org)
+    edly_sub_org = EdlySubOrganizationFactory(lms_site=site, edx_organizations=[org])
     courses = [CourseOverviewFactory() for i in range(num_courses)]
     users = [UserFactory() for i in range(num_users)]
     enrollments = []

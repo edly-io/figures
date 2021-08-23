@@ -78,7 +78,7 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
                                                  monkeypatch,
                                                  caplog):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organization=OrganizationFactory(), lms_site=SiteFactory())
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
@@ -101,7 +101,7 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
                     reason='Broken test. Apparent Django 1.8 incompatibility')
 def test_populate_daily_metrics_error(transactional_db, monkeypatch):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organization=OrganizationFactory(), lms_site=SiteFactory())
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
@@ -133,7 +133,7 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
                                                       monkeypatch,
                                                       caplog):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organization=OrganizationFactory(), lms_site=SiteFactory())
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 

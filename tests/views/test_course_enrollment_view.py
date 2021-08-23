@@ -68,9 +68,8 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
         self.sample_course_id = self.course_enrollments[0].course_id
 
         if is_multisite():
-            self.organization = self.edly_org.edx_organization
-            OrganizationCourseFactory(organization=self.organization,
-                                      course_id=str(self.course_overview.id))
+            self.organizations = self.edly_org.edx_organizations
+            OrganizationCourseFactory(organization=self.organization, course_id=str(self.course_overview.id))
 
     @pytest.mark.parametrize('query_params, filter_args', [
             ('', {}),
