@@ -280,7 +280,7 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         """
         Filter by User's username
         """
-        return queryset.filter(user__username=value)
+        return queryset.filter(user__username__iexact=value)
 
     def filter_user_fullname(self, queryset, name, value):  # pylint: disable=unused-argument
         """
@@ -379,10 +379,10 @@ class UserFilterSet(django_filters.FilterSet):
     is_staff = boolean_filter(field_name='is_staff')
     is_superuser = boolean_filter(field_name='is_superuser')
     username = char_filter(field_name='username',
-                           lookup_expr='icontains',
+                           lookup_expr='iexact',
                            distinct=True)
     email = char_filter(field_name='email',
-                        lookup_expr='icontains',
+                        lookup_expr='iexact',
                         distinct=True)
     name = char_filter(field_name='profile__name',
                        lookup_expr='icontains',
