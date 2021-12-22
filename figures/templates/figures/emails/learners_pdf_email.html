@@ -1,0 +1,15 @@
+{% extends "email/email_base.html" %}
+{% block body %}
+<!-- Message Body -->
+        <p>
+            Hi {{ username }},
+        <p>
+        <p>
+            Please find the attached PDF containing a list of all learners
+            registered on the platform.
+        </p>
+
+        <p>Thanks,</p>
+        <p>The {{ platform_name }} team</p>
+<!-- End Message Body -->
+{% endblock body %}

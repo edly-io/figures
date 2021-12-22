@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 from datetime import datetime
 import logging
+from celery.task import task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -39,6 +40,7 @@ except ImportError:
 
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
+from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
@@ -462,6 +464,57 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         site = getattr(self.request, 'sites', django.contrib.sites.shortcuts.get_current_site(self.request))
         queryset = figures.sites.get_users_for_site(site)
         return queryset
+
+
+class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    model = get_user_model()
+    serializer_class = LearnerDetailsSerializer
+    ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined']
+    filter_class = UserFilterSet
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_users_for_site(site)
+        queryset = queryset.filter(
+            ~Q(courseaccessrole__role='course_creator_group'),
+            is_staff=False,
+            is_superuser=False,
+            is_active=True
+        ).using(read_replica_or_default())
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset().values_list('email', flat=True)
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        current_site_configuration = get_current_site_configuration()
+        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+        logo_url = current_site_configuration.get_value('BRANDING', {}).get('logo', '')
+        self.send_learners_data_pdf.delay(
+            users=list(queryset),
+            email=request.user.email,
+            site_id=site.id,
+            logo_url=logo_url,
+            platform_name=platform_name,
+            from_address=from_address,
+        )
+        return Response('Learners overview email sent successfully')
+
+    @task()
+    def send_learners_data_pdf(users, email, site_id, logo_url, platform_name, from_address):
+        context = dict()
+        request_user = get_user_model().objects.get(email=email)
+        username = request_user.profile.name if request_user.profile else request_user.username
+        site = Site.objects.get(id=site_id)
+        context['site'] = site
+        context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
+            request_user,
+            site,
+        )
+        queryset = get_user_model().objects.filter(email__in=users)
+        serializer = LearnerDetailsSerializer(queryset, context=context, many=True)
+        pdf_file = figures.helpers.get_prepared_pdf(serializer.data, logo_url)
+        figures.helpers.send_email_with_attachment(email, username, platform_name, from_address, pdf_file)
 
 
 class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
