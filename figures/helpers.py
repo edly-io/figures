@@ -48,8 +48,14 @@ home for functionality.
 from __future__ import absolute_import
 import calendar
 import datetime
+from dateutil import parser
+import logging
+
 from django.conf import settings
+from django.core.mail.message import EmailMultiAlternatives
 from django.utils.timezone import utc
+from django.template.loader import get_template
+from fpdf import FPDF
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
@@ -57,6 +63,10 @@ from dateutil.rrule import rrule, MONTHLY
 
 from opaque_keys.edx.keys import CourseKey
 import six
+
+from figures.constants import LEARNERS_OVERVIEW_REPORT, PDF_COPYRIGHT_TEXT, PDF_NOTE, PDF_EMAIL_SUBJECT
+
+logger = logging.getLogger(__name__)
 
 
 def is_multisite():
@@ -216,6 +226,7 @@ def period_as_month(month_tuple, fmt='%b-%Y'):
     """
     return datetime.date(*month_tuple).strftime(fmt)
 
+
 def get_required_registration_fields_for_user(user, site):
     """
     Returns only required registration fields from user profile of given site.
@@ -241,3 +252,142 @@ def get_required_registration_fields_for_user(user, site):
         if hasattr(user.profile, field)
     ]
     return user_required_fields
+
+
+def _get_completed_courses(courses):
+    """
+    Return number of completed courses from list of courses.
+    """
+    courses_count = 0
+    for course in courses:
+        if course['progress_data'] and course['progress_data']['course_completed']:
+            courses_count += 1
+
+    return str(courses_count)
+
+
+def _render_template(path, context):
+        """
+        Takes a template path and context and returns a rendered template
+
+        Arguments:
+            path: path of the file
+            context: context for the template
+        """
+        txt_template = get_template(path)
+        return txt_template.render(context)
+
+
+def send_email_with_attachment(recipient_email, username, platform_name, from_address, pdf_file=None):
+    """
+    Send email with attachments to given recipients.
+    """
+    txt_template_path = 'figures/emails/learners_pdf_email.txt'
+    html_template_path = 'figures/emails/learners_pdf_email.html'
+    logger.info(platform_name)
+    context = dict(platform_name=platform_name, username=username)
+    plain_content = _render_template(txt_template_path, context)
+    html_content = _render_template(html_template_path, context)
+    logger.info(html_content)
+    email_message = EmailMultiAlternatives(PDF_EMAIL_SUBJECT, html_content, from_address, to=[recipient_email])
+    email_message.content_subtype = 'html'
+    email_message.attach_alternative(plain_content, 'text/plain')
+    if pdf_file:
+        email_message.attach(
+            '{}.pdf'.format(LEARNERS_OVERVIEW_REPORT),
+            pdf_file,
+            'application/pdf'
+        )
+
+    email_message.send()
+    logger.info('Learner overview report email sent to {}'.format(username))
+
+
+def _get_formatted_datetime_string(datetime_string, time=False):
+    """
+    Parse string into datetime format and return custom formatted string.
+    """
+    datetime_format = '%Y-%m-%d %H:%M:%S' if time else '%Y-%m-%d'
+    if not datetime_string:
+        return ''
+
+    parsed_datetime = parser.parse(datetime_string)
+    return datetime.datetime.strftime(parsed_datetime, datetime_format)
+
+
+def get_prepared_pdf(pdf_data, logo_url):
+    """
+    Prepare pdf for learners overview data.
+    """
+    class LearnerPDF(FPDF):
+        """
+        Custom class for FPDF.
+        """
+        def header(self):
+            """
+            Create header for pdf file.
+            """
+            self.set_left_margin(0)
+            self.set_fill_color(242, 242, 242)
+            self.set_font('Arial', size=14)
+            self.cell(0, 18, '', 0, 0, 'C', True)
+            self.ln(1)
+            self.image(name=logo_url, x=70, w=65, h=15)
+            self.ln(5)
+
+        def footer(self):
+            """
+            Create footer for pdf file.
+            """
+            self.set_left_margin(0)
+            self.set_text_color(255, 255, 255)
+            self.set_fill_color(47, 42, 42)
+            self.set_y(-15)
+            self.set_font('Arial', '', 9)
+            self.cell(0, 15, PDF_COPYRIGHT_TEXT, 0, 0, 'C', True)
+
+    pdf = LearnerPDF()
+    pdf.set_top_margin(0)
+    pdf.set_left_margin(0)
+    pdf.set_right_margin(0)
+    pdf.add_page()
+    pdf.set_left_margin(3)
+    pdf.set_font('Arial', size=14, style='B')
+    pdf.set_text_color(70, 64, 64)
+    pdf.multi_cell(w=0, h=10, txt='Learners Overview', border=0, align='L', fill=False)
+    pdf.ln(10)
+    pdf.set_font('Arial', 'B', 9)
+    line_height = pdf.font_size * 2.5
+    pdf.set_fill_color(242, 242, 242)
+    pdf.set_draw_color(242, 242, 242)
+    pdf.cell(50, line_height, 'Name', border='LTB', fill=True)
+    pdf.cell(65, line_height, 'Email', border='TB', fill=True)
+    pdf.cell(17, line_height, 'Courses', border='TB', fill=True)
+    pdf.cell(20, line_height, 'Courses', border='TB', fill=True)
+    pdf.cell(20, line_height, 'Account', border='TB', fill=True)
+    pdf.cell(32, line_height, 'Login', border='TBR', fill=True)
+    pdf.ln(line_height)
+    pdf.cell(50, line_height, '', border='LTB', fill=True)
+    pdf.cell(65, line_height, '', border='TB', fill=True)
+    pdf.cell(17, line_height, 'Enrolled', border='TB', fill=True)
+    pdf.cell(20, line_height, 'Completed', border='TB', fill=True)
+    pdf.cell(20, line_height, 'Created', border='TB', fill=True)
+    pdf.cell(32, line_height, '', border='TBR', fill=True)
+    pdf.ln(line_height)
+    pdf.set_font('Arial', size=9)
+    for row in pdf_data:
+        course_count = len(row['courses']) if row['courses'] else 0
+        pdf.set_text_color(221, 31, 37)
+        pdf.cell(50, line_height, row['name'], border='LTB')
+        pdf.set_text_color(7, 64, 64)
+        pdf.cell(65, line_height, row['email'], border='TB')
+        pdf.cell(17, line_height, str(course_count), border='TB')
+        pdf.cell(20, line_height, _get_completed_courses(row['courses']), border='TB')
+        pdf.cell(20, line_height, _get_formatted_datetime_string(row['date_joined']), border='TB')
+        pdf.cell(32, line_height, _get_formatted_datetime_string(row['last_login'], True), border='TBR')
+        pdf.ln(line_height)
+        pdf.set_left_margin(3)
+
+    pdf.set_font('Arial', 'I', 8)
+    pdf.multi_cell(w=0, h=pdf.font_size*2, txt=PDF_NOTE, border=0, align='L', fill=False)
+    return pdf.output(dest='S')

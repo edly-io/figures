@@ -1,0 +1,5 @@
+Dear {{ username }},
+Please find the attached PDF containing a list of all learners registered on the platform.
+
+Thanks,
+The {{ platform_name }} team
