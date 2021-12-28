@@ -40,6 +40,7 @@ series sets
 from __future__ import absolute_import
 import datetime
 
+from dateutil.relativedelta import relativedelta
 from dateutil.rrule import rrule, DAILY
 import pytest
 
@@ -323,7 +324,8 @@ class TestSiteMetricsGettersStandalone(object):
         date_today = datetime.date.today()
         year_today = date_today.year
         month_today = date_today.month
-        date_before = datetime.date(year_today, month_today - 2, 1)
+        date_before = date_today + relativedelta(months=-2)
+        date_before = datetime.date(year_today, date_before.month, 1)
         dates_in = [
             datetime.date(year_today, month_today, 1),
             datetime.date(year_today, month_today, 15),
@@ -331,7 +333,8 @@ class TestSiteMetricsGettersStandalone(object):
         ]
         start_date = dates_in[0]
         end_date = dates_in[-1]
-        date_after = datetime.date(year_today, month_today + 2, 1)
+        date_after = date_today + relativedelta(months=+2)
+        date_after = datetime.date(year_today, date_after.month, 1)
         sm_out = [
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_before)),
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_after)),

@@ -156,7 +156,8 @@ class TestCollectMetricsForEnrollment(object):
         else:
             self.org = OrganizationFactory()
 
-        self.datetime_1 = datetime(self.today.year, self.today.month - 1, self.today.day, tzinfo=utc)
+        previous_month = self.today + relativedelta(months=-1)
+        self.datetime_1 = datetime(previous_month.year, previous_month.month, previous_month.day, tzinfo=utc)
         self.datetime_2 = self.datetime_1 + relativedelta(months=1)  # future of date_1
         self.course_overview = CourseOverviewFactory()
         self.course_enrollment = CourseEnrollmentFactory(course_id=self.course_overview.id)

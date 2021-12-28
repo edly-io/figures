@@ -19,8 +19,10 @@ looking at adding additional Figures models to capture:
 
 from __future__ import absolute_import
 import datetime
+import six
 from decimal import Decimal
 
+from crum import get_current_request
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django_countries import Countries
@@ -28,6 +30,7 @@ from rest_framework import serializers
 from rest_framework.fields import empty
 
 from openedx.core.djangoapps.user_api.accounts.serializers import AccountLegacyProfileSerializer  # noqa pylint: disable=import-error
+from openedx.features.course_experience.utils import get_course_outline_block_tree
 
 from figures.compat import (RELEASE_LINE,
                             CourseAccessRole,
@@ -664,8 +667,34 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
             letter_grade=letter_grade,
             percent_grade=round((percent_grade / 1) * 100, 2),
             passed_timestamp=passed_timestamp,
+            farthest_completed_subsection=self.get_farthest_completed_subsection(course_enrollment),
             )
         return data
+
+    def get_farthest_completed_subsection(self, course_enrollment):
+        """
+        Get the farthest completed subsection for the course.
+        """
+
+        request = get_current_request()
+        user = course_enrollment.user
+        request.user = user
+
+        all_blocks = get_course_outline_block_tree(
+            request,
+            six.text_type(course_enrollment.course_id),
+            user,
+            allow_start_dates_in_future=True
+        )
+
+        last_completed_section = None
+        for chapter in all_blocks.get('children'):
+            for section in chapter.get('children'):
+                for subsection in section.get('children'):
+                    if subsection.get('complete'):
+                        last_completed_section = subsection.get('display_name')
+
+        return last_completed_section
 
 
 class LearnerDetailsSerializer(serializers.ModelSerializer):
