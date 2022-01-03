@@ -148,6 +148,8 @@ router.register(
     views.LearnerMetricsViewSetV2,
     base_name='learner-metrics')
 
+users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
+
 urlpatterns = [
 
     # UI Templates
@@ -156,6 +158,7 @@ urlpatterns = [
     # Non-router API endpoints
     url(r'^api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
         name='general-site-metrics'),
+    url(r'api/users/pdf', users_detail_pdf, name='users-detail-pdf'),
 ]
 
 # Include router endpoints

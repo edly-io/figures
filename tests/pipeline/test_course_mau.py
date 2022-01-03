@@ -6,6 +6,7 @@ Tests Course Monthly Active Users (MAUs)
 
 from __future__ import absolute_import
 from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
 import pytest
 from mock import Mock
 
@@ -45,7 +46,8 @@ def create_student_module_recs(course_id):
     # Create SM in our month
     year_for = date.today().year
     month_for = date.today().month
-    last_day = (date(year_for, month_for + 1, 1) - timedelta(days=1)).day
+    next_month_date = date.today() + relativedelta(months=+1)
+    last_day = (date(year_for, next_month_date.month, 1) - timedelta(days=1)).day
     start_dt = datetime(year_for, month_for, 1, tzinfo=fuzzy.compat.UTC)
     end_dt = datetime(year_for, month_for, last_day, tzinfo=fuzzy.compat.UTC)
     date_gen = fuzzy.FuzzyDateTime(start_dt=start_dt, end_dt=end_dt)
