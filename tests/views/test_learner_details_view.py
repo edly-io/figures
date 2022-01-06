@@ -168,6 +168,17 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
             'bio', 'courses', 'course_activity_date'
         ]
 
+    def mock_get_farthest_completed_subsection(self, obj):
+        """
+        get_farthest_completed_subsection method so we don't have to include all the dependencies.
+        """
+        return 'Unit'
+
+    @mock.patch.object(
+        figures.serializers.LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_serializer(self):
         '''
         This test makes sure the serializer works with the test data provided
@@ -184,6 +195,11 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         # the serializer specific tests (see tests/test_serializers.py).
         assert serializer.data
 
+    @mock.patch.object(
+        figures.serializers.LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_get_learner_details_retrieve(self):
         user = self.users[0]
 
@@ -199,7 +215,11 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         assert len(response.data['courses']) == expected_enrollments.count()
         assert set(response.data.keys()) == set(self.expected_result_keys)
 
-
+    @mock.patch.object(
+        figures.serializers.LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_get_learner_details_list(self):
         """Tests retrieving a list of users with abbreviated details
 

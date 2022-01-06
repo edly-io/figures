@@ -6,6 +6,8 @@ from __future__ import absolute_import
 import datetime
 from dateutil.parser import parse as dateutil_parse
 from decimal import Decimal
+from dateutil.parser import parse
+import mock
 import pytest
 # import pytz
 
@@ -94,7 +96,7 @@ class TestUserIndexSerializer(object):
 
     def test_has_fields(self):
         '''Tests that the serialized UserIndex data has specific keys and values
-        
+
         We use a set instead of just doing this:
 
             assert data.keys() == ['id', 'username', 'fullname', ]
@@ -105,7 +107,7 @@ class TestUserIndexSerializer(object):
         data = self.serializer.data
 
         assert set(data.keys()) == set(['id', 'username', 'fullname', ])
-        
+
         # This is to make sure that the serializer retrieves the correct nested
         # model (UserProfile) data
         assert data['fullname'] == 'Alpha One'
@@ -463,7 +465,7 @@ class TestGeneralUserDataSerializer(object):
 
     def test_has_fields(self):
         '''Tests that the serialized UserIndex data has specific keys and values
-        
+
         We use a set instead of just doing this:
 
             assert data.keys() == ['id', 'username', 'fullname', ]
@@ -504,6 +506,17 @@ class TestLearnerCourseDetailsSerializer(object):
         self.serializer = LearnerCourseDetailsSerializer(
             instance=self.course_enrollment)
 
+    def mock_get_farthest_completed_subsection(self, obj):
+        """
+        get_farthest_completed_subsection method so we don't have to include all the dependencies.
+        """
+        return ''
+
+    @mock.patch.object(
+        LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_has_fields(self):
 
         expected_fields = set([
@@ -514,6 +527,11 @@ class TestLearnerCourseDetailsSerializer(object):
         data = self.serializer.data
         assert set(data.keys()) == expected_fields
 
+    @mock.patch.object(
+        LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_get_progress_data(self):
         """
         Method should return data of the form:
@@ -550,6 +568,11 @@ class TestLearnerCourseDetailsSerializer(object):
         assert data['course_progress'] == expected_progress_percent
         assert not data['course_completed']
 
+    @mock.patch.object(
+        LearnerCourseDetailsSerializer,
+        'get_farthest_completed_subsection',
+        mock_get_farthest_completed_subsection
+    )
     def test_get_progress_data_with_no_data(self):
         """Tests that the serializer method succeeds when no learner course
         grade metrics records
@@ -563,6 +586,7 @@ class TestLearnerCourseDetailsSerializer(object):
             'letter_grade': '',
             'percent_grade': 0.0,
             'passed_timestamp': None,
+            'farthest_completed_subsection': '',
         }
         assert not LearnerCourseGradeMetrics.objects.count()
         course_enrollment = CourseEnrollmentFactory()
@@ -613,7 +637,7 @@ class TestLearnerDetailsSerializer(object):
         ])
         data = self.serializer.data
         assert set(data.keys()) == expected_fields
-        
+
         # This is to make sure that the serializer retrieves the correct nested
         # model (UserProfile) data
         assert data['name'] == 'Alpha One'
@@ -643,7 +667,7 @@ class TestUserIndexSerializer(object):
 
     def test_has_fields(self):
         '''Tests that the serialized UserIndex data has specific keys and values
-        
+
         We use a set instead of just doing this:
 
             assert data.keys() == ['id', 'username', 'fullname', ]
@@ -654,7 +678,7 @@ class TestUserIndexSerializer(object):
         data = self.serializer.data
 
         assert set(data.keys()) == set(['id', 'username', 'fullname', 'email', 'date_joined', 'last_login'])
-        
+
         # This is to make sure that the serializer retrieves the correct nested
         # model (UserProfile) data
         assert data['fullname'] == 'Alpha One'
@@ -692,7 +716,7 @@ class TestSiteMauMetricsSerializer(object):
         data = serializer.data
         assert data['mau'] == self.obj.mau
         assert data['domain'] == self.obj.site.domain
-        assert dateutil_parse(data['date_for']).date() == self.obj.date_for 
+        assert dateutil_parse(data['date_for']).date() == self.obj.date_for
 
 
 
