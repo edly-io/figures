@@ -301,6 +301,7 @@ class TestSiteMetricsGettersStandalone(object):
         self.site = Site.objects.first()
         self.data_start_date = DEFAULT_START_DATE
         self.data_end_date = DEFAULT_END_DATE
+        self.edly_sub_org = EdlySubOrganizationFactory(lms_site=self.site)
         self.features = {'FIGURES_IS_MULTISITE': False}
         self.site_daily_metrics = create_site_daily_metrics_data(
             site=self.site,
