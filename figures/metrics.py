@@ -33,7 +33,7 @@ from openedx.core.djangoapps.content.course_overviews.models import CourseOvervi
 from courseware.courses import get_course_by_id  # pylint: disable=import-error
 from courseware.models import StudentModule  # pylint: disable=import-error
 
-import organizations
+from openedx.features.edly.models import EdlySubOrganization
 
 from figures.compat import (
     GeneratedCertificate,
@@ -588,9 +588,9 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
     """
 
     def calc_from_courses_overview():
-        edx_organizations = organizations.models.Organization.objects.filter(
-            edlysuborganization__lms_site=site
-        ).using(read_replica_or_default()).values_list('short_name', flat=True)
+        edx_organizations = EdlySubOrganization.objects.filter(
+            lms_site=site,
+        ).using(read_replica_or_default()).first().get_edx_organizations
 
         if edx_organizations:
             return CourseOverview.objects.filter(
