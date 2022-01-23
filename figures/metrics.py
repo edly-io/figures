@@ -43,7 +43,8 @@ from figures.helpers import (
     as_course_key,
     as_date,
     as_datetime,
-    days_in_month,
+    dates_within_month,
+    get_date,
     next_day,
     prev_day,
     previous_months_iterator,
@@ -731,7 +732,7 @@ def get_course_mau_history_metrics(site, course_id, date_for, months_back):
 
 
 def get_monthly_history_metric(func, site, date_for, months_back,
-                               include_current_in_history=True):  # pylint: disable=unused-argument
+                               include_current_in_history=True, start_date=None, end_date=None):  # pylint: disable=unused-argument
     """Convenience method to retrieve current and historic data
 
     Convenience function to populate monthly metrics data with history. Purpose
@@ -757,6 +758,19 @@ def get_monthly_history_metric(func, site, date_for, months_back,
     """
     date_for = as_date(date_for)
     history = []
+    custom_date_range = start_date and end_date
+
+    if custom_date_range and dates_within_month(start_date, end_date, '%d-%m-%Y'):
+        current_date = start_date
+        while current_date <= end_date:
+            value = func(
+                site=site,
+                start_date=current_date,
+                end_date=current_date,
+            )
+            history.append(dict(period=datetime.datetime.strftime(current_date, '%d-%m-%Y'), value=value, ))
+            current_date = current_date + datetime.timedelta(days=1)
+        return history
 
     for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
         period = period_as_month(month)
@@ -1124,30 +1138,46 @@ def get_edly_monthly_site_metrics(site, date_for=None, **kwargs):
     """
     date_for = as_date(date_for) if date_for else datetime.datetime.utcnow().date()
     months_back = kwargs.get('months_back', 6)
+    start_date = kwargs.get('start_date', None)
+    end_date = kwargs.get('end_date', None)
+    date_format = '%d-%m-%Y'
+
+    is_custom_date_range = start_date and end_date
+    if is_custom_date_range:
+        start_date = get_date(start_date, date_format)
+        end_date = get_date(end_date, date_format)
 
     total_site_learners = get_monthly_history_metric(
         func=get_total_site_learners_for_time_period,
         site=site,
         date_for=date_for,
         months_back=months_back,
+        start_date=start_date,
+        end_date=end_date,
     )
     total_site_staff_users = get_monthly_history_metric(
         func=get_total_site_staff_users_for_time_period,
         site=site,
         date_for=date_for,
         months_back=months_back,
+        start_date=start_date,
+        end_date=end_date,
     )
     total_site_courses = get_monthly_history_metric(
         func=get_total_site_courses_for_time_period,
         site=site,
         date_for=date_for,
         months_back=months_back,
+        start_date=start_date,
+        end_date=end_date,
     )
     total_active_courses = get_monthly_history_metric(
         func=get_total_active_courses_for_time_period,
         site=site,
         date_for=date_for,
         months_back=months_back,
+        start_date=start_date,
+        end_date=end_date,
     )
 
     return dict(
