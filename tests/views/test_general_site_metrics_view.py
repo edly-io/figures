@@ -25,7 +25,7 @@ def mock_get_monthly_site_metrics(date_for=None, **kwargs):
         total_active_courses=8,
     )
 
-def mock_get_monthly_site_metrics_custom_date(date_for, **kwargs):
+def mock_get_monthly_site_metrics_custom_date(date_for=None, **kwargs):
     return dict(
         total_site_learners = {'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},]},
         total_site_staff_users = {'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},]},
