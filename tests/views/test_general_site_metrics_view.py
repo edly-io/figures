@@ -52,8 +52,6 @@ class TestGeneralSiteMetricsView(BaseViewTest):
         self.view_class.metrics_method = property(
             lambda self: mock_get_monthly_site_metrics)
 
-        # self.view_class_with_custom_date.metrics_method = property(
-        #     lambda self: mock_get_monthly_site_metrics_custom_date)
 
     def test_get(self):
         request = APIRequestFactory().get(self.request_path)
@@ -66,6 +64,9 @@ class TestGeneralSiteMetricsView(BaseViewTest):
 
 
     def test_get_with_custom_date_range(self):
+        self.view_class_with_custom_date.metrics_method = property(
+            lambda self: mock_get_monthly_site_metrics_custom_date)
+
         request = APIRequestFactory().get(
             self.request_path,
             dict(start_date='1-12-2021', end_date='10-12-2021')
