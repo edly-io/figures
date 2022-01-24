@@ -52,8 +52,8 @@ class TestGeneralSiteMetricsView(BaseViewTest):
         self.view_class.metrics_method = property(
             lambda self: mock_get_monthly_site_metrics)
 
-        self.view_class_with_custom_date.metrics_method = property(
-            lambda self: mock_get_monthly_site_metrics_custom_date)
+        # self.view_class_with_custom_date.metrics_method = property(
+        #     lambda self: mock_get_monthly_site_metrics_custom_date)
 
     def test_get(self):
         request = APIRequestFactory().get(self.request_path)
