@@ -27,10 +27,10 @@ def mock_get_monthly_site_metrics(date_for=None, **kwargs):
 
 def mock_get_monthly_site_metrics_custom_date(date_for, **kwargs):
     return dict(
-        total_site_learners=10,
-        total_site_staff_users=10,
-        total_site_coures=10,
-        total_active_courses=10,
+        total_site_learners = {'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},]},
+        total_site_staff_users = {'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},]},
+        total_site_coures = {'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},]},
+        total_active_courses = {'history': [{'period': '1-12-2021', 'value' : 9}, {'period': '2-12-2021', 'value': 2},]},
     )
 
 @pytest.mark.django_db
@@ -71,7 +71,7 @@ class TestGeneralSiteMetricsView(BaseViewTest):
             dict(start_date='1-12-2021', end_date='10-12-2021')
         )
         force_authenticate(request, user=self.staff_user)
-        view = self.view_class.as_view()
+        view = self.view_class_with_custom_date.as_view()
         response = view(request)
         assert response.status_code == 200
 
