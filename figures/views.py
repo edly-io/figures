@@ -335,7 +335,21 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
         '''
         site = figures.sites.get_requested_site(request)
         date_for = request.query_params.get('date_for')
-        data = self.metrics_method(site=site, date_for=date_for)
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        date_format = '%d-%m-%Y'
+        is_custom_date_range = start_date or end_date
+        if is_custom_date_range:
+            error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
+            if error_response:
+                return 
+
+        data = self.metrics_method(
+            site=site,
+            date_for=date_for,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         if not data:
             data = {

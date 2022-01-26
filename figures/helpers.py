@@ -63,6 +63,8 @@ from django.core.mail.message import EmailMultiAlternatives
 from django.utils.timezone import utc
 from django.template.loader import get_template
 from fpdf import FPDF
+from rest_framework import status
+from rest_framework.response import Response
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
@@ -423,3 +425,133 @@ def get_prepared_pdf(pdf_data, logo_url):
     pdf.set_font('Arial', 'I', 8)
     pdf.multi_cell(w=0, h=pdf.font_size*2, txt=PDF_NOTE, border=0, align='L', fill=False)
     return pdf.output(dest='S')
+
+
+def validate_year(year):
+    """
+    Validate the provided year.
+
+    Arguments:
+         year (str): Date string of format "%Y"
+
+    Raises:
+        ValueError: for invalid year string
+
+    """
+    try:
+        return 2000 <= datetime.datetime.strptime(str(year), '%Y').year
+    except ValueError:
+        return False
+
+
+def validate_date(date, date_format='%m-%Y'):
+    """
+    Validate the provided date.
+
+    Arguments:
+         date (str): Date string of format "%m-%Y"
+         date_format (str): Date string format [optional].
+
+    """
+    try:
+        return validate_year(datetime.datetime.strptime(date, date_format).year)
+    except (ValueError, AttributeError):
+        return False
+
+
+def validate_date_range(start_date, end_date, date_format='%m-%Y'):
+    """
+    Validate the provided start and end date.
+
+    Arguments:
+         start_date (str): Date string of format "%m-%Y"
+         end_date (str): Date string of format "%m-%Y"
+         date_format (str): Date string format [optional].
+
+    """
+    try:
+        start_date = datetime.datetime.strptime(start_date, date_format)
+        end_date = datetime.datetime.strptime(end_date, date_format)
+        is_invalid_date_range = (end_date.year - start_date.year < 0) or (
+                start_date.month > end_date.month
+                and start_date.year == end_date.year
+        ) or (
+            start_date.year == end_date.year
+            and start_date.month == end_date.month
+            and start_date.day > end_date.day
+        )
+        if is_invalid_date_range:
+            return False
+
+        # date difference beyond five years are not allowed
+        if end_date.year - start_date.year > 5:
+            return False
+
+        return True
+    except ValueError:
+        return False
+
+
+def return_invalid_date_range_response(start_date, end_date, date_format='%m-%Y'):
+    """
+    Return validation response for the provided start and end date.
+
+    Arguments:
+         start_date (str): Date string of format "%m-%Y"
+         end_date (str): Date string of format "%m-%Y"
+         date_format (str): Date string format [optional].
+
+    Returns:
+         HTTP_406_NOT_ACCEPTABLE: In case of invalid start and end date
+         None: In case of valid start and end date
+
+    """
+    if not start_date or not end_date:
+        return Response(
+            {'error': 'Please provide valid type in the query params.'},
+            status=status.HTTP_406_NOT_ACCEPTABLE
+        )
+
+    if not (validate_date(start_date, date_format) and validate_date(end_date, date_format)):
+        return Response(
+            {'error': 'Please provide valid start and end date.'},
+            status=status.HTTP_406_NOT_ACCEPTABLE
+        )
+
+    if not validate_date_range(start_date, end_date, date_format):
+        return Response(
+            {'error': 'Please specify the valid date ranges.'},
+            status=status.HTTP_406_NOT_ACCEPTABLE
+        )
+
+
+def get_date(date_value, date_format='%m-%Y'):
+    """
+    Return date object from provided `date_value`.
+
+    Arguments:
+         date_value (str): Valid date string of format "%m-%Y"
+         date_format (str): Date string format [optional].
+
+    """
+    return datetime.datetime.strptime(date_value, date_format).date()
+
+
+def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
+    """
+    Check if "start_date" and "end_date" are within the same month or less than 30 days.
+
+    Arguments:
+         start_date (str): Date string of format "%m-%Y"
+         end_date (str): Date string of format "%m-%Y"
+         date_format (str): Date string format [optional].
+
+    """
+    st_date = start_date
+    ed_date = end_date
+    if st_date.month == ed_date.month and st_date.year == ed_date.year:
+        return True
+    elif (ed_date - st_date).days >= 30:
+        return False
+    else:
+        return True
