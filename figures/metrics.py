@@ -47,6 +47,7 @@ from figures.helpers import (
     as_course_key,
     as_date,
     as_datetime,
+    days_in_month,
     dates_within_month,
     get_date,
     next_day,
