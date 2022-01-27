@@ -688,9 +688,9 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         )
 
         last_completed_section = None
-        for chapter in all_blocks.get('children'):
-            for section in chapter.get('children'):
-                for subsection in section.get('children'):
+        for chapter in all_blocks.get('children', []):
+            for section in chapter.get('children', []):
+                for subsection in section.get('children', []):
                     if subsection.get('complete'):
                         last_completed_section = subsection.get('display_name')
 
