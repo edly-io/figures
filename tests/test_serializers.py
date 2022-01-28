@@ -7,7 +7,6 @@ import datetime
 from dateutil.parser import parse as dateutil_parse
 from decimal import Decimal
 from dateutil.parser import parse
-import mock
 import pytest
 # import pytz
 
@@ -506,17 +505,6 @@ class TestLearnerCourseDetailsSerializer(object):
         self.serializer = LearnerCourseDetailsSerializer(
             instance=self.course_enrollment)
 
-    def mock_get_farthest_completed_subsection(self, obj):
-        """
-        get_farthest_completed_subsection method so we don't have to include all the dependencies.
-        """
-        return ''
-
-    @mock.patch.object(
-        LearnerCourseDetailsSerializer,
-        'get_farthest_completed_subsection',
-        mock_get_farthest_completed_subsection
-    )
     def test_has_fields(self):
 
         expected_fields = set([
@@ -527,11 +515,6 @@ class TestLearnerCourseDetailsSerializer(object):
         data = self.serializer.data
         assert set(data.keys()) == expected_fields
 
-    @mock.patch.object(
-        LearnerCourseDetailsSerializer,
-        'get_farthest_completed_subsection',
-        mock_get_farthest_completed_subsection
-    )
     def test_get_progress_data(self):
         """
         Method should return data of the form:
@@ -568,11 +551,6 @@ class TestLearnerCourseDetailsSerializer(object):
         assert data['course_progress'] == expected_progress_percent
         assert not data['course_completed']
 
-    @mock.patch.object(
-        LearnerCourseDetailsSerializer,
-        'get_farthest_completed_subsection',
-        mock_get_farthest_completed_subsection
-    )
     def test_get_progress_data_with_no_data(self):
         """Tests that the serializer method succeeds when no learner course
         grade metrics records
@@ -586,7 +564,6 @@ class TestLearnerCourseDetailsSerializer(object):
             'letter_grade': '',
             'percent_grade': 0.0,
             'passed_timestamp': None,
-            'farthest_completed_subsection': '',
         }
         assert not LearnerCourseGradeMetrics.objects.count()
         course_enrollment = CourseEnrollmentFactory()
