@@ -4,7 +4,6 @@
 from __future__ import absolute_import
 
 from dateutil.parser import parse
-import mock
 import pytest
 
 from rest_framework.test import (
@@ -18,9 +17,6 @@ from opaque_keys.edx.keys import CourseKey
 from figures.compat import CourseEnrollment
 from figures.helpers import is_multisite
 from figures.views import CourseEnrollmentViewSet
-from figures.serializers import (
-    LearnerCourseDetailsSerializer
-)
 
 from tests.factories import (
     COURSE_ID_STR_TEMPLATE,
@@ -75,17 +71,6 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
             self.organizations = self.edly_org.edx_organizations
             OrganizationCourseFactory(organization=self.organization, course_id=str(self.course_overview.id))
 
-    def mock_get_farthest_completed_subsection(self, obj):
-        """
-        get_farthest_completed_subsection method so we don't have to include all the dependencies.
-        """
-        return ''
-
-    @mock.patch.object(
-        LearnerCourseDetailsSerializer,
-        'get_farthest_completed_subsection',
-        mock_get_farthest_completed_subsection
-    )
     @pytest.mark.parametrize('query_params, filter_args', [
             ('', {}),
             ('?course_id={}'.format(str(sample_course_id(1))),

@@ -5,7 +5,6 @@ Settings file to run automated tests
 
 from __future__ import absolute_import, unicode_literals
 
-from path import Path as path
 from os.path import abspath, dirname, join
 import environ
 import sys
@@ -90,7 +89,6 @@ INSTALLED_APPS = [
     'course_modes',
     'coursewarehistoryextended',
     'experiments',
-    'edx_proctoring',
 ]
 
 if OPENEDX_RELEASE == 'GINKGO':
@@ -396,14 +394,3 @@ EDLY_PANEL_ADMIN_USERS_GROUP = 'Edly Panel Admin Users'
 EDLY_PANEL_RESTRICTED_USERS_GROUP = 'Edly Panel Restricted Users'
 EDLY_WP_ADMIN_USERS_GROUP = 'WordPress Edly Admin Users'
 EDLY_WP_SUBSCRIBER_USERS_GROUP = 'WordPress Subscriber Users'
-PROCTORING_SETTINGS = {}
-SITE_NAME = 'edx.test'
-PLATFORM_NAME = 'edX'
-PROCTORING_BACKENDS = {
-    'DEFAULT': 'mock',
-    'mock': {},
-    'mock_proctoring_without_rules': {},
-}
-PROJECT_ROOT = path(__file__).abspath().dirname().dirname()  # /edx-platform/cms
-REPO_ROOT = PROJECT_ROOT.dirname()
-ENV_ROOT = REPO_ROOT.dirname()  # virtualenv dir /edx-platform is in

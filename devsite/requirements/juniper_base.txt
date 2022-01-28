@@ -54,7 +54,6 @@ edx-opaque-keys[django]==2.1.0
 #edx-drf-extensions==6.0.0
 edx-django-utils==3.13.0
 edx-organizations==5.2.0
-edx-proctoring==2.4.0
 django-config-models==2.0.2
 edx-ccx-keys==1.1.0
 edx-rest-api-client==5.2.1
