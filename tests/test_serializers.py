@@ -40,6 +40,7 @@ from figures.serializers import (
     SiteMauLiveMetricsSerializer,
     UserIndexSerializer,
 )
+from figures.sites import get_course_enrollments_for_site
 
 from tests.factories import (
     CourseAccessRoleFactory,
@@ -568,7 +569,8 @@ class TestLearnerDetailsSerializer(object):
             instance=self.user,
             context=dict(
                 site=self.site,
-                required_fields={}
+                required_fields={},
+                course_enrollments=get_course_enrollments_for_site(self.site)
             )
         )
 

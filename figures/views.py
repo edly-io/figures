@@ -552,7 +552,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         learners_only = self.request.GET.get('learners_only', None)
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_users_for_site(site)
+        queryset = figures.sites.get_edly_users_for_site(site)
         if learners_only and learners_only.lower() == "true":
             queryset = queryset.filter(
                 ~Q(courseaccessrole__role='course_creator_group'),
@@ -564,11 +564,22 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_serializer_context(self):
         context = super(LearnerDetailsViewSet, self).get_serializer_context()
-        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        current_site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['site'] = current_site
         context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
             self.request.user,
             context['site'],
         )
+        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
+            current_site
+        )
+        is_detail_view = self.request.query_params.get('username')
+        if not is_detail_view:
+            context['completed_courses'] = set(
+                LearnerCourseGradeMetrics.objects.edly_completed_ids_for_site(
+                    site=current_site,
+            ))
+
         return context
 
 

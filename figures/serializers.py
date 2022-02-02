@@ -627,6 +627,13 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         percent_grade = 0.0
         passed_timestamp = None
 
+        completed_courses = self.context.get('completed_courses')
+        if completed_courses:
+            course_completed = (str(course_enrollment.course_id), course_enrollment.user.id) in completed_courses
+            return {
+                'course_completed': course_completed,
+            }
+
         try:
             obj = LearnerCourseGradeMetrics.objects.latest_lcgm(
                 user=course_enrollment.user,
@@ -760,10 +767,13 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         related serializers to explicitly link models not linked via FK
 
         """
-        site = self.context.get('site', getattr(self.context.get('request'), 'site', None))
-        course_enrollments = figures.sites.get_course_enrollments_for_site(site).filter(
-            user=user).using(read_replica_or_default())
-        return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
+        course_enrollments = self.context.get('course_enrollments').filter(
+            user=user).using(read_replica_or_default()).select_related('course', 'user')
+        return LearnerCourseDetailsSerializer(
+            course_enrollments,
+            many=True,
+            context=dict(completed_courses=self.context.get('completed_courses')),
+        ).data
 
 
 class CourseMauMetricsSerializer(serializers.ModelSerializer):
