@@ -330,7 +330,7 @@ class TestSiteMetricsGettersStandalone(object):
         dates_in = [
             datetime.date(year_today, month_today, 1),
             datetime.date(year_today, month_today, 15),
-            datetime.date(year_today, month_today, 30)
+            datetime.date(year_today, month_today, 30 if month_today != 2 else 28)
         ]
         start_date = dates_in[0]
         end_date = dates_in[-1]
