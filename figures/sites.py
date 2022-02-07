@@ -219,6 +219,23 @@ def get_user_ids_for_site(site):
     return user_ids
 
 
+def get_edly_users_for_site(site):
+    if figures.helpers.is_multisite():
+        user_ids = get_user_model().objects.filter(
+            edly_profile__edly_sub_organizations__lms_site=site,
+        ).exclude(groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP).select_related(
+            'profile', 'edly_profile',
+        )
+    else:
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        ).select_related(
+            'profile', 'edly_profile',
+        )
+
+    return user_ids
+
+
 def get_users_for_site(site):
     if figures.helpers.is_multisite():
         user_ids = get_user_ids_for_site(site)

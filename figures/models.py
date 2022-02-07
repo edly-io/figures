@@ -598,6 +598,17 @@ class LearnerCourseGradeMetricsManager(models.Manager):
         qs = self.completed_for_site(site, **_kwargs)
         return qs.values('course_id', 'user_id').distinct()
 
+    def passed_courses_for_site(self, site, **_kwargs):
+        qs = self.filter(
+            passed_timestamp__isnull=False,
+            site=site,
+        ).order_by('-date_for')
+        return qs
+
+    def passed_ids_for_site(self, site, **_kwargs):
+        qs = self.passed_courses_for_site(site, **_kwargs)
+        return qs.values_list('course_id', 'user_id').distinct()
+
     def completed_raw_for_site(self, site, **_kwargs):
         """Experimental
         """
