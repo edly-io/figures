@@ -822,10 +822,12 @@ class SiteMauLiveMetricsSerializer(serializers.Serializer):
 
 
 class CourseMauLiveMetricsSerializer(serializers.Serializer):
-    month_for = serializers.DateField()
-    count = serializers.IntegerField()
+    month_for = serializers.DateField(required=False)
+    count = serializers.IntegerField(required=False)
     course_id = serializers.CharField()
     domain = serializers.CharField()
+    dates_for = serializers.ListField(required=False)
+    counts = serializers.ListField(required=False)
 
 
 class EnrollmentMetricsSerializer(serializers.ModelSerializer):
