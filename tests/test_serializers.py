@@ -139,6 +139,11 @@ class TestCourseDetailsSerializer(object):
 
         ]
 
+        self.context = {
+            'start_date': '10-12-2021',
+            'end_date': '20-12-2021'
+        }
+
     def test_has_fields(self):
         data = self.serializer.data
         assert set(data.keys()) == set(self.expected_fields)
@@ -160,6 +165,20 @@ class TestCourseDetailsSerializer(object):
         the setup method
         '''
         assert CourseDetailsSerializer().get_staff(CourseOverviewFactory()) == []
+
+    def test_get_course_detail_with_custom_dates(self):
+        data = self.serializer(self.context).data
+        assert set(data.keys()) == set(self.expected_fields)
+
+        # This is to make sure that the serializer retrieves the correct nested
+        # model (UserProfile) data
+        assert data['course_id'] == str(self.course_overview.id)
+        assert data['course_name'] == self.course_overview.display_name
+        assert data['course_code'] == self.course_overview.display_number_with_default
+        assert data['org'] == self.course_overview.org
+        assert parse(data['start_date']) == self.course_overview.start
+        assert parse(data['end_date']) == self.course_overview.end
+        assert data['self_paced'] == self.course_overview.self_paced
 
 
 class TestCourseEnrollmentSerializer(object):
