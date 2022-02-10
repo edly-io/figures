@@ -459,13 +459,14 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         end_date = self.request.GET.get('end_date')
         context.update({
             "request": self.request,
+            "site": self.request.site,
             "start_date": start_date, 
             "end_date": end_date
             })
 
         return context
 
-        
+
 class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     '''View class to serve general user data to the Figures UI
 

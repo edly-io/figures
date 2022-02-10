@@ -446,9 +446,10 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         """
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
+        site = self.context.get('site')
 
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_enrolled_users_for_time_period,
             date_for=datetime.datetime.utcnow(),
@@ -462,9 +463,10 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         """
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
+        site = self.context.get('site')
 
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_average_progress_for_time_period,
             date_for=datetime.datetime.utcnow(),
@@ -478,9 +480,10 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         """
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
+        site = self.context.get('site')
 
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_average_days_to_complete_for_time_period,
             date_for=datetime.datetime.utcnow(),
@@ -494,9 +497,10 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         """
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
+        site = self.context.get('site')
 
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_num_learners_completed_for_time_period,
             date_for=datetime.datetime.utcnow(),
