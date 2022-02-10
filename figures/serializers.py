@@ -368,6 +368,14 @@ def get_course_history_metric(site, course_id, func, date_for, start_date, end_d
     #         end_date=end_date,
     #         course_id=course_id
 
+    custom_date_range = start_date and end_date
+    if custom_date_range:
+        start_date=datetime.datetime.strptime(start_date, '%d-%m-%Y')
+        end_date=datetime.datetime.strptime(end_date, '%d-%m-%Y')
+    else:
+        start_date = None
+        end_date = None
+
     return get_monthly_history_metric(
         func=lambda site, start_date, end_date: func(
             site=site,
@@ -378,8 +386,8 @@ def get_course_history_metric(site, course_id, func, date_for, start_date, end_d
         site=site,
         date_for=date_for,
         months_back=months_back,
-        start_date=datetime.datetime.strptime(start_date, '%d-%m-%Y'),
-        end_date=datetime.datetime.strptime(end_date, '%d-%m-%Y')
+        start_date=start_date,
+        end_date=end_date
         )
 
 
