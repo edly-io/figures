@@ -1047,9 +1047,28 @@ class CourseMauLiveMetricsViewSet(CommonAuthMixin, viewsets.GenericViewSet):
     def list(self, request):
         site = django.contrib.sites.shortcuts.get_current_site(request)
         course_overviews = figures.sites.get_courses_for_site(site)
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+        date_format = '%d-%m-%Y'
+        is_custom_date_range = start_date or end_date
+        if is_custom_date_range:
+            error_response = figures.helpers.return_invalid_date_range_response(
+                start_date,
+                end_date,
+                date_format
+            )
+            if error_response:
+                return error_response
+
+            start_date = figures.helpers.get_date(start_date, date_format)
+            end_date = figures.helpers.get_date(end_date, date_format)
+            if not figures.helpers.dates_within_month(start_date, end_date):
+                start_date = None
+                end_date = None
+
         data = []
         for co in course_overviews:
-            data.append(retrieve_live_course_learners_mau_data(site, co.id))
+            data.append(retrieve_live_course_learners_mau_data(site, co.id, start_date, end_date))
         serializer = self.serializer_class(data, many=True)
         return Response(serializer.data)
 

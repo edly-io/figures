@@ -3,8 +3,11 @@ This module provides MAU metrics retrieval functionality
 """
 from __future__ import absolute_import
 
-from datetime import datetime
-from django.db.models import Q
+from calendar import month_abbr
+from collections import OrderedDict
+from datetime import datetime, timedelta
+from django.db.models import Count, Q
+from django.db.models.functions import ExtractDay, ExtractMonth, ExtractYear
 
 from figures.models import CourseMauMetrics, SiteMauMetrics
 from figures.sites import (
@@ -43,6 +46,30 @@ def get_learners_mau_from_student_modules(student_modules, year, month):
         modified__month=month,
     ).using(read_replica_or_default())
     return qs.values_list('student__id', flat=True).distinct()
+
+
+def get_learners_mau_from_student_modules_by_date_range(student_modules, start_date, end_date):
+    """
+    Return records modified by learners within the date range.
+    """
+    qs = student_modules.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        modified__range=[start_date, end_date],
+    ).using(
+        read_replica_or_default()
+    ).annotate(
+        year=ExtractYear('modified')
+    ).annotate(
+        month=ExtractMonth('modified')
+    ).annotate(
+        day=ExtractDay('modified')
+    )
+    return qs.values_list('day', 'month', 'year').annotate(
+        Count('student__id',
+        distinct=True
+    )).order_by('day', 'month', 'year')
 
 
 def get_mau_from_site_course(site, course_id, year, month):
@@ -91,25 +118,54 @@ def retrieve_live_course_mau_data(site, course_id):
         domain=site.domain,
     )
 
-
-def retrieve_live_course_learners_mau_data(site, course_id):
+def retrieve_live_course_learners_mau_data(site, course_id, start_date=None, end_date=None):
     """
     Used this when we need to retrieve unique active learners for a given course
     in the site
     """
     student_modules = get_student_modules_for_course_in_site(site, course_id)
     today = datetime.utcnow()
-    users = get_learners_mau_from_student_modules(
-        student_modules=student_modules,
-        year=today.year,
-        month=today.month
-    )
-    return dict(
-        count=users.count(),
-        month_for=today.date(),
+    is_custom_date_range = start_date and end_date
+    if is_custom_date_range:
+        users = get_learners_mau_from_student_modules_by_date_range(
+            student_modules=student_modules,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    else:
+        users = get_learners_mau_from_student_modules(
+            student_modules=student_modules,
+            year=today.year,
+            month=today.month
+        )
+    data = dict(
         course_id=str(course_id),
         domain=site.domain,
     )
+    if is_custom_date_range:
+        dates = OrderedDict()
+        current_date = start_date
+        while current_date <= end_date:
+            dates['{}-{}-{}'.format(
+                current_date.day,
+                month_abbr[current_date.month],
+                current_date.year
+            )] = 0
+            current_date += timedelta(days=1)
+
+        for user in users:
+            dates['{}-{}-{}'.format(
+                user[0],
+                month_abbr[user[1]],
+                user[2]
+            )] = user[3]
+        data['dates_for'] = list(dates.keys())
+        data['counts'] = list(dates.values())
+    else:
+        data['month_for'] = today.date()
+        data['count'] = users.count()
+
+    return data
 
 
 def mau_1g_for_month_as_of_day(sm_queryset, date_for):
