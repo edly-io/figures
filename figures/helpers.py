@@ -530,4 +530,3 @@ def convert_str_date_to_datetime(str_date, date_format='%d-%m-%Y'):
 
     """
     return datetime.datetime.strptime(str_date, date_format)
-    
