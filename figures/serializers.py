@@ -35,7 +35,7 @@ from figures.compat import (RELEASE_LINE,
                             CourseEnrollment,
                             CourseOverview,
                             GeneratedCertificate)
-from figures.helpers import as_course_key
+from figures.helpers import as_course_key, get_date
 from figures.metrics import (
     get_course_enrolled_users_for_time_period,
     get_course_average_progress_for_time_period,
@@ -352,7 +352,7 @@ class GeneralCourseDataSerializer(serializers.Serializer):
             return None
 
 
-def get_course_history_metric(site, course_id, func, date_for, months_back):
+def get_course_history_metric(site, course_id, func, date_for, start_date, end_date, months_back):
     """Retieves current_month and history metric data for a course and time
     period
 
@@ -376,6 +376,14 @@ def get_course_history_metric(site, course_id, func, date_for, months_back):
     #         end_date=end_date,
     #         course_id=course_id
 
+    custom_date_range = start_date and end_date
+    if custom_date_range:
+        start_date=get_date(start_date, '%d-%m-%Y')
+        end_date=get_date(end_date, '%d-%m-%Y')
+    else:
+        start_date = None
+        end_date = None
+
     return get_monthly_history_metric(
         func=lambda site, start_date, end_date: func(
             site=site,
@@ -386,6 +394,8 @@ def get_course_history_metric(site, course_id, func, date_for, months_back):
         site=site,
         date_for=date_for,
         months_back=months_back,
+        start_date=start_date,
+        end_date=end_date
         )
 
 
@@ -450,44 +460,68 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         Would be nice to have the course_enrollment and course_overview models
         linked
         """
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
+
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_enrolled_users_for_time_period,
             date_for=datetime.datetime.utcnow(),
+            start_date = start_date,
+            end_date = end_date,
             months_back=HISTORY_MONTHS_BACK,
             )
 
     def get_average_progress(self, course_overview):
         """
         """
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
+
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_average_progress_for_time_period,
             date_for=datetime.datetime.utcnow(),
+            start_date = start_date,
+            end_date = end_date,
             months_back=HISTORY_MONTHS_BACK,
             )
 
     def get_average_days_to_complete(self, course_overview):
         """
         """
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
+
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_average_days_to_complete_for_time_period,
             date_for=datetime.datetime.utcnow(),
+            start_date = start_date,
+            end_date = end_date,
             months_back=HISTORY_MONTHS_BACK,
             )
 
     def get_users_completed(self, course_overview):
         """
         """
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
+
         return get_course_history_metric(
-            site=self.site,
+            site=site,
             course_id=course_overview.id,
             func=get_course_num_learners_completed_for_time_period,
             date_for=datetime.datetime.utcnow(),
+            start_date = start_date,
+            end_date = end_date,
             months_back=HISTORY_MONTHS_BACK,
             )
 

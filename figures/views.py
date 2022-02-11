@@ -450,6 +450,19 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         course_overview = get_object_or_404(CourseOverview, pk=course_key)
         return Response(CourseDetailsSerializer(course_overview).data)
 
+    def get_serializer_context(self):
+        context = super(CourseDetailsViewSet, self).get_serializer_context()
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+        context.update({
+            "request": self.request,
+            "site": self.request.site,
+            "start_date": start_date, 
+            "end_date": end_date
+            })
+
+        return context
+
 
 class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     '''View class to serve general user data to the Figures UI
