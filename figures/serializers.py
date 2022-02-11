@@ -35,7 +35,7 @@ from figures.compat import (RELEASE_LINE,
                             CourseEnrollment,
                             CourseOverview,
                             GeneratedCertificate)
-from figures.helpers import as_course_key, convert_str_date_to_datetime
+from figures.helpers import as_course_key, get_date
 from figures.metrics import (
     get_course_enrolled_users_for_time_period,
     get_course_average_progress_for_time_period,
@@ -370,8 +370,8 @@ def get_course_history_metric(site, course_id, func, date_for, start_date, end_d
 
     custom_date_range = start_date and end_date
     if custom_date_range:
-        start_date=convert_str_date_to_datetime(start_date, '%d-%m-%Y')
-        end_date=convert_str_date_to_datetime(end_date, '%d-%m-%Y')
+        start_date=get_date(start_date, '%d-%m-%Y')
+        end_date=get_date(end_date, '%d-%m-%Y')
     else:
         start_date = None
         end_date = None

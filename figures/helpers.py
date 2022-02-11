@@ -518,15 +518,3 @@ def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
         return False
     else:
         return True
-
-
-def convert_str_date_to_datetime(str_date, date_format='%d-%m-%Y'):
-    """
-    Converts the str date to datetime date obbject.
-
-    Arguments:
-         date (str): Date string of format "%m-%Y"
-         date_format (str): Date string format [optional].
-
-    """
-    return datetime.datetime.strptime(str_date, date_format)
