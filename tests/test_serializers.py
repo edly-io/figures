@@ -167,7 +167,7 @@ class TestCourseDetailsSerializer(object):
         assert CourseDetailsSerializer().get_staff(CourseOverviewFactory()) == []
 
     def test_get_course_detail_with_custom_dates(self):
-        data = CourseDetailsSerializer(self.context).data
+        data = CourseDetailsSerializer(instance=self.course_overview, context=self.context).data
         assert set(data.keys()) == set(self.expected_fields)
 
         # This is to make sure that the serializer retrieves the correct nested
@@ -179,10 +179,14 @@ class TestCourseDetailsSerializer(object):
         assert parse(data['start_date']) == self.course_overview.start
         assert parse(data['end_date']) == self.course_overview.end
         assert data['self_paced'] == self.course_overview.self_paced
-        assert len(data['learners_enrolled'].get('history', None)) == 2
-        assert len(data['average_progress'].get('history', None)) == 2
-        assert len(data['average_days_to_complete'].get('history', None)) == 2
-        assert len(data['users_completed'].get('history', None)) == 2
+        assert data['learners_enrolled'][0].get('period', None) == self.context.get('start_date')
+        assert data['learners_enrolled'][1].get('period', None) == self.context.get('end_date')
+        assert data['average_progress'][0].get('period', None) == self.context.get('start_date')
+        assert data['average_progress'][1].get('period', None) == self.context.get('end_date')
+        assert data['average_days_to_complete'][0].get('period', None) == self.context.get('start_date')
+        assert data['average_days_to_complete'][1].get('period', None) == self.context.get('end_date')
+        assert data['users_completed'][0].get('period', None) == self.context.get('start_date')
+        assert data['users_completed'][1].get('period', None) == self.context.get('end_date')
 
 
 class TestCourseEnrollmentSerializer(object):
