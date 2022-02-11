@@ -167,7 +167,7 @@ class TestCourseDetailsSerializer(object):
         assert CourseDetailsSerializer().get_staff(CourseOverviewFactory()) == []
 
     def test_get_course_detail_with_custom_dates(self):
-        data = CourseDetailsSerializer(self.context, instance=self.course_overview).data
+        data = CourseDetailsSerializer(self.context).data
         assert set(data.keys()) == set(self.expected_fields)
 
         # This is to make sure that the serializer retrieves the correct nested

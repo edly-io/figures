@@ -452,9 +452,9 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
         Would be nice to have the course_enrollment and course_overview models
         linked
         """
-        start_date = self.context.get('start_date')
-        end_date = self.context.get('end_date')
-        site = self.context.get('site')
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
 
         return get_course_history_metric(
             site=site,
@@ -469,9 +469,9 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
     def get_average_progress(self, course_overview):
         """
         """
-        start_date = self.context.get('start_date')
-        end_date = self.context.get('end_date')
-        site = self.context.get('site')
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
 
         return get_course_history_metric(
             site=site,
@@ -486,9 +486,9 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
     def get_average_days_to_complete(self, course_overview):
         """
         """
-        start_date = self.context.get('start_date')
-        end_date = self.context.get('end_date')
-        site = self.context.get('site')
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
 
         return get_course_history_metric(
             site=site,
@@ -503,9 +503,9 @@ class CourseDetailsSerializer(serializers.ModelSerializer):
     def get_users_completed(self, course_overview):
         """
         """
-        start_date = self.context.get('start_date')
-        end_date = self.context.get('end_date')
-        site = self.context.get('site')
+        start_date = self.context.get('start_date', None)
+        end_date = self.context.get('end_date', None)
+        site = self.context.get('site', None)
 
         return get_course_history_metric(
             site=site,
