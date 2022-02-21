@@ -784,7 +784,7 @@ def get_monthly_history_metric(func, site, date_for, months_back,
                 value = func(
                     site= site,
                     start_date = start_date,
-                    end_date = start_date.replace(day=calendar.monthrange(start_date.year, start_date.month)[1]),
+                    end_date = start_date.replace(day=days_in_month(start_date)),
                 )
             )
         )
