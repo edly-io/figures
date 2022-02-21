@@ -22,7 +22,6 @@ parameter to support multi-tenancy
 """
 
 from __future__ import absolute_import
-import calendar
 import datetime
 from decimal import Decimal
 import math
