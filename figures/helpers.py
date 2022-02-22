@@ -187,6 +187,32 @@ def days_in_month(month_for):
     _, num_days_in_month = calendar.monthrange(month_for.year, month_for.month)
     return num_days_in_month
 
+def last_date_of_previous_month(date_for):
+    """
+    Returns the last date of the previous month.
+
+    Arguments:
+        date_for (datetime.date): the date for which last date of previous month is required. 
+    """
+    last_date = date_for.replace(day=1) - datetime.timedelta(days=1)
+    return last_date
+
+def first_date_of_next_month(date_for):
+    """
+    Returns the first date of the next month.
+
+    Arguments:
+        date_for (datetime.date): the date for which first date of next month is required. 
+    """
+    first_date = (date_for.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
+    return first_date
+
+def number_of_months_in_between(start_date, end_date):
+    """
+    Returns the number of months in bertween the start and end date.
+    """
+    months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+    return months
 
 # TODO: Consider changing name to 'months_back_iterator' or similar
 def previous_months_iterator(month_for, months_back):
