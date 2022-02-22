@@ -141,8 +141,13 @@ class TestCourseDetailsSerializer(object):
 
         ]
 
-        self.context = {
+        self.custom_dates_within_month = {
             'start_date': '01-12-2021',
+            'end_date': '02-12-2021'
+        }
+
+        self.custom_dates_not_within_month = {
+            'start_date': '01-10-2021',
             'end_date': '02-12-2021'
         }
 
@@ -168,8 +173,8 @@ class TestCourseDetailsSerializer(object):
         '''
         assert CourseDetailsSerializer().get_staff(CourseOverviewFactory()) == []
 
-    def test_get_course_detail_with_custom_dates(self):
-        data = CourseDetailsSerializer(instance=self.course_overview, context=self.context).data
+    def test_get_course_detail_with_custom_dates_within_month(self):
+        data = CourseDetailsSerializer(instance=self.course_overview, context=self.custom_dates_within_month).data
 
         assert set(data.keys()) == set(self.expected_fields)
 
@@ -181,14 +186,36 @@ class TestCourseDetailsSerializer(object):
         assert parse(data['end_date']) == self.course_overview.end
         assert data['self_paced'] == self.course_overview.self_paced
         
-        assert data['learners_enrolled'][0].get('period', None) == self.context.get('start_date')
-        assert data['learners_enrolled'][1].get('period', None) == self.context.get('end_date')
-        assert data['average_progress'][0].get('period', None) == self.context.get('start_date')
-        assert data['average_progress'][1].get('period', None) == self.context.get('end_date')
-        assert data['average_days_to_complete'][0].get('period', None) == self.context.get('start_date')
-        assert data['average_days_to_complete'][1].get('period', None) == self.context.get('end_date')
-        assert data['users_completed'][0].get('period', None) == self.context.get('start_date')
-        assert data['users_completed'][1].get('period', None) == self.context.get('end_date')
+        assert data['learners_enrolled'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
+        assert data['learners_enrolled'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
+        assert data['average_progress'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
+        assert data['average_progress'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
+        assert data['average_days_to_complete'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
+        assert data['average_days_to_complete'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
+        assert data['users_completed'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
+        assert data['users_completed'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
+    
+    def test_get_course_detail_with_custom_dates_not_within_month(self):
+        data = CourseDetailsSerializer(instance=self.course_overview, context=self.custom_dates_not_within_month).data
+
+        assert set(data.keys()) == set(self.expected_fields)
+
+        assert data['course_id'] == str(self.course_overview.id)
+        assert data['course_name'] == self.course_overview.display_name
+        assert data['course_code'] == self.course_overview.display_number_with_default
+        assert data['org'] == self.course_overview.org
+        assert parse(data['start_date']) == self.course_overview.start
+        assert parse(data['end_date']) == self.course_overview.end
+        assert data['self_paced'] == self.course_overview.self_paced
+        
+        assert data['learners_enrolled'][0].get('period', None) == "Oct-2021"
+        assert data['learners_enrolled'][-1].get('period', None) == "Dec-2021"
+        assert data['average_progress'][0].get('period', None) == "Oct-2021"
+        assert data['average_progress'][-1].get('period', None) == "Dec-2021"
+        assert data['average_days_to_complete'][0].get('period', None) == "Oct-2021"
+        assert data['average_days_to_complete'][-1].get('period', None) == "Dec-2021"
+        assert data['users_completed'][0].get('period', None) == "Oct-2021"
+        assert data['users_completed'][-1].get('period', None) == "Dec-2021"
 
 
 class TestCourseEnrollmentSerializer(object):

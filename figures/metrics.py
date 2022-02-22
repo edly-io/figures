@@ -49,12 +49,15 @@ from figures.helpers import (
     as_datetime,
     days_in_month,
     dates_within_month,
-    get_date,
-    next_day,
-    prev_day,
-    previous_months_iterator,
+    first_date_of_next_month,
     first_last_days_for_month,
+    get_date,
+    last_date_of_previous_month,
+    next_day,
+    number_of_months_in_between,
     period_as_month,
+    prev_day,
+    previous_months_iterator,    
 )
 from figures.mau import get_mau_from_site_course
 from figures.models import (
@@ -507,7 +510,6 @@ def get_total_site_courses_for_time_period(site, start_date, end_date, **kwargs)
     def calc_from_site_daily_metrics():
         filter_args = dict(
             site=site,
-            date_for__gt=prev_day(start_date),
             date_for__lt=next_day(end_date),
         )
         qs = SiteDailyMetrics.objects.filter(**filter_args).using(read_replica_or_default())
@@ -769,14 +771,53 @@ def get_monthly_history_metric(func, site, date_for, months_back,
             current_date = current_date + datetime.timedelta(days=1)
         return history
 
-    for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
-        period = period_as_month(month)
-        value = func(
-            site=site,
-            start_date=datetime.date(month[0], month[1], 1),
-            end_date=datetime.date(month[0], month[1], month[2]),
+    elif custom_date_range and not dates_within_month(start_date, end_date, '%d-%m-%Y'):
+
+        history.append(
+            dict(
+                period= period_as_month((start_date.year, start_date.month, days_in_month(start_date))),
+                value = func(
+                    site= site,
+                    start_date = start_date,
+                    end_date = start_date.replace(day=days_in_month(start_date)),
+                )
+            )
         )
-        history.append(dict(period=period, value=value, ))
+
+        months_back = number_of_months_in_between(
+            first_date_of_next_month(start_date),
+            last_date_of_previous_month(end_date),
+            )
+        for month in previous_months_iterator(month_for=last_date_of_previous_month(end_date), months_back=months_back, ):
+            period = period_as_month(month)
+            value = func(
+                site=site,
+                start_date=datetime.date(month[0], month[1], 1),
+                end_date=datetime.date(month[0], month[1], month[2]),
+            )
+            history.append(dict(period=period, value=value, ))
+
+        history.append(
+            dict(
+                period= period_as_month((end_date.year, end_date.month, days_in_month(end_date))),
+                value = func(
+                    site= site,
+                    start_date = end_date.replace(day=1),
+                    end_date = end_date,
+                )
+            )
+        )
+        return history
+        
+    else:
+        for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
+            period = period_as_month(month)
+            value = func(
+                site=site,
+                start_date=datetime.date(month[0], month[1], 1),
+                end_date=datetime.date(month[0], month[1], month[2]),
+            )
+            history.append(dict(period=period, value=value, ))
 
     if history:
         # use the last entry
