@@ -811,6 +811,7 @@ def get_monthly_history_metric(func, site, date_for, months_back,
                 )
             )
         )
+        return history
         
     else:
         for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
