@@ -7,6 +7,7 @@ from __future__ import absolute_import
 import logging
 import time
 from datetime import date
+import timeit
 from time import time
 from django.conf import settings
 from django.contrib.sites.models import Site
@@ -64,7 +65,7 @@ class CourseDailyMetrics(TimeStampedModel):
     average_progress = models.DecimalField(
         max_digits=3, decimal_places=2, blank=True, null=True,
         validators=[MaxValueValidator(1.0), MinValueValidator(0.0)],
-        )
+    )
 
     average_days_to_complete = models.IntegerField(blank=True, null=True)
 
@@ -159,7 +160,8 @@ class SiteDailyMetrics(TimeStampedModel):
 
         if date_for:
             filter_args['date_for__lt'] = date_for
-        recs = cls.objects.filter(**filter_args).using(read_replica_or_default()).order_by('-date_for')
+        recs = cls.objects.filter(
+            **filter_args).using(read_replica_or_default()).order_by('-date_for')
         return recs[0] if recs else None
 
 
@@ -192,7 +194,8 @@ class SiteMonthlyMetrics(TimeStampedModel):
         if not overwrite:
             try:
 
-                obj = SiteMonthlyMetrics.objects.using(read_replica_or_default()).get(site=site, month_for=month_for)
+                obj = SiteMonthlyMetrics.objects.using(
+                    read_replica_or_default()).get(site=site, month_for=month_for)
                 return (obj, False,)
             except SiteMonthlyMetrics.DoesNotExist:
                 pass
@@ -210,6 +213,9 @@ class EnrollmentDataManager(models.Manager):
     EnrollmentData instances.
 
     """
+
+    def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
+
     def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
         """
         This is an expensive call as it needs to call CourseGradeFactory if
@@ -285,7 +291,7 @@ class EnrollmentDataManager(models.Manager):
 
         if not ed_recs or ed_recs[0].date_for < date_for or force_update:
             # We do the update
-            start_time = time()
+            start_time = timeit.default_timer()
             # get the progress data
             ep = EnrollmentProgress(user=course_enrollment.user,
                                     course_id=str(course_enrollment.course_id))
@@ -300,7 +306,7 @@ class EnrollmentDataManager(models.Manager):
                 is_enrolled=course_enrollment.is_active,
                 date_enrolled=course_enrollment.created,
             )
-            elapsed = time() - start_time
+            elapsed = timeit.default_timer() - start_time
             defaults['collect_elapsed'] = elapsed
 
             ed_rec, created = self.update_or_create(
@@ -397,6 +403,7 @@ class EnrollmentData(TimeStampedModel):
 class LearnerCourseGradeMetricsManager(models.Manager):
     """Custom model manager for LearnerCourseGradeMetrics model
     """
+
     def latest_lcgm(self, user, course_id):
         """Gets the most recent record for the given user and course
 
@@ -541,6 +548,9 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     # seconds it took to collect progress data
     collect_elapsed = models.FloatField(null=True)
 
+    # seconds it took to collect progress data
+    collect_elapsed = models.FloatField(null=True)
+
     objects = LearnerCourseGradeMetricsManager()
 
     class Meta:
@@ -604,7 +614,7 @@ class PipelineError(TimeStampedModel):
         (GRADES_DATA, 'Grades data error'),
         (COURSE_DATA, 'Course data error'),
         (SITE_DATA, 'Site data error'),
-        )
+    )
     error_type = models.CharField(
         max_length=255, choices=ERROR_TYPE_CHOICES, default=UNSPECIFIED_DATA)
     error_data = JSONField()
@@ -647,6 +657,7 @@ class BaseDateMetricsModel(TimeStampedModel):
 class SiteMauMetricsManager(models.Manager):
     """Custom model manager for SiteMauMMetrics model
     """
+
     def latest_for_site_month(self, site, year, month):
         """Return the latest record for the given site, month, and year
         If no record found, returns 'None'
@@ -674,7 +685,8 @@ class SiteMauMetrics(BaseDateMetricsModel):
         """
         if not overwrite:
             try:
-                obj = SiteMauMetrics.objects.using(read_replica_or_default()).get(site=site, date_for=date_for)
+                obj = SiteMauMetrics.objects.using(
+                    read_replica_or_default()).get(site=site, date_for=date_for)
                 return (obj, False,)
             except SiteMauMetrics.DoesNotExist:
                 pass
@@ -682,7 +694,7 @@ class SiteMauMetrics(BaseDateMetricsModel):
         return SiteMauMetrics.objects.update_or_create(site=site,
                                                        date_for=date_for,
                                                        defaults=dict(
-                                                            mau=data['mau']))
+                                                           mau=data['mau']))
 
     def __str__(self):
         return '{}, {}, {}, {}'.format(self.id,
@@ -694,6 +706,7 @@ class SiteMauMetrics(BaseDateMetricsModel):
 class CourseMauMetricsManager(models.Manager):
     """Custom model manager for CourseMauMetrics model
     """
+
     def latest_for_course_month(self, site, course_id, year, month):
         """Return the latest record for the given site, course_id, month and year
         If no record found, returns 'None'
@@ -725,8 +738,8 @@ class CourseMauMetrics(BaseDateMetricsModel):
         if not overwrite:
             try:
                 obj = CourseMauMetrics.objects.using(read_replica_or_default()).get(site=site,
-                                                   course_id=course_id,
-                                                   date_for=date_for)
+                                                                                    course_id=course_id,
+                                                                                    date_for=date_for)
                 return (obj, False,)
             except CourseMauMetrics.DoesNotExist:
                 pass
@@ -735,7 +748,7 @@ class CourseMauMetrics(BaseDateMetricsModel):
                                                          course_id=course_id,
                                                          date_for=date_for,
                                                          defaults=dict(
-                                                            mau=data['mau']))
+                                                             mau=data['mau']))
 
     def __str__(self):
         return '{}, {}, {}, {}, {}'.format(self.id,
