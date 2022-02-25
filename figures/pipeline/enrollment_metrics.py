@@ -50,6 +50,7 @@ from __future__ import absolute_import
 from datetime import datetime
 from decimal import Decimal
 import logging
+import time
 
 from django.utils.timezone import utc
 from django.db.models.functions import Coalesce
@@ -308,6 +309,9 @@ def _collect_progress_data(student_module):
     Uses `figures.metrics.LearnerCourseGrades` to retrieve progress data via
     `CourseGradeFactory().read(...)` and calculate progress percentage
     """
+    logger.info('collect_progress_data. Start. course id = "{}", user = {}'.format(
+    student_module.course_id, student_module.student_id))
+    start_time = time.time()
     lcg = LearnerCourseGrades(user_id=student_module.student_id,
                               course_id=student_module.course_id)
     course_progress_details = lcg.progress()
@@ -315,6 +319,10 @@ def _collect_progress_data(student_module):
         user_id=student_module.student_id,
         course_id=str(student_module.course_id)
     )
+
+    elapsed_time = time.time() - start_time
+    logger.info('collect_progress_data. Done. Elapsed time (seconds)={}.'.format(
+        elapsed_time))
     return course_progress_details
 
 
@@ -324,7 +332,6 @@ def _collect_total_progress_data(user_id, course_id):
     """
     user = User.objects.get(id=user_id)
     course_key = CourseKey.from_string(course_id)
-    CORE_BLOCK_TYPES = ['html', 'video', 'problem']
     completed_percentage = 0.0
 
     if not course_key:
@@ -341,32 +348,9 @@ def _collect_total_progress_data(user_id, course_id):
     )
     total_blocks = sum(total_block_types.values())
 
-    completions = BlockCompletion.objects.filter(
-        user=user,
-        context_key=course_key,
-        block_key__in=course_blocks_keys
-    )
-    total_completed_block_types = completions.aggregate(
-        video=Coalesce(
-            Sum(Case(When(block_type='video', then=1), default=0, output_field=IntegerField())),
-            0
-        ),
-        problem=Coalesce(
-            Sum(Case(When(block_type='problem', then=1), default=0, output_field=IntegerField())),
-            0
-        ),
-        html=Coalesce(
-            Sum(Case(When(block_type='html', then=1), default=0, output_field=IntegerField())),
-            0
-        ),
-        other=Coalesce(
-            Sum(Case(When(block_type__in=CORE_BLOCK_TYPES, then=0), default=1, output_field=IntegerField())),
-            0
-        ),
-    )
-    total_completed_block_types = {block_type: block_count or 0 for block_type, block_count in
-                                   total_completed_block_types.items()}
-    total_completed_blocks = sum(total_completed_block_types.values())
+    completions = BlockCompletion.user_learning_context_completion_queryset(user, course_key)
+    valid_completions = [completion for completion in completions if completion.block_key in course_blocks_keys]
+    total_completed_blocks = len(valid_completions)
 
     if not total_blocks == 0:
         completed_percentage = float(total_completed_blocks) / float(total_blocks)

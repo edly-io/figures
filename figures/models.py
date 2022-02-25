@@ -4,8 +4,9 @@ TODO: Create a base "SiteModel" or a "SiteModelMixin"
 """
 
 from __future__ import absolute_import
+import logging
+import time
 from datetime import datetime, date
-from time import time
 import six
 from django.conf import settings
 from django.contrib.sites.models import Site
@@ -21,6 +22,8 @@ from util.query import read_replica_or_default
 from figures.compat import CourseEnrollment
 from figures.helpers import as_course_key, utc_yesterday
 from figures.progress import EnrollmentProgress
+
+logger = logging.getLogger(__name__)
 
 
 # Remove this. Import from figures.sites or will we get dependency issues?
@@ -208,6 +211,10 @@ class EnrollmentDataManager(models.Manager):
         This is an expensive call as it needs to call CourseGradeFactory if
         there is not already a LearnerCourseGradeMetrics record for the learner
         """
+        logger.info('set_enrollment_data. Start. course id = "{}", user={}'.format(
+            course_id, user))
+        start_time = time.time()
+
         if not course_enrollment:
             # For now, let it raise a `CourseEnrollment.DoesNotExist
             # Later on we can add a try block and raise out own custom
@@ -257,6 +264,10 @@ class EnrollmentDataManager(models.Manager):
             user=user,
             course_id=str(course_id),
             defaults=defaults)
+
+        elapsed_time = time.time() - start_time
+        logger.info('set_enrollment_data. Done. Elapsed time (seconds)={}. obj={}'.format(
+            elapsed_time, obj))
         return obj, created
 
 
