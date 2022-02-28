@@ -240,6 +240,20 @@ class StudentModuleFactory(DjangoModelFactory):
         2021,2,2, tzinfo=factory.compat.UTC))
 
 
+    @classmethod
+    def from_course_enrollment(cls, course_enrollment, **kwargs):
+        """Contruct a StudentModule  for the given CourseEnrollment
+
+        kwargs provides for additional optional parameters if you need to
+        override the default factory assignment
+        """
+        kwargs.update({
+            'student': course_enrollment.user,
+            'course_id': course_enrollment.course_id,
+            })
+        return cls(**kwargs)
+
+
 if OPENEDX_RELEASE == GINKGO:
     class CourseEnrollmentFactory(DjangoModelFactory):
         class Meta:

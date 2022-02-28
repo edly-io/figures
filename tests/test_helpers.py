@@ -21,7 +21,9 @@ from figures.helpers import (
     prev_day,
     previous_months_iterator,
     first_last_days_for_month,
-    )
+    import_from_path,
+    utc_yesterday,
+)
 
 from tests.factories import COURSE_ID_STR_TEMPLATE
 import six
@@ -31,6 +33,7 @@ from six.moves import range
 class TestCourseKeyHelper(object):
     '''Tests the figures.helpers.as_course_key method
     '''
+
     def setup(self):
         self.course_key_string = COURSE_ID_STR_TEMPLATE.format(1)
         self.course_key = CourseKey.from_string(
@@ -104,7 +107,7 @@ class TestDateTimeHelper(object):
             minute=0,
             second=0,
             microsecond=0,
-            ).replace(tzinfo=utc)
+        ).replace(tzinfo=utc)
         assert as_datetime(a_date) == expected
 
     def test_get_now_from_invalid_type(self):
@@ -191,7 +194,7 @@ class TestMonthIterator(object):
     @pytest.mark.parametrize('month_for, months_back, first_month', [
         ((2018, 1, 31), 0, datetime.date(2018, 1, 1)),
         ((2018, 1, 31), 6, datetime.date(2017, 7, 1)),
-        ])
+    ])
     def test_previous_months_iterator(self, month_for, months_back, first_month):
 
         def as_month_tuple(month):
@@ -202,7 +205,7 @@ class TestMonthIterator(object):
             last_day_in_month = calendar.monthrange(a_month.year, a_month.month)[1]
             expected_vals.append(
                 (a_month.year, a_month.month, last_day_in_month)
-                )
+            )
         expected_vals.append(month_for)
 
         vals = list(previous_months_iterator(month_for, months_back))
@@ -220,3 +223,15 @@ def test_first_last_days_for_month():
     assert last_day.year == year
     assert first_day.day == 1
     assert last_day.day == 29
+
+
+def test_utc_yesterday():
+    """Basic sanity check and test coverage using live time
+
+    If we find a need or wante to get elaborate, we test a specific time for
+    any time by with monkeypatch/mock of `utcnow()` call in `figures.helpers`
+    If it is for a need because the expected and actual do not match up, then
+    document why.
+    """
+    expected = datetime.datetime.utcnow().date() - datetime.timedelta(days=1)
+    assert utc_yesterday() == expected

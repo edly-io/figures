@@ -141,7 +141,7 @@ def get_site_for_course(course_id):
             site = None
     else:
         # Operating in single site / standalone mode, return the default site
-        site = Site.objects.using(read_replica_or_default()).get(id=settings.SITE_ID)
+        site = default_site()
     return site
 
 
@@ -151,6 +151,7 @@ def get_organizations_for_site(site):
     """
     return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(
         read_replica_or_default())
+
 
 def get_course_keys_for_sites_slugs(site_slugs):
     """This function return a list of courses keys based on the sub_orgainzation slugs"""

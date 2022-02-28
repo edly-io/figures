@@ -7,6 +7,7 @@ from __future__ import absolute_import
 import logging
 import time
 from datetime import date
+from time import time
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -20,7 +21,7 @@ from model_utils.models import TimeStampedModel
 from util.query import read_replica_or_default
 
 from figures.compat import CourseEnrollment
-from figures.helpers import as_course_key
+from figures.helpers import as_course_key, utc_yesterday
 from figures.progress import EnrollmentProgress
 
 logger = logging.getLogger(__name__)
@@ -209,7 +210,7 @@ class EnrollmentDataManager(models.Manager):
     EnrollmentData instances.
 
     """
-    def set_enrollment_data(self, site, user, course_id, course_enrollment=False):
+    def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
         """
         This is an expensive call as it needs to call CourseGradeFactory if
         there is not already a LearnerCourseGradeMetrics record for the learner
@@ -261,6 +262,71 @@ class EnrollmentDataManager(models.Manager):
             elapsed_time, obj))
         return obj, created
 
+    def update_metrics(self, site, course_enrollment, force_update=False):
+        """
+        This is an expensive call as it needs to call CourseGradeFactory if
+        there is not already a LearnerCourseGradeMetrics record for the learner
+
+        """
+        date_for = utc_yesterday()
+
+        # check if we already have a record for the date for EnrollmentData
+
+        # Alternately, we could use a try/except on a 'get' call, however, this
+        # would be much slower for a bunch of new enrollments
+
+        # Should only be one even if we don't include the site in the query
+        # because course_id should be globally unique
+        # If course id is ever NOT globally unique, then we need to add site
+        # to the query
+        ed_recs = EnrollmentData.objects.filter(
+            user_id=course_enrollment.user_id,
+            course_id=str(course_enrollment.course_id))
+
+        if not ed_recs or ed_recs[0].date_for < date_for or force_update:
+            # We do the update
+            start_time = time()
+            # get the progress data
+            ep = EnrollmentProgress(user=course_enrollment.user,
+                                    course_id=str(course_enrollment.course_id))
+            defaults = dict(
+                date_for=date_for,
+                is_completed=ep.is_completed(),
+                progress_percent=ep.progress_percent(),
+                points_possible=ep.progress.get('points_possible', 0),
+                points_earned=ep.progress.get('points_earned', 0),
+                sections_possible=ep.progress.get('sections_possible', 0),
+                sections_worked=ep.progress.get('sections_worked', 0),
+                is_enrolled=course_enrollment.is_active,
+                date_enrolled=course_enrollment.created,
+            )
+            elapsed = time() - start_time
+            defaults['collect_elapsed'] = elapsed
+
+            ed_rec, created = self.update_or_create(
+                site=site,
+                user=course_enrollment.user,
+                course_id=str(course_enrollment.course_id),
+                defaults=defaults)
+            # create a new LCGM record
+            # if it already exists for the day
+            LearnerCourseGradeMetrics.objects.update_or_create(
+                site=ed_rec.site,
+                user=ed_rec.user,
+                course_id=ed_rec.course_id,
+                date_for=date_for,
+                defaults=dict(
+                    points_possible=ed_rec.points_possible,
+                    points_earned=ed_rec.points_earned,
+                    sections_worked=ed_rec.sections_worked,
+                    sections_possible=ed_rec.sections_possible,
+                    collect_elapsed=elapsed
+                )
+            )
+            return ed_rec, created
+        else:
+            return ed_recs[0], False
+
 
 @python_2_unicode_compatible
 class EnrollmentData(TimeStampedModel):
@@ -303,6 +369,9 @@ class EnrollmentData(TimeStampedModel):
     sections_worked = models.IntegerField()
     sections_possible = models.IntegerField()
 
+    # seconds it took to collect progress data
+    collect_elapsed = models.FloatField(null=True)
+
     objects = EnrollmentDataManager()
 
     class Meta:
@@ -326,7 +395,7 @@ class EnrollmentData(TimeStampedModel):
 
 
 class LearnerCourseGradeMetricsManager(models.Manager):
-    """Custom model manager for LearnerCourseGrades model
+    """Custom model manager for LearnerCourseGradeMetrics model
     """
     def latest_lcgm(self, user, course_id):
         """Gets the most recent record for the given user and course
@@ -427,9 +496,9 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     Purpose is primarliy to improve performance for the front end. In addition,
     data collected can be used for course progress over time
 
-    We're capturing data from figures.metrics.LearnerCourseGrades
+    We're capturing data from figures.progress.EnrollmentProgress
 
-    Note: We're probably going to move ``LearnerCourseGrades`` to figures.pipeline
+    Note: We're probably going to move ``EnrollmentProgress`` to figures.pipeline
     since that class will only be needed by the pipeline
 
     Even though this is for a course enrollment, we're mapping to the user
@@ -468,6 +537,9 @@ class LearnerCourseGradeMetrics(TimeStampedModel):
     percent_grade = models.FloatField(default=0.0)
     passed_timestamp = models.DateTimeField(default=None, null=True)
     total_progress_percent = models.FloatField(default=0.0)
+
+    # seconds it took to collect progress data
+    collect_elapsed = models.FloatField(null=True)
 
     objects = LearnerCourseGradeMetricsManager()
 
