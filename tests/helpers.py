@@ -6,6 +6,9 @@ import os
 from dateutil.rrule import rrule, DAILY
 from packaging import version
 
+from django.utils.timezone import utc
+
+from opaque_keys.edx.keys import CourseKey
 from organizations.models import Organization
 
 
@@ -27,6 +30,10 @@ def make_course_key_str(org, number, run='test-run'):
     Helper method to create a string representation of a CourseKey
     """
     return 'course-v1:{}+{}+{}'.format(org, number, run)
+
+
+def fake_course_key(num):
+    return CourseKey.from_string('course-v1:TestOrg+TO+{}'.format(num))
 
 
 def create_metrics_model_timeseries(factory, first_day, last_day):
@@ -53,6 +60,7 @@ def django_filters_pre_v1():
     """
     import django_filters
     return version.parse(django_filters.__version__) < version.parse('1.0.0')
+
 
 def django_filters_pre_v2():
     """Returns `True` if the installed Django Filters package is before '1.0.0'

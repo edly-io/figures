@@ -78,6 +78,7 @@ class TestGetCourseEnrollments(object):
             date_for=self.today).values_list('id', flat=True)
         assert set(results_ce) == set(expected_ce)
 
+
 @pytest.mark.django_db
 class TestCourseDailyMetricsPipelineFunctions(object):
     """
@@ -146,8 +147,8 @@ class TestCourseDailyMetricsPipelineFunctions(object):
                 course_id=self.course_enrollments[i].course_id,
                 percent_grade=80.5,
                 passed_timestamp=(
-                        self.course_enrollments[i].created + datetime.timedelta(
-                    days=days)
+                    self.course_enrollments[i].created + datetime.timedelta(
+                        days=days)
                 ),
             ) for i, days in enumerate(self.cert_days_to_complete)]
 
@@ -283,30 +284,58 @@ class TestCourseDailyMetricsExtractor(object):
         self.user = UserFactory(edly_multisite_user__sub_org=self.edly_sub_organization)
         self.student_module = StudentModuleFactory(student=self.user)
 
-    def test_extract(self, monkeypatch):
+    def test_extract_default(self, monkeypatch):
+        """Default progress calculator is called when `ed_next` param not set
+        """
+        expected_avg_prog = 'fake-average-progress'
         course_id = self.course_enrollments[0].course_id
         monkeypatch.setattr(figures.pipeline.course_daily_metrics,
                             'bulk_calculate_course_progress_data',
-                            lambda **_kwargs: dict(average_progress=0.5))
-
-        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(self.site, course_id, date_for=self.date_for)
-        assert results
-
-    def test_when_bulk_calculate_course_progress_data_fails(self,
-                                                            monkeypatch,
-                                                            caplog):
-        course_id = self.course_enrollments[0].course_id
-
-        def mock_bulk(**_kwargs):
-            return dict(average_progress=None)
-
-        monkeypatch.setattr(figures.pipeline.course_daily_metrics,
-                            'bulk_calculate_course_progress_data',
-                            mock_bulk)
+                            lambda **_kwargs: dict(average_progress=expected_avg_prog))
 
         results = pipeline_cdm.CourseDailyMetricsExtractor().extract(
-            self.site, course_id, date_for=self.date_for
-        )
+            course_id, self.date_for)
+        assert results['average_progress'] == expected_avg_prog
+
+    @pytest.mark.parametrize('prog_func, ed_next', [
+        ('bulk_calculate_course_progress_data', False),
+        ('calculate_course_progress_next', True)
+    ])
+    def test_extract_ed_next(self, monkeypatch, prog_func, ed_next):
+        """Tests default and alternate progress calculators
+        """
+        course_id = self.course_enrollments[0].course_id
+        prog_func_str = 'figures.pipeline.course_daily_metrics.{}'.format(prog_func)
+        with mock.patch(prog_func_str) as prog_mock:
+            results = pipeline_cdm.CourseDailyMetricsExtractor().extract(
+                course_id, self.date_for, ed_next=ed_next)
+            assert prog_mock.called
+        assert results
+
+    @pytest.mark.parametrize('prog_func, ed_next', [
+        ('bulk_calculate_course_progress_data', False),
+        ('calculate_course_progress_next', True)
+    ])
+    def test_when_calculate_course_progress_data_fails(self,
+                                                       monkeypatch,
+                                                       caplog,
+                                                       prog_func,
+                                                       ed_next):
+        course_id = self.course_enrollments[0].course_id
+
+        def prog_func_mock(**_kwargs):
+            raise Exception('fake exception')
+
+        monkeypatch.setattr(figures.pipeline.course_daily_metrics,
+                            prog_func,
+                            prog_func_mock)
+
+        results = pipeline_cdm.CourseDailyMetricsExtractor().extract(
+            course_id, self.date_for, ed_next)
+
+        last_log = caplog.records[-1]
+        assert last_log.message.startswith(
+            'FIGURES:FAIL {}'.format(prog_func))
         assert not results['average_progress']
 
 
@@ -340,7 +369,7 @@ class TestCourseDailyMetricsLoader(object):
         else:
             course_id = self.course_enrollments[0].course.id
 
-        def get_data(self, date_for):
+        def get_data(self, date_for, ed_next=False):
             return {
                 'average_progress': 1.0,
                 'num_learners_completed': 2,
@@ -349,7 +378,7 @@ class TestCourseDailyMetricsLoader(object):
                 'course_id': course_id,
                 'date_for': date_for,
                 'active_learners_today': 0,
-                'active_learners_this_month':0}
+                'active_learners_this_month': 0}
 
         monkeypatch.setattr(
             figures.pipeline.course_daily_metrics.CourseDailyMetricsLoader,

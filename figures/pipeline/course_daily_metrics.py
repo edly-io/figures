@@ -24,8 +24,10 @@ from figures.helpers import as_course_key, as_datetime, next_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
-from figures.pipeline.helpers import pipeline_date_for_rule
-from figures.pipeline.logger import log_error
+from figures.pipeline.enrollment_metrics_next import (
+    calculate_course_progress as calculate_course_progress_next
+)
+
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
@@ -86,7 +88,7 @@ def get_active_learner_ids_today(course_id, date_for):
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
         modified__day=date_for_as_datetime.day,
-        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+    ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
 
 
 def get_active_learner_ids_this_month(course_id, date_for):
@@ -105,7 +107,7 @@ def get_active_learner_ids_this_month(course_id, date_for):
         course_id=as_course_key(course_id),
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
-        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+    ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
 
 
 def get_average_progress_deprecated(course_id, date_for, course_enrollments):
@@ -129,13 +131,13 @@ def get_average_progress_deprecated(course_id, date_for, course_enrollments):
                 username=ce.user.username,
                 course_id=str(ce.course_id),
                 exception=str(e),
-                )
+            )
             log_error(
                 error_data=error_data,
                 error_type=PipelineError.GRADES_DATA,
                 user=ce.user,
                 course_id=ce.course_id,
-                )
+            )
             course_progress = dict(
                 progress_percent=0.0,
                 course_progress_details=None)
@@ -164,7 +166,8 @@ def update_learners_activity_for_date(date_for, site):
     ).values_list('student__id', flat=True).distinct()
 
     for student_id in student_ids:
-        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        student_activity = StudentModule.objects.filter(
+            student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
             sub_org__lms_site=site,
@@ -285,9 +288,22 @@ class CourseDailyMetricsExtractor(object):
     BUT, we will then need to find a transform
     """
 
-    def extract(self, site, course_id, date_for=None, **_kwargs):
-        """
-            defaults = dict(
+    def extract(self, course_id, date_for, ed_next=False, **_kwargs):
+        """Extracts (collects) aggregated course level data
+
+        Args:
+            course_id (:obj:`str` or :obj:`CourseKey`): The course for which we collect data
+            date_for (str or date): Deprecated. Was to backfill data.
+                Specialized TBD backfill data will be called instead.
+            ed_next (bool, optional): "Enrollment Data Next" flag. If set to `True`
+                then we collect metrics with our updated workflow. See here:
+                https://github.com/appsembler/figures/issues/428
+
+        Returns:
+            dict with aggregate course level metrics
+
+            ```
+            dict(
                 enrollment_count=data['enrollment_count'],
                 active_learners_today=data['active_learners_today'],
                 active_learners_this_month=data['active_learners_this_month'],
@@ -295,7 +311,10 @@ class CourseDailyMetricsExtractor(object):
                 average_days_to_complete=data.get('average_days_to_complete, None'),
                 num_learners_completed=data['num_learners_completed'],
             )
-        TODO: refactor this class
+            ```
+
+        TODO: refactor this class. It doesn't need to be a class. Can be a
+        standalone function
         Add lazy loading method to load course enrollments
         - Create a method for each metric field
         """
@@ -332,10 +351,55 @@ class CourseDailyMetricsExtractor(object):
         data['active_learners_this_month'] = active_learners_this_month
 
         # Average progress
-        progress_data = bulk_calculate_course_progress_data(course_id=course_id, date_for=date_for)
-        data['average_progress'] = progress_data['average_progress']
-        data['average_days_to_complete'] = get_average_days_to_complete(site, course_id, date_for)
-        data['num_learners_completed'] = get_num_learners_completed(site, course_id, date_for)
+        # Progress data cannot be reliable for backfills or for any date prior to yesterday
+        # without using StudentModuleHistory so we skip getting this data if running
+        # for a day earlier than previous day (i.e., not during daily update of CDMs),
+        #  especially since it is so expensive to calculate.
+        # Note that Avg() applied across null and decimal vals for aggregate average_progress
+        # will correctly ignore nulls
+        # TODO: Reconsider this if we implement either StudentModuleHistory-based queries
+        # (if so, you will need to add any types you want to
+        # StudentModuleHistory.HISTORY_SAVING_TYPES)
+        # TODO: Reconsider this once we switch to using Persistent Grades
+        if is_past_date(date_for + relativedelta(days=1)):  # more than 1 day in past
+            data['average_progress'] = None
+            msg = ('FIGURES:PIPELINE:CDM Declining to calculate average progress for a past date'
+                   ' date_for={date_for}, course_id="{course_id}"')
+            logger.debug(msg.format(date_for=date_for, course_id=course_id))
+        else:
+            try:
+                # This conditional check is an interim solution until we make
+                # the progress function configurable and able to run Figures
+                # plugins
+                if ed_next:
+                    progress_data = calculate_course_progress_next(course_id=course_id)
+                else:
+                    progress_data = bulk_calculate_course_progress_data(course_id=course_id,
+                                                                        date_for=date_for)
+                data['average_progress'] = progress_data['average_progress']
+            except Exception:  # pylint: disable=broad-except
+                # Broad exception for starters. Refine as we see what gets caught
+                # Make sure we set the average_progres to None so that upstream
+                # does not think things are normal
+                data['average_progress'] = None
+
+                if ed_next:
+                    prog_func = 'calculate_course_progress_next'
+                else:
+                    prog_func = 'bulk_calculate_course_progress_data'
+
+                msg = ('FIGURES:FAIL {prog_func}'
+                       ' date_for={date_for}, course_id="{course_id}"')
+                logger.exception(msg.format(prog_func=prog_func,
+                                            date_for=date_for,
+                                            course_id=course_id))
+
+        data['average_days_to_complete'] = get_average_days_to_complete(
+            course_id, date_for,)
+
+        data['num_learners_completed'] = get_num_learners_completed(
+            course_id, date_for,)
+
         return data
 
 
@@ -347,11 +411,12 @@ class CourseDailyMetricsLoader(object):
         self.extractor = CourseDailyMetricsExtractor()
         self.site = figures.sites.get_site_for_course(self.course_id)
 
-    def get_data(self, date_for):
+    def get_data(self, date_for, ed_next=False):
         return self.extractor.extract(
             site=self.site,
             course_id=self.course_id,
-            date_for=date_for)
+            date_for=date_for,
+            ed_next=ed_next)
 
     @transaction.atomic
     def save_metrics(self, date_for, data):
@@ -378,7 +443,7 @@ class CourseDailyMetricsLoader(object):
         cdm.clean_fields()
         return (cdm, created,)
 
-    def load(self, date_for=None, force_update=False, **_kwargs):
+    def load(self, date_for=None, ed_next=False, force_update=False, **_kwargs):
         """
         TODO: clean up how we do this. We want to be able to call the loader
         with an existing data set (not having to call the extractor) but we
@@ -396,7 +461,7 @@ class CourseDailyMetricsLoader(object):
         date_for = pipeline_date_for_rule(date_for)
         try:
             cdm = CourseDailyMetrics.objects.using(read_replica_or_default()).get(course_id=self.course_id,
-                                                 date_for=date_for)
+                                                                                  date_for=date_for)
             # record found, only update if force update flag is True
             if not force_update:
                 return (cdm, False,)
@@ -404,6 +469,5 @@ class CourseDailyMetricsLoader(object):
             # record not found, move on to creating
             pass
 
-        update_learners_activity_for_date(date_for=date_for, site=self.site)
-        data = self.get_data(date_for=date_for)
+        data = self.get_data(date_for=date_for, ed_next=ed_next)
         return self.save_metrics(date_for=date_for, data=data)
