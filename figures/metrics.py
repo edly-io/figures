@@ -769,7 +769,6 @@ def get_monthly_history_metric(func, site, date_for, months_back,
             )
             history.append(dict(period=datetime.datetime.strftime(current_date, '%d-%m-%Y'), value=value, ))
             current_date = current_date + datetime.timedelta(days=1)
-        return dict(history=history)
     elif custom_date_range and not dates_within_month(start_date, end_date, '%d-%m-%Y'):
         history.append(
             dict(
@@ -805,7 +804,6 @@ def get_monthly_history_metric(func, site, date_for, months_back,
                 )
             )
         )
-        return dict(history=history)
     else:
         for month in previous_months_iterator(month_for=date_for, months_back=months_back, ):
             period = period_as_month(month)
