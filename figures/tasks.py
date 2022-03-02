@@ -129,7 +129,8 @@ def populate_daily_metrics(date_for=None, force_update=False):
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
-    lms_sites = EdlySubOrganization.objects.using(read_replica_or_default()).values_list('lms_site')
+    lms_sites = EdlySubOrganization.objects.using(
+        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
     sites_count = len(lms_sites)
     for i, site in enumerate(Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites)):
         try:
@@ -310,5 +311,7 @@ def run_figures_monthly_metrics():
     TODO: only run for active sites. Requires knowing which sites we can skip
     """
     logger.info('Starting figures.tasks.run_figures_monthly_metrics...')
-    for site in Site.objects.using(read_replica_or_default()).all():
+    lms_sites = EdlySubOrganization.objects.using(
+        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
+    for site in Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites):
         populate_monthly_metrics_for_site.delay(site_id=site.id)
