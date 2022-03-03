@@ -237,6 +237,8 @@ class EnrollmentDataManager(models.Manager):
         if lcgm:
             # do we already have an enrollment data record
             # We may change this to use
+            logger.info('LearnerCourseGradeMetrics found. course id = "{}", user={}'.format(
+            course_id, user))
             progress_data = dict(
                 date_for=lcgm.date_for,
                 is_completed=lcgm.completed,
@@ -247,6 +249,8 @@ class EnrollmentDataManager(models.Manager):
                 sections_worked=lcgm.sections_worked
             )
         else:
+            logger.info('LearnerCourseGradeMetrics not found. course id = "{}", user={}'.format(
+            course_id, user))
             ep = EnrollmentProgress(user=user, course_id=course_id)
             # TODO: If we get progress worked and there is no LCGM, then we have
             # a bug OR there was progress after the last daily metrics collection
