@@ -801,6 +801,8 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         related serializers to explicitly link models not linked via FK
 
         """
+        if not self.context.get('course_enrollments'):
+            return []
         course_enrollments = self.context.get('course_enrollments').filter(
             user=user).using(read_replica_or_default()).select_related('course', 'user')
         return LearnerCourseDetailsSerializer(
