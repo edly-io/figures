@@ -748,7 +748,33 @@ def get_total_count_for_metric(metrics_history):
     return total_count
 
 
-def get_total_site_metric_counts_and_percentage_change(data, comparison_data):
+def get_total_site_metric_counts_and_percentage_change(data):
+    """
+    """
+    data.get('total_site_staff_users')['total_count'] = data.get('total_site_staff_users').get('history')[-1].get('value')
+    data.get('total_site_staff_users')['percentage_change'] = calculate_percentage_change(
+                                                            data.get('total_site_staff_users').get('history')[-2].get('value'),
+                                                            data.get('total_site_staff_users').get('history')[-1].get('value')
+                                                            )
+    data.get('total_site_courses')['total_count'] = data.get('total_site_courses').get('history')[-1].get('value')
+    data.get('total_site_courses')['percentage_change'] = calculate_percentage_change(
+                                                            data.get('total_site_courses').get('history')[-2].get('value'),
+                                                            data.get('total_site_courses').get('history')[-1].get('value')
+                                                            )
+    data.get('total_active_courses')['total_count'] = data.get('total_active_courses').get('history')[-1].get('value')
+    data.get('total_active_courses')['percentage_change'] = calculate_percentage_change(
+                                                            data.get('total_active_courses').get('history')[-2].get('value'),
+                                                            data.get('total_active_courses').get('history')[-1].get('value')
+                                                            )
+    data.get('total_site_learners')['total_count'] = data.get('total_site_learners').get('history')[-1].get('value')
+    data.get('total_site_learners')['percentage_change'] = calculate_percentage_change(
+                                                            data.get('total_site_learners').get('history')[-2].get('value'),
+                                                            data.get('total_site_learners').get('history')[-1].get('value')
+                                                            )
+    return data
+
+
+def get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data):
     """
     Updates the general site metrics data to include the total counts and percentage change 
     from previous period. 
