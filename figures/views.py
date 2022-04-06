@@ -354,6 +354,19 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
             end_date=end_date,
         )
 
+        comparison_start_date, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
+                                                    figures.helpers.get_date(start_date, date_format),
+                                                    figures.helpers.get_date(end_date, date_format),
+                                                    )
+        comparison_data = self.metrics_method(
+            site=site,
+            date_for=date_for,
+            start_date=comparison_start_date,
+            end_date=comparison_end_date,
+        )
+
+        data = metrics.get_total_site_metric_counts_and_percentage_change(data, comparison_data)
+
         if not data:
             data = {
                 'error': 'no metrics data available',

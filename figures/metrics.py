@@ -53,7 +53,8 @@ from figures.helpers import (
     number_of_months_in_between,
     period_as_month,
     prev_day,
-    previous_months_iterator,    
+    previous_months_iterator,
+    calculate_percentage_change,
 )
 from figures.mau import get_mau_from_site_course
 from figures.models import (
@@ -732,6 +733,69 @@ def get_course_mau_history_metrics(site, course_id, date_for, months_back):
         # This should work for float too since '0 == 0.0' resolves to True
         current_month = 0
     return dict(current_month=current_month, history=history)
+
+def get_total_count_for_metric(metrics_history):
+    """
+    Iterates through the history list and sums the metrics across periods. 
+
+    Arguments: 
+        metrics_history (list): A list of dict. [{period:01-01-2022, value:2}, {period:02-01-2022, value:3}, ..]
+
+    """
+    total_count = 0
+    for metric in metrics_history:
+        total_count +=metric.get('value', 0)
+    return total_count
+
+
+def get_total_site_metric_counts_and_percentage_change(data, comparison_data):
+    """
+    Updates the general site metrics data to include the total counts and percentage change 
+    from previous period. 
+
+    Arrguments: 
+        data: Current period general site metrics data.
+        comparison_data: Comparison period general site metrics data.
+
+    """
+    total_site_staff_users = get_total_count_for_metric(data.get('total_site_staff_users')['history'])
+    comparison_total_site_staff_users = get_total_count_for_metric(
+        comparison_data.get('total_site_staff_users')['history']
+        )
+    data.get('total_site_staff_users')['total_count'] = total_site_staff_users
+    data.get('total_site_staff_users')['percentage_change'] = calculate_percentage_change(
+                                                            comparison_total_site_staff_users,
+                                                            total_site_staff_users,
+                                                            )
+    total_site_courses = get_total_count_for_metric(data.get('total_site_courses')['history'])
+    comparison_total_site_courses = get_total_count_for_metric(
+        comparison_data.get('total_site_courses')['history']
+        )
+    data.get('total_site_courses')['total_count'] = total_site_courses
+    data.get('total_site_courses')['percentage_change'] = calculate_percentage_change(
+                                                        comparison_total_site_courses,
+                                                        total_site_courses,
+                                                        )
+    total_active_courses = get_total_count_for_metric(data.get('total_active_courses')['history'])
+    comparison_total_active_courses = get_total_count_for_metric(
+        comparison_data.get('total_active_courses')['history']
+        )
+    data.get('total_active_courses')['total_count'] = total_active_courses
+    data.get('total_active_courses')['percentage_change'] = calculate_percentage_change(
+                                                          comparison_total_active_courses,
+                                                          total_active_courses,
+                                                          )
+    total_site_learners = get_total_count_for_metric(data.get('total_site_learners')['history'])
+    comparison_total_site_learners = get_total_count_for_metric(
+        comparison_data.get('total_site_learners')['history']
+        )
+    data.get('total_site_learners')['total_count'] = total_site_learners
+    data.get('total_site_learners')['percentage_change'] = calculate_percentage_change(
+                                                         comparison_total_site_learners,
+                                                         total_site_learners,
+                                                         )
+    
+    return data
 
 
 def get_monthly_history_metric(func, site, date_for, months_back,
