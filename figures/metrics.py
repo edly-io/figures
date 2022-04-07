@@ -745,6 +745,7 @@ def get_total_count_for_metric(metrics_history):
     total_count = 0
     for metric in metrics_history:
         total_count +=metric.get('value', 0)
+
     return total_count
 
 
