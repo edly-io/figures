@@ -750,7 +750,16 @@ def get_total_count_for_metric(metrics_history):
 
 def get_total_site_metric_counts_and_percentage_change(data):
     """
+    Updates the general site metrics data to include the total counts and percentage change 
+    calculated from same data of previous months. 
+
+    Arrguments: 
+        data: Current period general site metrics data.
     """
+    print("===========================================================================")
+    print(data)
+    print("===========================================================================")
+
     data.get('total_site_staff_users')['total_count'] = data.get('total_site_staff_users').get('history')[-1].get('value')
     data.get('total_site_staff_users')['percentage_change'] = calculate_percentage_change(
                                                             data.get('total_site_staff_users').get('history')[-2].get('value'),
@@ -777,7 +786,7 @@ def get_total_site_metric_counts_and_percentage_change(data):
 def get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data):
     """
     Updates the general site metrics data to include the total counts and percentage change 
-    from previous period. 
+    from previous period data. 
 
     Arrguments: 
         data: Current period general site metrics data.
