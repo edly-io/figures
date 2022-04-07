@@ -269,6 +269,32 @@ def previous_months_iterator(month_for, months_back):
         last_day_of_month = days_in_month(month_for=dt)
         yield (dt.year, dt.month, last_day_of_month)
 
+def calculate_percentage_change(start_value, end_value):
+    """
+    Calculates the percentage change bbeetweeen end value and start value and 
+    returns the change up to 2 decimal places.
+    Arguments:
+        start_value (int): The numerator for percentage change
+        end_value (int): The denominator for percentage change
+    """
+    if start_value == 0:
+        return "NA"
+    return str(round((end_value/start_value)*100, 2))
+
+def get_previous_comparison_time_period(start_date, end_date):
+    """
+    For the given dates, retiurns the dates for comparision period before these dates.
+
+    Arguments:
+         start_date (datetime): The initial date for the timeframe.
+         end_date (datetime): The final date for the timeframe.
+    """
+    days_in_between = (end_date - start_date).days
+
+    comparison_start_date =  start_date - datetime.timedelta(days=days_in_between+1)
+    comparison_end_date = start_date - datetime.timedelta(days=1)
+
+    return (comparison_start_date, comparison_end_date)
 
 def first_last_days_for_month(month_for):
     """Given a MM/YYYY string, derive the first and last days for the month
@@ -560,6 +586,8 @@ def get_date(date_value, date_format='%m-%Y'):
          date_format (str): Date string format [optional].
 
     """
+    if isinstance(date_value, datetime.date):
+        return date_value
     return datetime.datetime.strptime(date_value, date_format).date()
 
 
