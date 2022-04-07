@@ -19,17 +19,17 @@ from tests.views.base import BaseViewTest
 
 def mock_get_monthly_site_metrics(date_for=None, **kwargs):
     return dict(
-        total_site_learners=3,
-        total_site_staff_users=4,
-        total_site_coures=5,
-        total_active_courses=8,
+        total_site_learners = {'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},]},
+        total_site_staff_users = {'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},]},
+        total_site_courses = {'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},]},
+        total_active_courses = {'history': [{'period': '1-12-2021', 'value' : 9}, {'period': '2-12-2021', 'value': 2},]},
     )
 
 def mock_get_monthly_site_metrics_custom_date(date_for=None, **kwargs):
     return dict(
         total_site_learners = {'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},]},
         total_site_staff_users = {'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},]},
-        total_site_coures = {'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},]},
+        total_site_coursses = {'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},]},
         total_active_courses = {'history': [{'period': '1-12-2021', 'value' : 9}, {'period': '2-12-2021', 'value': 2},]},
     )
 
