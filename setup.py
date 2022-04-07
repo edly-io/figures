@@ -59,5 +59,6 @@ setup(
     },
     install_requires=[
         'sqlparse >= 0.2.2',  # This is the requirement specified by Django 2.2+
+        'fpdf == 1.7.2',
     ],
 )
