@@ -337,7 +337,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
         Does not yet support multi-tenancy
         '''
         site = django.contrib.sites.shortcuts.get_current_site(request)
-        date_for = request.query_params.get('date_for')
+        date_for = request.query_params.get('date_for') if request.query_params.get('date_for') else datetime.utcnow().date()
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         date_format = '%d-%m-%Y'
@@ -353,6 +353,22 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
             start_date=start_date,
             end_date=end_date,
         )
+
+        if is_custom_date_range and not date_for:
+            comparison_start_date, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
+                                                        figures.helpers.get_date(start_date, date_format),
+                                                        figures.helpers.get_date(end_date, date_format),
+                                                        )
+            comparison_data = self.metrics_method(
+                site=site,
+                date_for=date_for,
+                start_date=comparison_start_date,
+                end_date=comparison_end_date,
+            )
+            data = metrics.get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data)
+        
+        elif date_for:
+            data = metrics.get_total_site_metric_counts_and_percentage_change(data)
 
         if not data:
             data = {
