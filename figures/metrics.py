@@ -754,22 +754,22 @@ def get_total_site_metric_counts_and_percentage_change(data):
     data.get('total_site_staff_users')['total_count'] = data.get('total_site_staff_users').get('history')[-1].get('value')
     data.get('total_site_staff_users')['percentage_change'] = calculate_percentage_change(
                                                             data.get('total_site_staff_users').get('history')[-2].get('value'),
-                                                            data.get('total_site_staff_users').get('history')[-1].get('value')
+                                                            data.get('total_site_staff_users').get('history')[-1].get('value'),
                                                             )
     data.get('total_site_courses')['total_count'] = data.get('total_site_courses').get('history')[-1].get('value')
     data.get('total_site_courses')['percentage_change'] = calculate_percentage_change(
                                                             data.get('total_site_courses').get('history')[-2].get('value'),
-                                                            data.get('total_site_courses').get('history')[-1].get('value')
+                                                            data.get('total_site_courses').get('history')[-1].get('value'),
                                                             )
     data.get('total_active_courses')['total_count'] = data.get('total_active_courses').get('history')[-1].get('value')
     data.get('total_active_courses')['percentage_change'] = calculate_percentage_change(
                                                             data.get('total_active_courses').get('history')[-2].get('value'),
-                                                            data.get('total_active_courses').get('history')[-1].get('value')
+                                                            data.get('total_active_courses').get('history')[-1].get('value'),
                                                             )
     data.get('total_site_learners')['total_count'] = data.get('total_site_learners').get('history')[-1].get('value')
     data.get('total_site_learners')['percentage_change'] = calculate_percentage_change(
                                                             data.get('total_site_learners').get('history')[-2].get('value'),
-                                                            data.get('total_site_learners').get('history')[-1].get('value')
+                                                            data.get('total_site_learners').get('history')[-1].get('value'),
                                                             )
     return data
 
