@@ -244,20 +244,8 @@ class EnrollmentDataManager(models.Manager):
                 sections_possible=lcgm.sections_possible,
                 sections_worked=lcgm.sections_worked
             )
-        else:
-            ep = EnrollmentProgress(user=user, course_id=course_id)
-            # TODO: If we get progress worked and there is no LCGM, then we have
-            # a bug OR there was progress after the last daily metrics collection
-            progress_data = dict(
-                date_for=date.today(),
-                is_completed=ep.is_completed(),
-                progress_percent=ep.progress_percent(),
-                points_possible=ep.progress.get('points_possible', 0),
-                points_earned=ep.progress.get('points_earned', 0),
-                sections_possible=ep.progress.get('sections_possible', 0),
-                sections_worked=ep.progress.get('sections_worked', 0)
-            )
-        defaults.update(progress_data)
+
+            defaults.update(progress_data)
 
         obj, created = self.update_or_create(
             site=site,
