@@ -1,0 +1,303 @@
+from datetime import datetime
+
+from django.contrib.sites.shortcuts import get_current_site
+from django.conf import settings
+from django.contrib.sites.models import Site
+from django.db.models import Q
+from celery.task import task
+
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from openedx.core.lib.api.authentication import OAuth2Authentication
+from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
+
+from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
+from edly_panel_app.api.v1.views import (
+    GetMonthlyActiveUsers, GetMonthlyCourseCompletions
+)
+
+import figures.sites
+import figures.helpers
+from figures import metrics
+from figures.models import (
+    CourseDailyMetrics, SiteDailyMetrics,
+    LearnerCourseGradeMetrics
+)
+from figures.views import (
+    GeneralSiteMetricsView, SiteMonthlyMetricsViewSet, SiteDailyMetricsViewSet,
+    LearnerDetailsViewSet, GeneralCourseDataViewSet
+)
+from figures.serializers import (
+    CourseTopStatsSerializer, SiteDailyMetricsSerializer,
+    LearnerDetailsSerializer, GeneralCourseDataSerializer
+)
+
+from util.query import read_replica_or_default
+
+
+class InsightSummaryCSV(APIView):
+    """
+    Email edly_insight summary report
+    """
+
+    authentication_classes = (OAuth2Authentication, SessionAuthentication,)
+    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+
+    @staticmethod
+    def _get_figures_general_site_metrics(site, query_params):
+        date_format = '%d-%m-%Y'
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+
+        data = metrics.get_edly_monthly_site_metrics(
+            site=site,
+            date_for=datetime.utcnow().date(),
+            start_date=start_date,
+            end_date=end_date
+        )
+        comparison_start_date, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
+                                                    figures.helpers.get_date(start_date, date_format),
+                                                    figures.helpers.get_date(end_date, date_format),
+                                                    )
+        comparison_data = metrics.get_edly_monthly_site_metrics(
+            site=site,
+            date_for=datetime.utcnow().date(),
+            start_date=comparison_start_date,
+            end_date=comparison_end_date,
+        )
+
+        data = metrics.get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data)
+        return data
+
+    @staticmethod
+    def _get_courses_stats(site, order_by):
+        course_ids = figures.sites.get_course_keys_for_site(site)
+        queryset = CourseDailyMetrics.objects.filter(
+            course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
+
+        if order_by:
+            order_by_name = order_by.split(',')[0]
+            order_by_sign = order_by.split(',')[1]
+            order_by_sign = '' if order_by_sign == 'asc' else '-'
+            queryset = queryset.order_by(order_by_sign + order_by_name)
+
+        queryset = queryset[:10]
+        serialized_data = CourseTopStatsSerializer(queryset, many=True)
+        return serialized_data.data
+
+    @staticmethod
+    def _get_maus(request):
+        maus = GetMonthlyActiveUsers()
+        maus.request = request
+        return maus.get(request)
+
+    @staticmethod
+    def _get_monthly_course_completions(request):
+        monthly_course_completions = GetMonthlyCourseCompletions()
+        monthly_course_completions.request = request
+        return monthly_course_completions.get(request)
+
+    @staticmethod
+    @task()
+    def _prepare_summary_data(site, maus, monthly_course_completions, username, user_email, site_configs, query_params):
+        general_site_matrics = InsightSummaryCSV._get_figures_general_site_metrics(site, query_params)
+        courses_stats_by_enrollment = InsightSummaryCSV._get_courses_stats(site, 'enrollment_count,desc')
+        courses_stats_by_learners = InsightSummaryCSV._get_courses_stats(site, 'num_learners_completed,desc')
+        raw_data = {
+            'courses_stats_by_enrollment': courses_stats_by_enrollment,
+            'monthly_course_completions': monthly_course_completions,
+            'courses_stats_by_learners': courses_stats_by_learners,
+            'general_site_matrics': general_site_matrics,
+            'maus': maus,
+        }
+        figures.helpers.send_insights_summary_report(
+            raw_data, user_email, username,
+            'Analytics Summary Report', site_configs
+        )
+
+    def get(self, request):
+        """
+        GET /api/edly/insights-summary
+        """
+        query_params = request.query_params.dict()
+        date_format = '%d-%m-%Y'
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+        error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
+        if error_response:
+            return error_response
+
+        site = getattr(request, 'site', get_current_site(request))
+        current_site_configuration = get_current_site_configuration()
+        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+        site_configs = dict(
+            platform_name=platform_name,
+            from_address=from_address,
+        )
+        maus = InsightSummaryCSV._get_maus(request).data
+        monthly_course_completions = InsightSummaryCSV._get_monthly_course_completions(request).data
+        self._prepare_summary_data.delay(
+            site.id, maus, monthly_course_completions,
+            request.user.username, request.user.email,
+            site_configs, query_params
+        )
+        return Response({
+            "message": "Report is being sent. You will recieve an email shortly.",
+            "error": False,
+        })
+
+
+class InsightLearnersCSV(APIView):
+    """
+    Email edly_insight learners report
+    """
+
+    authentication_classes = (OAuth2Authentication, SessionAuthentication,)
+    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+
+    @staticmethod
+    def _get_site_monthly_matrics(site):
+        return {
+            'current_month': metrics.get_current_month_site_metrics(site),
+            'last_month': metrics.get_last_month_site_metrics(site)
+        }
+
+    @staticmethod
+    def _get_site_daily_matrics(site):
+        queryset = SiteDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
+        serialized_data = SiteDailyMetricsSerializer(queryset, many=True)
+        return serialized_data.data
+
+    @staticmethod
+    def _get_maus(request):
+        maus = GetMonthlyActiveUsers()
+        maus.request = request
+        return maus.get(request)
+
+    @staticmethod
+    def _get_monthly_course_completions(request):
+        monthly_course_completions = GetMonthlyCourseCompletions()
+        monthly_course_completions.request = request
+        return monthly_course_completions.get(request)
+
+    @staticmethod
+    def _get_learners_analytics(site, context, query_params):
+        learners_only = query_params.get('learners_only', None)
+        queryset = figures.sites.get_edly_users_for_site(site)
+        if learners_only and learners_only.lower() == "true":
+            queryset = queryset.filter(
+                ~Q(courseaccessrole__role='course_creator_group'),
+                is_staff=False,
+                is_superuser=False
+            ).using(read_replica_or_default())
+
+        serialized_data = LearnerDetailsSerializer(queryset, context=context, many=True)
+        return serialized_data.data
+
+    @staticmethod
+    @task()
+    def _prepare_learners_data(site, maus, monthly_course_completions, username, user_email, context, site_configs, query_params):
+        site_obj = Site.objects.get(id=site)
+        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
+            site_obj
+        )
+        context['completed_courses'] = set(
+            LearnerCourseGradeMetrics.objects.passed_ids_for_site(
+            site=site_obj,
+        ))
+        site_monthly_matrics = InsightLearnersCSV._get_site_monthly_matrics(site)
+        site_daily_matrics = InsightLearnersCSV._get_site_daily_matrics(site)
+        all_learners_details = InsightLearnersCSV._get_learners_analytics(site, context, query_params)
+
+        raw_data = {
+            'monthly_course_completions': monthly_course_completions,
+            'all_learners_details': all_learners_details,
+            'site_monthly_matrics': site_monthly_matrics,
+            'site_daily_matrics': site_daily_matrics,
+            'maus': maus,
+        }
+        figures.helpers.send_insights_learner_report(
+            raw_data, user_email, username,
+            'Analytics Learners Report', site_configs
+        )
+
+    def get(self, request):
+        """
+        GET /api/edly/insights-learners
+        """
+        query_params = request.query_params.dict()
+        date_format = '%d-%m-%Y'
+        start_date = query_params.get('start_date')
+        end_date = query_params.get('end_date')
+        error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
+        if error_response:
+            return error_response
+
+        site = getattr(request, 'site', get_current_site(request))
+        current_site_configuration = get_current_site_configuration()
+        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+        site_configs = dict(
+            platform_name=platform_name,
+            from_address=from_address,
+        )
+        monthly_course_completions = InsightLearnersCSV._get_monthly_course_completions(request).data
+        maus = InsightLearnersCSV._get_maus(request).data
+        context = dict()
+        context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
+            self.request.user,
+            site,
+        )
+        print(context)
+        self._prepare_learners_data.delay(
+            site.id, maus, monthly_course_completions,
+            request.user.username, request.user.email,
+            context, site_configs, query_params
+        )
+        return Response({
+            "message": "Report is being sent. You will recieve an email shortly.",
+            "error": False,
+        })
+
+
+class InsightCoursesCSV(APIView):
+    """
+    Email edly_insight courses report
+    """
+
+    @staticmethod
+    def _get_course_generals(site):
+        queryset = figures.sites.get_courses_for_site(site)
+        serialized_data = GeneralCourseDataSerializer(queryset, many=True)
+        return serialized_data.data
+
+    @staticmethod
+    @task()
+    def _prepare_courses_data(site, user_email, username, site_configs):
+        course_generals = InsightCoursesCSV._get_course_generals(site)
+        figures.helpers.send_insights_courses_report(
+            course_generals, user_email,
+            username, 'Courses Analytics Report', site_configs
+        )
+
+    def get(self, request):
+        """
+        GET /api/edly/insights-courses
+        """
+        site = getattr(request, 'site', get_current_site(request))
+        current_site_configuration = get_current_site_configuration()
+        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+        site_configs = dict(
+            platform_name=platform_name,
+            from_address=from_address,
+        )
+        self._prepare_courses_data.delay(site.id, request.user.email, request.user.username, site_configs)
+        return Response({
+            "message": "Report is being sent. You will recieve an email shortly.",
+            "error": False,
+        })

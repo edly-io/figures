@@ -736,9 +736,9 @@ def get_course_mau_history_metrics(site, course_id, date_for, months_back):
 
 def get_total_count_for_metric(metrics_history):
     """
-    Iterates through the history list and sums the metrics across periods. 
+    Iterates through the history list and sums the metrics across periods.
 
-    Arguments: 
+    Arguments:
         metrics_history (list): A list of dict. [{period:01-01-2022, value:2}, {period:02-01-2022, value:3}, ..]
 
     """
@@ -751,10 +751,10 @@ def get_total_count_for_metric(metrics_history):
 
 def get_total_site_metric_counts_and_percentage_change(data):
     """
-    Updates the general site metrics data to include the total counts and percentage change 
-    calculated from same data of previous months. 
+    Updates the general site metrics data to include the total counts and percentage change
+    calculated from same data of previous months.
 
-    Arrguments: 
+    Arrguments:
         data: Current period general site metrics data.
     """
     data.get('total_site_staff_users')['total_count'] = data.get('total_site_staff_users').get('history')[-1].get('value')
@@ -782,10 +782,10 @@ def get_total_site_metric_counts_and_percentage_change(data):
 
 def get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data):
     """
-    Updates the general site metrics data to include the total counts and percentage change 
-    from previous period data. 
+    Updates the general site metrics data to include the total counts and percentage change
+    from previous period data.
 
-    Arrguments: 
+    Arrguments:
         data: Current period general site metrics data.
         comparison_data: Comparison period general site metrics data.
 
@@ -826,7 +826,7 @@ def get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, co
                                                          comparison_total_site_learners,
                                                          total_site_learners,
                                                          )
-    
+
     return data
 
 
