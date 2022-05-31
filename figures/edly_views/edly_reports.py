@@ -26,10 +26,6 @@ from figures.models import (
     CourseDailyMetrics, SiteDailyMetrics,
     LearnerCourseGradeMetrics
 )
-from figures.views import (
-    GeneralSiteMetricsView, SiteMonthlyMetricsViewSet, SiteDailyMetricsViewSet,
-    LearnerDetailsViewSet, GeneralCourseDataViewSet
-)
 from figures.serializers import (
     CourseTopStatsSerializer, SiteDailyMetricsSerializer,
     LearnerDetailsSerializer, GeneralCourseDataSerializer
