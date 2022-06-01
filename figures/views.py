@@ -1162,7 +1162,6 @@ class SiteViewSet(StaffUserOnDefaultSiteAuthMixin, viewsets.ReadOnlyModelViewSet
     Access is restricted to global (Django instance) staff
     """
     model = Site
-
     queryset = Site.objects.all()
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = SiteSerializer
