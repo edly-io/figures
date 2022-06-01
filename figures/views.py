@@ -533,7 +533,7 @@ class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
         from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
         logo_url = current_site_configuration.get_value('BRANDING', {}).get('logo', '')
-        self.send_learners_data_pdf(
+        self.send_learners_data_pdf.delay(
             users=list(queryset),
             email=request.user.email,
             site_id=site.id,
