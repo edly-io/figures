@@ -1,6 +1,10 @@
 """
 Helper methods for Edly API.
 """
+from celery.task import task
+from django.core.mail.message import EmailMultiAlternatives
+from django.template.loader import get_template
+
 from edly_panel_app.api.v1.constants import (
     BLOCK_TYPES_TO_FILTER,
     CORE_BLOCK_TYPES
@@ -91,3 +95,41 @@ def serialize_course_block_structure(request, course_block_structure):
     )
 
     return course_block_structure_serializer.data, block_keys
+
+
+def _render_template(path, context):
+    """
+    Takes a template path and context and returns a rendered template
+
+    Arguments:
+        path: path of the file
+        context: context for the template
+    """
+    txt_template = get_template(path)
+
+    return txt_template.render(context)
+
+
+@task()
+def email_report_with_attachment(recipient_email, subject, username, platform_name, from_address, report_type, csv_file):
+    """
+    Send email with attachment to given recipient.
+
+    Arguments:
+        recipient_email (str): email of requesting user.
+        username (str): username of requesting user.
+        platform_name (str): LMS platform name of current site.
+        from_address (str): email from address from site configurations.
+        report_type (str): report type e.g; monthly, yearly.
+        csv_file (StringIO): the csv file string to send in email.
+    """
+    html_template_path = 'edly_panel_app/emails/report.html'
+    context = dict(platform_name=platform_name, username=username)
+    html_content = _render_template(html_template_path, context)
+    email_message = EmailMultiAlternatives(subject, html_content, from_address, to=[recipient_email])
+    email_message.attach(
+        '{}.csv'.format(report_type),
+        csv_file,
+        'text/csv'
+    )
+    email_message.send()
