@@ -47,11 +47,11 @@ home for functionality.
 
 from __future__ import absolute_import
 import calendar
-import datetime
-from io import StringIO
-from dateutil import parser
-import logging
 import csv
+import datetime
+from dateutil import parser
+from io import StringIO
+import logging
 
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
@@ -195,7 +195,7 @@ def last_date_of_previous_month(date_for):
     Returns the last date of the previous month.
 
     Arguments:
-        date_for (datetime.date): the date for which last date of previous month is required. 
+        date_for (datetime.date): the date for which last date of previous month is required.
     """
     last_date = date_for.replace(day=1) - datetime.timedelta(days=1)
     return last_date
@@ -205,7 +205,7 @@ def first_date_of_next_month(date_for):
     Returns the first date of the next month.
 
     Arguments:
-        date_for (datetime.date): the date for which first date of next month is required. 
+        date_for (datetime.date): the date for which first date of next month is required.
     """
     first_date = (date_for.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
     return first_date
@@ -237,7 +237,7 @@ def previous_months_iterator(month_for, months_back):
 
 def calculate_percentage_change(start_value, end_value):
     """
-    Calculates the percentage change bbeetweeen end value and start value and 
+    Calculates the percentage change bbeetweeen end value and start value and
     returns the change up to 2 decimal places.
     Arguments:
         start_value (int): The numerator for percentage change

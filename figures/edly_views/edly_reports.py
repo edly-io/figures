@@ -1,37 +1,35 @@
 from datetime import datetime
 
-from django.contrib.sites.shortcuts import get_current_site
+from celery.task import task
 from django.conf import settings
 from django.contrib.sites.models import Site
+from django.contrib.sites.shortcuts import get_current_site
 from django.db.models import Q
-from celery.task import task
-
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework.response import Response
-
-from openedx.core.lib.api.authentication import OAuth2Authentication
-from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
-
 from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
+from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
+from openedx.core.lib.api.authentication import OAuth2Authentication
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from util.query import read_replica_or_default
 
-import figures.sites
 import figures.helpers
 from figures import metrics
 from figures.models import (
-    CourseDailyMetrics, SiteDailyMetrics,
-    LearnerCourseGradeMetrics
+    CourseDailyMetrics, LearnerCourseGradeMetrics,
+    SiteDailyMetrics
 )
+import figures.sites
 from figures.serializers import (
-    CourseTopStatsSerializer, SiteDailyMetricsSerializer,
-    LearnerDetailsSerializer, GeneralCourseDataSerializer
+    CourseTopStatsSerializer,
+    GeneralCourseDataSerializer,
+    LearnerDetailsSerializer,
+    SiteDailyMetricsSerializer
 )
-
-from util.query import read_replica_or_default
 
 
 class InsightSummaryCSV(APIView):
@@ -248,7 +246,6 @@ class InsightLearnersCSV(APIView):
             self.request.user,
             site,
         )
-        print(context)
         self._prepare_learners_data.delay(
             site.id, maus, monthly_course_completions,
             request.user.username, request.user.email,
