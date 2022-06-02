@@ -53,8 +53,10 @@ date handling module.
 
 from __future__ import absolute_import
 import calendar
+import csv
 import datetime
 from dateutil import parser
+from io import StringIO
 import logging
 
 from importlib import import_module
@@ -65,6 +67,7 @@ from django.template.loader import get_template
 from fpdf import FPDF
 from rest_framework import status
 from rest_framework.response import Response
+from edly_panel_app.api.v1.helpers import email_report_with_attachment
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
@@ -224,7 +227,7 @@ def last_date_of_previous_month(date_for):
     Returns the last date of the previous month.
 
     Arguments:
-        date_for (datetime.date): the date for which last date of previous month is required. 
+        date_for (datetime.date): the date for which last date of previous month is required.
     """
     last_date = date_for.replace(day=1) - datetime.timedelta(days=1)
     return last_date
@@ -234,7 +237,7 @@ def first_date_of_next_month(date_for):
     Returns the first date of the next month.
 
     Arguments:
-        date_for (datetime.date): the date for which first date of next month is required. 
+        date_for (datetime.date): the date for which first date of next month is required.
     """
     first_date = (date_for.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
     return first_date
@@ -271,7 +274,7 @@ def previous_months_iterator(month_for, months_back):
 
 def calculate_percentage_change(start_value, end_value):
     """
-    Calculates the percentage change bbeetweeen end value and start value and 
+    Calculates the percentage change bbeetweeen end value and start value and
     returns the change up to 2 decimal places.
     Arguments:
         start_value (int): The numerator for percentage change
@@ -609,3 +612,150 @@ def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
         return False
     else:
         return True
+
+
+def send_insights_summary_report(raw_data, recipient_email, username, report_type, site_configuration):
+    general_site_matrics = raw_data['general_site_matrics']
+    maus = raw_data['maus'].get('data', {})
+    monthly_course_completions = raw_data['monthly_course_completions'].get('data', {})
+    courses_stats_by_enrollment = raw_data['courses_stats_by_enrollment']
+    courses_stats_by_learners = raw_data['courses_stats_by_learners']
+
+    csv_file = StringIO()
+    csv_report_writer = csv.writer(csv_file)
+    csv_report_writer.writerow(['Analytics Summary Report'])
+    csv_report_writer.writerow([''])
+    total_learners = general_site_matrics.get('total_site_learners', {}).get('current_month', 0)
+    total_site_courses = general_site_matrics.get('total_site_courses', {}).get('current_month', 0)
+    total_active_courses = general_site_matrics.get('total_active_courses', {}).get('current_month', 0)
+    total_staff_users = general_site_matrics.get('total_site_staff_users', {}).get('current_month', 0)
+    course_completions = monthly_course_completions.get('total_course_completions', 0)
+    csv_report_writer.writerow(['Total Learners: ', total_learners])
+    csv_report_writer.writerow(['Monthly Active Users: ', maus.get('total_users_count')])
+    csv_report_writer.writerow(['Course completions: ', course_completions])
+    csv_report_writer.writerow(['Total Courses: ', total_site_courses])
+    csv_report_writer.writerow(['Active Courses: ', total_active_courses])
+    csv_report_writer.writerow(['Staff Users: ', total_staff_users])
+
+    csv_report_writer.writerow([''])
+    csv_report_writer.writerow(['Top Course by Enrollment'])
+    csv_report_writer.writerow([''])
+    for courses in courses_stats_by_enrollment:
+        csv_report_writer.writerow([courses.get('course_name'), courses.get('enrollment_count')])
+
+    csv_report_writer.writerow([''])
+    csv_report_writer.writerow(['Top Course by Completions'])
+    csv_report_writer.writerow([''])
+    for courses in courses_stats_by_learners:
+        csv_report_writer.writerow([courses.get('course_name'), courses.get('num_learners_completed')])
+
+    email_report_with_attachment.delay(
+        recipient_email, 'Analytics Summary Report', username,
+        site_configuration.get('platform_name'), site_configuration.get('from_address'),
+        report_type, csv_file.getvalue()
+    )
+
+
+def send_insights_learner_report(raw_data, recipient_email, username, report_type, site_configuration):
+    monthly_course_completions = raw_data['monthly_course_completions'].get('data', {})
+    all_learners_details = raw_data['all_learners_details']
+    site_daily_matrics = raw_data['site_daily_matrics']
+    site_monthly_matrics = raw_data['site_monthly_matrics']
+    maus = raw_data['maus'].get('data', {})
+
+    csv_file = StringIO()
+    csv_report_writer = csv.writer(csv_file)
+    csv_report_writer.writerow(['Learner Analytics Report'])
+
+    csv_report_writer.writerow(['Total Users: ', len(all_learners_details)])
+    csv_report_writer.writerow([''])
+    curr_new_users = site_monthly_matrics.get('current_month', {}).get('new_users', 0)
+    prev_new_users = site_monthly_matrics.get('last_month', {}).get('new_users', 0)
+    csv_report_writer.writerow(['New User Registrations (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['New User Registrations (Last Month): ', prev_new_users])
+
+    curr_month = datetime.datetime.now().month
+    curr_new_users = maus['monthly_users_count'][curr_month - 1]
+    prev_new_users = maus['monthly_users_count'][curr_month -2]
+    csv_report_writer.writerow(['Monthly Active Users (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['Monthly Active Users (Last Month): ', prev_new_users])
+
+    today_users = (site_daily_matrics or [{}])[0].get('todays_active_learners_count', 0)
+    csv_report_writer.writerow(['Active Users Today', today_users])
+
+    curr_course_completion = monthly_course_completions['monthly_course_completions_count'][curr_month - 1]
+    csv_report_writer.writerow(['Course Completions', curr_course_completion, ''])
+    registration_fields = all_learners_details[0].get('registration_fields', {}) if all_learners_details else {}
+    registration_fields = [f.title().replace('_', ' ') for f in registration_fields.keys()]
+    csv_report_writer.writerow([''])
+    csv_report_writer.writerow(['Learners Overview'])
+    csv_report_writer.writerow([''])
+    csv_report_writer.writerow([
+        'Name', 'Username', 'Email',
+        *registration_fields,
+        'Courses Enrolled',
+        'Courses Completed',
+        'Account Created',
+        'Last Login',
+        'Last Course Activity',
+    ])
+    csv_report_writer.writerow([''])
+
+    for learner in all_learners_details:
+        csv_report_writer.writerow([
+            learner['name'],
+            learner['username'],
+            learner['email'],
+            *learner['registration_fields'].values(),
+            len(learner['courses']),
+            len([course for course in learner['courses'] if course['progress_data']['course_completed']]),
+            (learner.get('date_joined') or 'N/A').split('T')[0],
+            (learner.get('last_login') or 'N/A').split('T')[0],
+            (learner.get('course_activity_date') or 'N/A').split(' ')[0]
+        ])
+
+    csv_report_writer.writerow([''])
+
+    email_report_with_attachment.delay(
+        recipient_email, 'Analytics Learner Report', username,
+        site_configuration.get('platform_name'), site_configuration.get('from_address'),
+        report_type, csv_file.getvalue()
+    )
+
+def course_complete_rate(course):
+    enrollment_count = course['metrics']['enrollment_count']
+    num_learners_completed = course['metrics']['num_learners_completed']
+    if enrollment_count and num_learners_completed:
+        return round(num_learners_completed/enrollment_count * 100, 2)
+
+    return 'N/A'
+
+def send_insights_courses_report(courses, recipient_email, username, report_type, site_configuration):
+    csv_file = StringIO()
+    csv_report_writer = csv.writer(csv_file)
+    csv_report_writer.writerow(['Courses Analytics Report'])
+    csv_report_writer.writerow([''])
+
+    csv_report_writer.writerow([
+        'Course Id', 'Course Title', 'Instructors', 'Start Date', 'End Date',
+        'Total Enrollments', 'Active Learners', 'Total completions',
+        'Average days to complete', 'Completion Rate'
+    ])
+    csv_report_writer.writerow([''])
+
+    for course in courses:
+        csv_report_writer.writerow([
+            course['course_id'], course['course_name'],
+            ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
+            dateutil_parse(course['start_date']).strftime('%B %d, %Y'),
+            dateutil_parse(course['end_date']).strftime('%B %d, %Y') if course['end_date'] else '',
+            course['metrics']['enrollment_count'], course['metrics']['active_learners_today'],
+            course['metrics']['num_learners_completed'], course['metrics']['average_days_to_complete'],
+            course_complete_rate(course)
+        ])
+
+    email_report_with_attachment.delay(
+        recipient_email, 'Analytics Course Report', username,
+        site_configuration.get('platform_name'), site_configuration.get('from_address'),
+        report_type, csv_file.getvalue()
+    )
