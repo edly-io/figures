@@ -1,9 +1,12 @@
 from datetime import datetime
+import six
 
 from celery.task import task
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.contrib.sites.shortcuts import get_current_site
+from django.http.request import HttpRequest
 from django.db.models import Q
 from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
@@ -11,12 +14,14 @@ from edly_panel_app.api.v1.views import (
 )
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
+from openedx.features.course_experience.utils import get_course_outline_block_tree
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from util.query import read_replica_or_default
 
+from figures.compat import CourseEnrollment
 import figures.helpers
 from figures import metrics
 from figures.models import (
@@ -30,6 +35,7 @@ from figures.serializers import (
     LearnerDetailsSerializer,
     SiteDailyMetricsSerializer
 )
+from figures.views import LearnerDetailsViewSet
 
 
 class InsightSummaryCSV(APIView):
@@ -290,6 +296,83 @@ class InsightCoursesCSV(APIView):
             from_address=from_address,
         )
         self._prepare_courses_data.delay(site.id, request.user.email, request.user.username, site_configs)
+        return Response({
+            "message": "Report is being sent. You will recieve an email shortly.",
+            "error": False,
+        })
+
+
+class LearnersCSV(APIView):
+    """
+    Email edly_insights individual learner report
+    """
+
+    @staticmethod
+    def _get_learner_analytics(request):
+        learner_vs = LearnerDetailsViewSet()
+        learner_vs.request = request
+        learner_vs.format_kwarg = None
+        return learner_vs.list(request).data
+
+    @staticmethod
+    def _get_fake_httprequest(host, path):
+        req = HttpRequest()
+        req.path = path
+        req.META['HTTP_HOST'] = host
+        return req
+
+    @staticmethod
+    def _get_serialzied_learner_data(learner_data):
+        for course in learner_data.get('courses', []):
+            passed_timestamp = course['progress_data']['passed_timestamp']
+            course['progress_data']['passed_timestamp'] = str(passed_timestamp) if passed_timestamp else None
+
+        return learner_data
+
+    @staticmethod
+    @task()
+    def _prepare_learner_data(learner, admin_username, admin_email, host, path, learners_data, site_configs):
+        user = get_user_model().objects.get(username=learner)
+        req = LearnersCSV._get_fake_httprequest(host, path)
+        req.user = user
+        course_ids = CourseEnrollment.objects.filter(
+            user=user).using(read_replica_or_default()).values_list('course_id', flat=True).distinct()
+
+        all_blocks = dict()
+        for course_id in course_ids:
+            all_blocks[six.text_type(course_id)] = get_course_outline_block_tree(
+                req, six.text_type(course_id),
+                user, allow_start_dates_in_future=True
+            )
+
+        figures.helpers.send_learner_report(
+            learners_data, all_blocks, admin_email, admin_username,
+            'Learner Report', site_configs
+        )
+
+    def get(self, request):
+        """
+        GET /api/edly/learner-report
+        """
+        site = getattr(request, 'site', get_current_site(request))
+        current_site_configuration = get_current_site_configuration()
+        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
+        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
+        site_configs = dict(
+            platform_name=platform_name,
+            from_address=from_address,
+        )
+        learners_data = self._get_learner_analytics(request)
+        learners_data = self._get_serialzied_learner_data(learners_data.get('results')[0])
+        self._prepare_learner_data.delay(
+            request.GET.get('username'),
+            request.user.username,
+            request.user.email,
+            request.get_host(),
+            request.path,
+            learners_data,
+            site_configs
+        )
         return Response({
             "message": "Report is being sent. You will recieve an email shortly.",
             "error": False,

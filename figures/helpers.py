@@ -722,3 +722,69 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
         site_configuration.get('platform_name'), site_configuration.get('from_address'),
         report_type, csv_file.getvalue()
     )
+
+def get_farthest_complete_block(all_blocks):
+    last_chapter, last_section, last_subsection = None, None, None
+    for chapter in all_blocks.get('children', []):
+        for section in chapter.get('children', []):
+            for subsection in section.get('children', []):
+                if subsection.get('complete'):
+                    last_chapter = chapter.get('display_name')
+                    last_section = section.get('display_name')
+                    last_subsection = subsection.get('display_name')
+
+    return [last_chapter, last_section, last_subsection]
+
+def send_learner_report(learners_data, all_blocks, recipient_email, username, report_type, site_configs):
+    csv_file = StringIO()
+    csv_report_writer = csv.writer(csv_file)
+    csv_report_writer.writerow(['Learner Detail Report'])
+    csv_report_writer.writerow([''])
+
+    csv_report_writer.writerow(['Username', learners_data.get('username')])
+    csv_report_writer.writerow(['Email', learners_data.get('email')])
+    csv_report_writer.writerow(['Courses Enrolled', len(learners_data.get('courses'))])
+    course_completed = len([
+        course for course in learners_data.get('courses')
+        if course.get('progress_data').get('course_completed')
+    ])
+    csv_report_writer.writerow(['Courses Completed', course_completed])
+    csv_report_writer.writerow(['Status', 'Active' if learners_data.get('is_active') else 'False'])
+    created_date = (learners_data.get('date_joined') or '').split('T')[0]
+    csv_report_writer.writerow(['Account Created', created_date])
+    last_login = (learners_data.get('last_login') or '').split('T')[0]
+    csv_report_writer.writerow(['Last Login', last_login])
+    course_activity = learners_data.get('course_activity_date')
+    csv_report_writer.writerow([
+        'Last Course Activity', course_activity.split('T')[0] if course_activity else 'N/A'
+    ])
+    csv_report_writer.writerow([''])
+
+    csv_report_writer.writerow([
+        'Course Title',
+        'Enrollment Date',
+        'Completion Date',
+        'Grade',
+        'Graded Course Progress',
+        'Total Course Progress',
+        'Farthest Completed Block (Section)',
+        'Farthest Completed Block (Subsection)',
+        'Farthest Completed Block (Unit)',
+    ])
+
+    for course in learners_data.get('courses'):
+        csv_report_writer.writerow([
+            course.get('course_name'),
+            course.get('date_enrolled'),
+            (course.get('progress_data').get('passed_timestamp') or '').split('T')[0],
+            course.get('progress_data').get('letter_grade') or 'N/A',
+            '{}%'.format(course.get('progress_data').get('course_progress')),
+            '{}%'.format(course.get('progress_data').get('total_progress_percent')),
+            *get_farthest_complete_block(all_blocks[course['course_id']]),
+        ])
+
+    email_report_with_attachment.delay(
+        recipient_email, 'Learner Detail Report', username,
+        site_configs.get('platform_name'), site_configs.get('from_address'),
+        report_type, csv_file.getvalue()
+    )
