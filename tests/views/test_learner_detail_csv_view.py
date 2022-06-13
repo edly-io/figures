@@ -7,7 +7,7 @@ from rest_framework.test import (
     force_authenticate,
     )
 
-from figures.edly_view.edly_reports import LearnersCSV
+from figures.edly_views.edly_reports import LearnersCSV
 from tests.views.base import BaseViewTest
 from tests.helpers import organizations_support_sites
 
