@@ -15,29 +15,13 @@ if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
 
 
-USER_DATA = [
-    {'id': 101, 'username': u'alpha', 'fullname': u'Alpha One',
-     'is_active': True, 'country': 'CA'},
-    {'id': 102, 'username': u'alpha02', 'fullname': u'Alpha Two', 'is_active': False, 'country': 'UK'},
-    {'id': 103, 'username': u'bravo', 'fullname': u'Bravo One', 'is_active': True, 'country': 'US'},
-    {'id': 104, 'username': u'bravo02', 'fullname': u'Bravo Two', 'is_active': True, 'country': 'UY'},
-]
-
-COURSE_DATA = [
-    { 'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg', 'number': u'A001' },
-    { 'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg', 'number': u'A002' },
-    { 'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg', 'number': u'B001' },
-    { 'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg', 'number': u'B002' },
-]
-
-
 @pytest.mark.django_db
 class TestLearnerDetailCSVView(BaseViewTest):
     request_path = 'api/edly/learner-report/'
     view_class = LearnersCSV
 
     @pytest.fixture(autouse=True)
-    def setup(self db, settings):
+    def setup(self, db, settings):
         super(TestLearnerDetailCSVView, self).setup(db)
         settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         is_multisite = figures.helpers.is_multisite()
