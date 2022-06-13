@@ -15,6 +15,7 @@ from edly_panel_app.api.v1.views import (
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
 from openedx.features.course_experience.utils import get_course_outline_block_tree
+from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -363,7 +364,14 @@ class LearnersCSV(APIView):
             from_address=from_address,
         )
         learners_data = self._get_learner_analytics(request)
-        learners_data = self._get_serialzied_learner_data(learners_data.get('results')[0])
+        learners_data = (learners_data.get('results') or [{}])[0]
+        if not learners_data:
+            return Response({
+                "message": "No Learner Found with this username",
+                "error": True,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        learners_data = self._get_serialzied_learner_data(learners_data)
         self._prepare_learner_data.delay(
             request.GET.get('username'),
             request.user.username,
