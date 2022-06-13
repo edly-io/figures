@@ -756,7 +756,7 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
     csv_report_writer.writerow(['Last Login', last_login])
     course_activity = learners_data.get('course_activity_date')
     csv_report_writer.writerow([
-        'Last Course Activity', course_activity.split('T')[0] if course_activity else 'N/A'
+        'Last Course Activity', course_activity.split(' ')[0] if course_activity else 'N/A'
     ])
     csv_report_writer.writerow([''])
 
@@ -776,7 +776,7 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
         csv_report_writer.writerow([
             course.get('course_name'),
             course.get('date_enrolled'),
-            (course.get('progress_data').get('passed_timestamp') or '').split('T')[0],
+            (course.get('progress_data').get('passed_timestamp') or '').split(' ')[0],
             course.get('progress_data').get('letter_grade') or 'N/A',
             '{}%'.format(course.get('progress_data').get('course_progress')),
             '{}%'.format(course.get('progress_data').get('total_progress_percent')),
