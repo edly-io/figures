@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'course_modes',
     'coursewarehistoryextended',
     'experiments',
+    'edly_panel_app',
 ]
 
 if OPENEDX_RELEASE == 'GINKGO':
