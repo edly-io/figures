@@ -7,8 +7,16 @@ from rest_framework.test import (
     force_authenticate,
     )
 
+import figures
 from figures.edly_views.edly_reports import LearnersCSV
 from tests.views.base import BaseViewTest
+from tests.factories import (
+    CourseEnrollmentFactory,
+    CourseOverviewFactory,
+    OrganizationFactory,
+    OrganizationCourseFactory,
+    UserFactory,
+)
 from tests.helpers import organizations_support_sites
 
 if organizations_support_sites():
