@@ -412,3 +412,5 @@ PLATFORM_NAME = _('Your Platform Name Here')
 DEFAULT_FROM_EMAIL = 'registration@example.com'
 
 PROCTORING_SETTINGS = {}
+
+SITE_NAME = "edx.org"
