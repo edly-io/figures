@@ -20,6 +20,8 @@ from tests.helpers import organizations_support_sites
                     reason='Organizations support sites')
 @pytest.mark.django_db
 class TestLearnerDetailCSVView(BaseViewTest):
+    """Test edly_views/LearnerCSV View
+    """
 
     request_path = 'api/edly/learner-report/'
     view_class = LearnersCSV
@@ -29,7 +31,6 @@ class TestLearnerDetailCSVView(BaseViewTest):
         super(TestLearnerDetailCSVView, self).setup(db)
         self.users = [UserFactory(edly_profile__edly_sub_organizations=[self.edly_org]) for i in range(3)]
         self.users.append(self.staff_user)
-
 
     @patch.object(
         figures.edly_views.edly_reports,
@@ -42,7 +43,7 @@ class TestLearnerDetailCSVView(BaseViewTest):
     @patch.object(
         figures.edly_views.edly_reports.LearnersCSV,
         '_get_learner_analytics',
-        MagicMock(return_value=MagicMock(get_value=MagicMock(return_value={
+        MagicMock(return_value={
             "previous": None, "total_pages": 1, "count": 1, "next": None, "current_page": 1,
             "results": [{
                 "email": "alilaila393+2nd@gmail.com", "courses": [{
@@ -77,9 +78,13 @@ class TestLearnerDetailCSVView(BaseViewTest):
                 "date_joined": "2022-06-07T10:55:22Z", "name": "ali", "level_of_education": "",
                 "year_of_birth": None, "id": 15, "country": "", "last_login": "2022-06-07T10:55:22Z"
             }]
-        })))
+        })
     )
     @patch.object(edly_helpers.email_report_with_attachment,
+        'delay',
+        MagicMock(return_value=True)
+    )
+    @patch.object(LearnersCSV._prepare_learner_data,
         'delay',
         MagicMock(return_value=True)
     )
@@ -92,6 +97,42 @@ class TestLearnerDetailCSVView(BaseViewTest):
         response = view(request)
 
         assert response.status_code == 200
+        assert response.data['message'] == 'Report is being sent. You will recieve an email shortly.'
 
-    # def test_get_invalid_learner(self):
-    #     pass
+    @patch.object(
+        figures.edly_views.edly_reports.LearnersCSV,
+        '_get_learner_analytics',
+        MagicMock(return_value={
+            "previous": None, "total_pages": 1, "count": 1, "next": None, "current_page": 1,
+            "results": []
+        })
+    )
+    @patch.object(
+        figures.edly_views.edly_reports,
+        'get_current_site_configuration',
+        MagicMock(return_value=MagicMock(get_value=MagicMock(return_value={
+            'PLATFORM_NAME': 'test-platform',
+            'email_from_address': 'test@example.com',
+        })))
+    )
+    def test_get_invalid_learner(self):
+        request = self.request_path + '?username=anyone'
+        request = APIRequestFactory().get(request)
+        request.site = self.site
+        force_authenticate(request, self.staff_user)
+        view = self.view_class.as_view()
+        response = view(request)
+
+        assert response.status_code == 400
+        assert response.data['message'] == 'No Learner Found with this username'
+
+    def test_get_without_learner(self):
+        request = self.request_path
+        request = APIRequestFactory().get(request)
+        request.site = self.site
+        force_authenticate(request, self.staff_user)
+        view = self.view_class.as_view()
+        response = view(request)
+
+        assert response.status_code == 400
+        assert response.data['message'] == 'Username missing'
