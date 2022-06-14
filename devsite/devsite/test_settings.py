@@ -410,3 +410,5 @@ EDLY_USER_ROLES = {
 
 PLATFORM_NAME = _('Your Platform Name Here')
 DEFAULT_FROM_EMAIL = 'registration@example.com'
+
+PROCTORING_SETTINGS = {}
