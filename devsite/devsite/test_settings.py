@@ -422,6 +422,6 @@ PROCTORING_BACKENDS = {
     'null': {}
 }
 
-ROJECT_ROOT = path(__file__).abspath().dirname().dirname()  # /edx-platform/lms
+PROJECT_ROOT = path(__file__).abspath().dirname().dirname()
 REPO_ROOT = PROJECT_ROOT.dirname()
 ENV_ROOT = REPO_ROOT.dirname()
