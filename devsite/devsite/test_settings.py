@@ -6,6 +6,7 @@ Settings file to run automated tests
 from __future__ import absolute_import, unicode_literals
 
 from os.path import abspath, dirname, join
+from path import Path as path
 import environ
 import sys
 
