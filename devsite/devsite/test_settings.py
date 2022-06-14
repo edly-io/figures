@@ -415,3 +415,8 @@ DEFAULT_FROM_EMAIL = 'registration@example.com'
 PROCTORING_SETTINGS = {}
 
 SITE_NAME = "edx.org"
+
+PROCTORING_BACKENDS = {
+    'DEFAULT': 'null',
+    'null': {}
+}
