@@ -420,3 +420,7 @@ PROCTORING_BACKENDS = {
     'DEFAULT': 'null',
     'null': {}
 }
+
+ROJECT_ROOT = path(__file__).abspath().dirname().dirname()  # /edx-platform/lms
+REPO_ROOT = PROJECT_ROOT.dirname()
+ENV_ROOT = REPO_ROOT.dirname()
