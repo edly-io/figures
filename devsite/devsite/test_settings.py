@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'course_modes',
     'coursewarehistoryextended',
     'experiments',
+    'oauth2_provider',
     'edly_panel_app',
 ]
 
