@@ -156,12 +156,13 @@ USE_TZ = True
 TIME_ZONE = 'UTC'
 
 # https://wsvincent.com/django-rest-framework-serializers-viewsets-routers/
-
-# For initial testing, later we want to enforce authorization
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
-    ]
+    ],
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    )
 }
 
 # Webpack loader is required to load Figure's front-end

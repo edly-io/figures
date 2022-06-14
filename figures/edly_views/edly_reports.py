@@ -355,6 +355,13 @@ class LearnersCSV(APIView):
         """
         GET /api/edly/learner-report
         """
+        username = request.GET.get('username')
+        if not username:
+            return Response({
+                "message": "Username missing",
+                "error": True,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         site = getattr(request, 'site', get_current_site(request))
         current_site_configuration = get_current_site_configuration()
         platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
@@ -373,7 +380,7 @@ class LearnersCSV(APIView):
 
         learners_data = self._get_serialzied_learner_data(learners_data)
         self._prepare_learner_data.delay(
-            request.GET.get('username'),
+            username,
             request.user.username,
             request.user.email,
             request.get_host(),
