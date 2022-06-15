@@ -6,10 +6,12 @@ Settings file to run automated tests
 from __future__ import absolute_import, unicode_literals
 
 from os.path import abspath, dirname, join
+from path import Path as path
 import environ
 import environ
 import sys
 
+from django.utils.translation import ugettext_lazy as _
 from figures.settings.lms_production import (
     update_celerybeat_schedule,
     # TODO: https://appsembler.atlassian.net/browse/RED-673
@@ -18,6 +20,7 @@ from figures.settings.lms_production import (
 )
 
 
+USAGE_KEY_PATTERN = r'(?P<usage_key_string>(?:i4x://?[^/]+/[^/]+/[^/]+/[^@]+(?:@[^/]+)?)|(?:[^/]+))'
 COURSE_ID_PATTERN = r'(?P<course_id>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 
 
@@ -96,6 +99,9 @@ INSTALLED_APPS = [
     'course_modes',
     'coursewarehistoryextended',
     'experiments',
+    'oauth2_provider',
+    'edx_proctoring',
+    'edly_panel_app',
 ]
 
 if OPENEDX_RELEASE != 'GINGKO':
@@ -164,12 +170,13 @@ USE_TZ = True
 TIME_ZONE = 'UTC'
 
 # https://wsvincent.com/django-rest-framework-serializers-viewsets-routers/
-
-# For initial testing, later we want to enforce authorization
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
-    ]
+    ],
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    )
 }
 
 # Webpack loader is required to load Figure's front-end
@@ -417,3 +424,28 @@ EDLY_PANEL_ADMIN_USERS_GROUP = 'Edly Panel Admin Users'
 EDLY_PANEL_RESTRICTED_USERS_GROUP = 'Edly Panel Restricted Users'
 EDLY_WP_ADMIN_USERS_GROUP = 'WordPress Edly Admin Users'
 EDLY_WP_SUBSCRIBER_USERS_GROUP = 'WordPress Subscriber Users'
+
+EDLY_USER_ROLES = {
+    'panel_restricted': EDLY_PANEL_RESTRICTED_USERS_GROUP,
+    'panel_user': EDLY_PANEL_USERS_GROUP,
+    'insights_admin': EDLY_INSIGHTS_GROUP,
+    'panel_admin': EDLY_PANEL_ADMIN_USERS_GROUP,
+    'subscriber': EDLY_WP_SUBSCRIBER_USERS_GROUP,
+    'edly_admin': EDLY_WP_ADMIN_USERS_GROUP
+}
+
+PLATFORM_NAME = _('Your Platform Name Here')
+DEFAULT_FROM_EMAIL = 'registration@example.com'
+
+PROCTORING_SETTINGS = {}
+
+SITE_NAME = "edx.org"
+
+PROCTORING_BACKENDS = {
+    'DEFAULT': 'null',
+    'null': {}
+}
+
+PROJECT_ROOT = path(__file__).abspath().dirname().dirname()
+REPO_ROOT = PROJECT_ROOT.dirname()
+ENV_ROOT = REPO_ROOT.dirname()
