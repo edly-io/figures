@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import six
 
 from celery.task import task
@@ -8,22 +8,26 @@ from django.contrib.sites.models import Site
 from django.contrib.sites.shortcuts import get_current_site
 from django.http.request import HttpRequest
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
+from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
 from openedx.features.course_experience.utils import get_course_outline_block_tree
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from util.query import read_replica_or_default
 
-from figures.compat import CourseEnrollment
+from figures.compat import CourseEnrollment, CourseOverview
 import figures.helpers
+from figures.mau import retrieve_live_course_learners_mau_data
 from figures import metrics
 from figures.models import (
     CourseDailyMetrics, LearnerCourseGradeMetrics,
@@ -31,12 +35,13 @@ from figures.models import (
 )
 import figures.sites
 from figures.serializers import (
+    CourseDetailsSerializer,
     CourseTopStatsSerializer,
     GeneralCourseDataSerializer,
     LearnerDetailsSerializer,
     SiteDailyMetricsSerializer
 )
-from figures.views import LearnerDetailsViewSet
+from figures.views import CourseEnrollmentViewSet, LearnerDetailsViewSet
 
 
 class InsightSummaryCSV(APIView):
@@ -269,11 +274,44 @@ class InsightCoursesCSV(APIView):
     Email edly_insight courses report
     """
 
+    authentication_classes = (OAuth2Authentication, SessionAuthentication,)
+    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+
+    def _get_course_enrollments(self):
+        course_enrol_vs = CourseEnrollmentViewSet()
+        course_enrol_vs.request = self.request
+        course_enrol_vs.format_kwarg = None
+        return course_enrol_vs.list(self.request).data
+
+    @staticmethod
+    def _get_serialized_enrollments(enrollments):
+        for enrollment in enrollments:
+            for course in enrollment.get('courses', []):
+                passed_timestamp = course['progress_data']['passed_timestamp']
+                course['progress_data']['passed_timestamp'] = str(passed_timestamp) if passed_timestamp else None
+
+        return enrollments
+
     @staticmethod
     def _get_course_generals(site):
         queryset = figures.sites.get_courses_for_site(site)
         serialized_data = GeneralCourseDataSerializer(queryset, many=True)
         return serialized_data.data
+
+    @staticmethod
+    def _get_course_overview_and_details(site, course_id):
+        course_key = CourseKey.from_string(course_id.replace(' ', '+'))
+        if figures.helpers.is_multisite():
+            course_site = figures.sites.get_site_for_course(course_key)
+            if not course_site or site != course_site.id:
+                # Raising NotFound instead of PermissionDenied
+                raise NotFound()
+
+        course_overview = get_object_or_404(CourseOverview, pk=course_key)
+        return (
+            GeneralCourseDataSerializer(course_overview).data,
+            CourseDetailsSerializer(course_overview).data
+        )
 
     @staticmethod
     @task()
@@ -282,6 +320,41 @@ class InsightCoursesCSV(APIView):
         figures.helpers.send_insights_courses_report(
             course_generals, user_email,
             username, 'Courses Analytics Report', site_configs
+        )
+
+    @staticmethod
+    def _get_courses_maus(site, course_id):
+        today = datetime.today()
+        thirty_days_ago = today - timedelta(days=30)
+        site_obj = site_obj = Site.objects.get(id=site)
+
+        return retrieve_live_course_learners_mau_data(
+            site_obj,
+            CourseKey.from_string(course_id.replace(' ', '+')),
+            thirty_days_ago, today
+        )
+
+    @staticmethod
+    @task()
+    def _prepare_advance_course_data(site, user_email, username, course_enrollments, host, path, site_config, course_id):
+        course_overview, course_details = InsightCoursesCSV._get_course_overview_and_details(site, course_id)
+        fake_req = LearnersCSV._get_fake_httprequest(host, path)
+
+        learners = get_user_model().objects.filter(
+            username__in=[l['user']['username'] for l in course_enrollments]
+        )
+        all_blocks = dict()
+        for learner in learners:
+            fake_req.user = learner
+            all_blocks[learner.username] = get_course_outline_block_tree(
+                fake_req, six.text_type(course_id.replace(' ', '+')),
+                learner, allow_start_dates_in_future=True
+            )
+
+        course_maus = InsightCoursesCSV._get_courses_maus(site, course_id)
+        figures.helpers.send_insights_course_detail_report(
+            course_overview, course_details, course_maus, course_enrollments,
+            all_blocks, user_email, username, 'Course Detail Report', site_config
         )
 
     def get(self, request):
@@ -296,7 +369,23 @@ class InsightCoursesCSV(APIView):
             platform_name=platform_name,
             from_address=from_address,
         )
-        self._prepare_courses_data.delay(site.id, request.user.email, request.user.username, site_configs)
+        course_id = request.GET.get('course_id')
+        if course_id:
+            course_enrollments = self._get_course_enrollments()
+            course_enrollments = self._get_serialized_enrollments(course_enrollments)
+            self._prepare_advance_course_data.delay(
+                site.id,
+                request.user.email,
+                request.user.username,
+                course_enrollments,
+                request.get_host(),
+                request.path,
+                site_configs,
+                course_id
+            )
+        else:
+            self._prepare_courses_data.delay(site.id, request.user.email, request.user.username, site_configs)
+
         return Response({
             "message": "Report is being sent. You will recieve an email shortly.",
             "error": False,
