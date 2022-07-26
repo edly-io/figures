@@ -60,7 +60,6 @@ from django.template.loader import get_template
 from fpdf import FPDF
 from rest_framework import status
 from rest_framework.response import Response
-from edly_panel_app.api.v1.helpers import email_report_with_attachment
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
@@ -576,6 +575,15 @@ def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
     else:
         return True
 
+def _email_report_with_attachment(recipient_email, subject, username, platform, from_address, report_type, csv_file):
+    from edly_panel_app.api.v1.helpers import email_report_with_attachment
+
+    email_report_with_attachment.delay(
+        recipient_email, subject, username,
+        platform, from_address,
+        report_type, csv_file
+    )
+
 
 def send_insights_summary_report(raw_data, recipient_email, username, report_type, site_configuration):
     general_site_matrics = raw_data['general_site_matrics']
@@ -612,7 +620,7 @@ def send_insights_summary_report(raw_data, recipient_email, username, report_typ
     for courses in courses_stats_by_learners:
         csv_report_writer.writerow([courses.get('course_name'), courses.get('num_learners_completed')])
 
-    email_report_with_attachment.delay(
+    _email_report_with_attachment(
         recipient_email, 'Analytics Summary Report', username,
         site_configuration.get('platform_name'), site_configuration.get('from_address'),
         report_type, csv_file.getvalue()
@@ -679,7 +687,7 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
 
     csv_report_writer.writerow([''])
 
-    email_report_with_attachment.delay(
+    _email_report_with_attachment(
         recipient_email, 'Analytics Learner Report', username,
         site_configuration.get('platform_name'), site_configuration.get('from_address'),
         report_type, csv_file.getvalue()
@@ -717,7 +725,7 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
             course_complete_rate(course)
         ])
 
-    email_report_with_attachment.delay(
+    _email_report_with_attachment(
         recipient_email, 'Analytics Course Report', username,
         site_configuration.get('platform_name'), site_configuration.get('from_address'),
         report_type, csv_file.getvalue()
@@ -783,7 +791,7 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
             *get_farthest_complete_block(all_blocks[course['course_id']]),
         ])
 
-    email_report_with_attachment.delay(
+    _email_report_with_attachment(
         recipient_email, 'Learner Detail Report', username,
         site_configs.get('platform_name'), site_configs.get('from_address'),
         report_type, csv_file.getvalue()
