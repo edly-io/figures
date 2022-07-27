@@ -576,6 +576,12 @@ def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
         return True
 
 def _email_report_with_attachment(recipient_email, subject, username, platform, from_address, report_type, csv_file):
+    """
+    figures app is installed as plugin which are loaded before INSTALLED_APPS
+    And this import causing to load the third party `social_django` app to load
+    before its settings are properly configured in `common > djangoapps > third_party_auth`
+    ref: https://edlyio.atlassian.net/browse/EDLY-4644
+    """
     from edly_panel_app.api.v1.helpers import email_report_with_attachment
 
     email_report_with_attachment.delay(
