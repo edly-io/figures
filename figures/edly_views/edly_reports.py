@@ -277,11 +277,12 @@ class InsightCoursesCSV(APIView):
     authentication_classes = (OAuth2Authentication, SessionAuthentication,)
     permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
 
-    def _get_course_enrollments(self):
+    @staticmethod
+    def _get_course_enrollments(request):
         course_enrol_vs = CourseEnrollmentViewSet()
-        course_enrol_vs.request = self.request
+        course_enrol_vs.request = request
         course_enrol_vs.format_kwarg = None
-        return course_enrol_vs.list(self.request).data
+        return course_enrol_vs.list(request).data
 
     @staticmethod
     def _get_serialized_enrollments(enrollments):
@@ -336,9 +337,17 @@ class InsightCoursesCSV(APIView):
 
     @staticmethod
     @task()
-    def _prepare_advance_course_data(site, user_email, username, course_enrollments, host, path, site_config, course_id):
+    def _prepare_advance_course_data(
+        site, user_email, username,
+        host, path, site_config, course_id, query_params
+    ):
         course_overview, course_details = InsightCoursesCSV._get_course_overview_and_details(site, course_id)
         fake_req = LearnersCSV._get_fake_httprequest(host, path)
+        fake_req.site = Site.objects.get(id=site)
+        fake_req.user = get_user_model().objects.get(username=username)
+        fake_req.query_params = query_params
+        course_enrollments = InsightCoursesCSV._get_course_enrollments(fake_req)
+        course_enrollments = InsightCoursesCSV._get_serialized_enrollments(course_enrollments)
 
         learners = get_user_model().objects.filter(
             username__in=[l['user']['username'] for l in course_enrollments]
@@ -371,17 +380,15 @@ class InsightCoursesCSV(APIView):
         )
         course_id = request.GET.get('course_id')
         if course_id:
-            course_enrollments = self._get_course_enrollments()
-            course_enrollments = self._get_serialized_enrollments(course_enrollments)
-            self._prepare_advance_course_data.delay(
+            self._prepare_advance_course_data(
                 site.id,
                 request.user.email,
                 request.user.username,
-                course_enrollments,
                 request.get_host(),
                 request.path,
                 site_configs,
-                course_id
+                course_id,
+                request.query_params.copy().dict(),
             )
         else:
             self._prepare_courses_data.delay(site.id, request.user.email, request.user.username, site_configs)
