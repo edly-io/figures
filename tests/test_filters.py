@@ -34,6 +34,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import TestCase
 
+from openedx.features.edly.tests.factories import (
+    EdlySubOrganizationFactory,
+    EdlyUserProfileFactory,
+)
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
     CourseDailyMetricsFilter,
@@ -60,6 +64,8 @@ from tests.factories import (
     CourseMauMetricsFactory,
     CourseOverviewFactory,
     LearnerCourseGradeMetricsFactory,
+    OrganizationFactory,
+    OrganizationCourseFactory,
     SiteDailyMetricsFactory,
     SiteMauMetricsFactory,
     SiteFactory,
@@ -470,10 +476,27 @@ class UserFilterSetTest(TestCase):
     def setUp(self):
         self.User = get_user_model()
         self.users = [make_user(**data) for data in USER_DATA]
+        self.site = SiteFactory(domain='my-site.test')
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization,
+            edx_organizations=[self.organization]
+        )
         self.course_overview = CourseOverviewFactory()
+        OrganizationCourseFactory(
+            organization=self.organization,
+            course_id=str(self.course_overview.id)
+        )
         self.course_enrollments = [
             CourseEnrollmentFactory(course_id=self.course_overview.id,
                                     user=self.users[i]) for i in range(2)]
+
+        for course_enrollment in self.course_enrollments:
+            EdlyUserProfileFactory(
+                user=course_enrollment.user,
+                edly_sub_organizations=[self.edly_sub_organization]
+            )
 
     def tearDown(self):
         pass
