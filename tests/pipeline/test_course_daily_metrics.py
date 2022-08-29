@@ -10,9 +10,9 @@ import mock
 import pytest
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
-
+from django.db.models import Q
 from dateutil.relativedelta import relativedelta
-from figures.helpers import as_datetime, next_day, prev_day
+from figures.helpers import as_datetime, next_day
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline import course_daily_metrics as pipeline_cdm
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
@@ -20,12 +20,11 @@ from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
     EdlyUserProfileFactory,
 )
-from student.models import CourseEnrollment, CourseAccessRole
+from student.models import CourseEnrollment
 from tests.factories import (
     CourseAccessRoleFactory,
     CourseEnrollmentFactory,
     CourseOverviewFactory,
-    GeneratedCertificateFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
     SiteFactory,
@@ -49,12 +48,35 @@ class TestGetCourseEnrollments(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         self.today = datetime.date(2018, 6, 1)
+        self.site = SiteFactory(domain='my-site.test')
+        if organizations_support_sites():
+            self.organization = OrganizationFactory(sites=[self.site])
+        else:
+            self.organization = OrganizationFactory()
+
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization,
+            edx_organizations=[self.organization]
+        )
         self.course_overviews = [CourseOverviewFactory() for i in range(1, 3)]
+
         self.course_enrollments = []
         for co in self.course_overviews:
+            OrganizationCourseFactory(
+                organization=self.organization,
+                course_id=str(co.id)
+            )
             self.course_enrollments.extend(
                 [CourseEnrollmentFactory(course_id=co.id) for i in range(1, 3)])
+
+        for course_enrollment in self.course_enrollments:
+            EdlyUserProfileFactory(
+                user=course_enrollment.user,
+                edly_sub_organizations=[self.edly_sub_organization]
+            )
 
     def test_get_course_enrollments_for_course(self):
         course_id = self.course_overviews[0].id
@@ -66,7 +88,6 @@ class TestGetCourseEnrollments(object):
             course_id=course_id,
             date_for=self.today).values_list('id', flat=True)
         assert set(results_ce) == set(expected_ce)
-
 
 @pytest.mark.django_db
 class TestCourseDailyMetricsPipelineFunctions(object):
@@ -150,16 +171,20 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             ) for i, days in enumerate(self.cert_days_to_complete)]
 
     def test_get_enrolled_in_exclude_admins(self):
-
+        course_enrollments = CourseEnrollment.objects.filter(
+            course_id=self.course_overview.id)
         # Get the total number of course enrollments for the course
-        ce_count = CourseEnrollment.objects.filter(
-            course_id=self.course_overview.id).count()
+        ce_count = course_enrollments.count()
         # Get course admins (non-students) count for the course
-        ce_non_students = CourseAccessRole.objects.filter(
-            course_id=self.course_overview.id).count()
+        ce_students = course_enrollments.filter(
+            ~Q(user__courseaccessrole__role='course_creator_group'),
+            user__edly_profile__edly_sub_organizations=self.site.edly_sub_org_for_lms,
+            user__is_staff=False,
+            user__is_superuser=False,
+        ).count()
 
-        expected_count = ce_count - ce_non_students
-        assert ce_count > 0 and ce_non_students > 0 and expected_count > 0, 'say something'
+        expected_count = ce_students
+        assert ce_count > 0 and ce_students > 0 and expected_count > 0, 'enrollments must be greater than 0'
 
         learners = pipeline_cdm.get_enrolled_in_exclude_admins(
             course_id=self.course_overview.id, date_for=self.today)
@@ -269,6 +294,12 @@ class TestCourseDailyMetricsExtractor(object):
             lms_site=self.site,
             edx_organizations=[self.org]
         )
+        for course_enrollment in self.course_enrollments:
+            OrganizationCourseFactory(
+                organization=self.org,
+                course_id=str(course_enrollment.course.id),
+            )
+
         self.user = UserFactory()
         EdlyUserProfileFactory(
             user=self.user,

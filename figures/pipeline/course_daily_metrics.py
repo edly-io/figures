@@ -55,20 +55,23 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
 
     """
     course_locator = as_course_key(course_id)
+    site = figures.sites.get_site_for_course(course_id)
 
     if getattr(course_id, 'ccx', None):
         course_locator = course_id.to_course_locator()
 
-    staff = CourseStaffRole(course_locator).users_with_role()
-    admins = CourseInstructorRole(course_locator).users_with_role()
-    coaches = CourseCcxCoachRole(course_locator).users_with_role()
     filter_args = dict(course_id=course_locator, is_active=1)
 
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
 
-    return CourseEnrollment.objects.filter(**filter_args).using(read_replica_or_default()).exclude(
-        user__in=staff).exclude(user__in=admins).exclude(user__in=coaches)
+    return CourseEnrollment.objects.filter(**filter_args).filter(
+        course_id=as_course_key(course_id)).filter(
+        ~Q(user__courseaccessrole__role='course_creator_group'),
+        user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        user__is_staff=False,
+        user__is_superuser=False,
+    ).using(read_replica_or_default())
 
 
 def get_active_learner_ids_today(course_id, date_for):
