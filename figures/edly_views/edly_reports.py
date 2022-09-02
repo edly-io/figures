@@ -380,7 +380,7 @@ class InsightCoursesCSV(APIView):
         )
         course_id = request.GET.get('course_id')
         if course_id:
-            self._prepare_advance_course_data(
+            self._prepare_advance_course_data.delay(
                 site.id,
                 request.user.email,
                 request.user.username,
