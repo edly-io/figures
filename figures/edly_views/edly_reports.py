@@ -182,6 +182,17 @@ class InsightLearnersCSV(APIView):
     def _get_maus(request):
         maus = GetMonthlyActiveUsers()
         maus.request = request
+
+        # setattr(request, 'type', 'monthly')
+        # setattr(request, 'start_date', '01-01-2022')
+        # setattr(request, 'end_date', '30-09-2022')
+        # setattr(request, 'include_users_data', 'include_users_data')
+        # setattr(maus.request, 'type', 'monthly')
+        # setattr(maus.request, 'start_date', '01-01-2022')
+        # setattr(maus.request, 'end_date', '30-09-2022')
+        # setattr(maus.request, 'include_users_data', 'include_users_data')
+
+
         return maus.get(request)
 
     @staticmethod
@@ -236,6 +247,7 @@ class InsightLearnersCSV(APIView):
         GET /api/edly/insights-learners
         """
         query_params = request.query_params.dict()
+        print('query_params:', query_params)
         date_format = '%d-%m-%Y'
         start_date = query_params.get('start_date')
         end_date = query_params.get('end_date')
@@ -253,12 +265,16 @@ class InsightLearnersCSV(APIView):
         )
         monthly_course_completions = InsightLearnersCSV._get_monthly_course_completions(request).data
         maus = InsightLearnersCSV._get_maus(request).data
+        print("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
+        print("maus:", maus)
+        print('monthly_course_completions:', monthly_course_completions)
+        print("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
         context = dict()
         context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
             self.request.user,
             site,
         )
-        self._prepare_learners_data.delay(
+        self._prepare_learners_data(
             site.id, maus, monthly_course_completions,
             request.user.username, request.user.email,
             context, site_configs, query_params
