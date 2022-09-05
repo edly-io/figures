@@ -584,7 +584,7 @@ def _email_report_with_attachment(recipient_email, subject, username, platform, 
     """
     from edly_panel_app.api.v1.helpers import email_report_with_attachment
 
-    email_report_with_attachment.delay(
+    email_report_with_attachment(
         recipient_email, subject, username,
         platform, from_address,
         report_type, csv_file
@@ -634,6 +634,17 @@ def send_insights_summary_report(raw_data, recipient_email, username, report_typ
 
 
 def send_insights_learner_report(raw_data, recipient_email, username, report_type, site_configuration):
+
+    print("--------------------------------------------------")
+
+    print("recipient_email", recipient_email)
+    print("username", username)
+    print("report_type", report_type)
+    print("site_configuration", site_configuration)
+    print("raw_data", raw_data)
+
+    print("--------------------------------------------------")
+
     monthly_course_completions = raw_data['monthly_course_completions'].get('data', {})
     all_learners_details = raw_data['all_learners_details']
     site_daily_matrics = raw_data['site_daily_matrics']
@@ -651,9 +662,9 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
     csv_report_writer.writerow(['New User Registrations (Current Month): ', curr_new_users])
     csv_report_writer.writerow(['New User Registrations (Last Month): ', prev_new_users])
 
-    curr_month = datetime.datetime.now().month
-    curr_new_users = maus['monthly_users_count'][curr_month - 1]
-    prev_new_users = maus['monthly_users_count'][curr_month -2]
+    # curr_month = datetime.datetime.now().month
+    curr_new_users = maus['monthly_users_count'][-1]
+    prev_new_users = maus['monthly_users_count'][-2]
     csv_report_writer.writerow(['Monthly Active Users (Current Month): ', curr_new_users])
     csv_report_writer.writerow(['Monthly Active Users (Last Month): ', prev_new_users])
 
