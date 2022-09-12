@@ -138,6 +138,7 @@ class TestCourseDailyMetricsView(BaseViewTest):
             course_id='course-v1:SomeOrg+ABC01+2121',
             enrollment_count=11,
             active_learners_today=1,
+            active_learners_this_month=1,
             average_progress=0.5,
             average_days_to_complete=5,
             num_learners_completed=10

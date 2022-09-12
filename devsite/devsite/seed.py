@@ -301,6 +301,7 @@ def seed_course_daily_metrics_fixed(data=None):
             defaults=dict(
                 enrollment_count=rec['enrollment_count'],
                 active_learners_today=rec['active_learners_today'],
+                active_learners_this_month=rec['active_learners_this_month'],
                 average_progress=rec['average_progress'],
                 average_days_to_complete=rec['average_days_to_complete'],
                 num_learners_completed=rec['num_learners_completed'],
