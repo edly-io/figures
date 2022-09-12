@@ -54,7 +54,7 @@ class CourseDailyMetrics(TimeStampedModel):
     course_id = models.CharField(max_length=255, db_index=True)
     enrollment_count = models.IntegerField()
     active_learners_today = models.IntegerField()
-    active_learners_this_month = models.IntegerField()
+    active_learners_this_month = models.IntegerField(default=0)
     # Do we want cumulative average progress for the month?
 
     # TODO: Consider making average progress an int value betwen 0 and 100 if
