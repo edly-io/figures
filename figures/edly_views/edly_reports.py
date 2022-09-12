@@ -349,21 +349,10 @@ class InsightCoursesCSV(APIView):
         course_enrollments = InsightCoursesCSV._get_course_enrollments(fake_req)
         course_enrollments = InsightCoursesCSV._get_serialized_enrollments(course_enrollments)
 
-        learners = get_user_model().objects.filter(
-            username__in=[l['user']['username'] for l in course_enrollments]
-        )
-        all_blocks = dict()
-        for learner in learners:
-            fake_req.user = learner
-            all_blocks[learner.username] = get_course_outline_block_tree(
-                fake_req, six.text_type(course_id.replace(' ', '+')),
-                learner, allow_start_dates_in_future=True
-            )
-
         course_maus = InsightCoursesCSV._get_courses_maus(site, course_id)
         figures.helpers.send_insights_course_detail_report(
             course_overview, course_details, course_maus, course_enrollments,
-            all_blocks, user_email, username, 'Course Detail Report', site_config
+            user_email, username, 'Course Detail Report', site_config
         )
 
     def get(self, request):

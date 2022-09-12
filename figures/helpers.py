@@ -842,7 +842,7 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
 
 def send_insights_course_detail_report(
     course_overview, course_details, course_maus, learners,
-    all_blocks, recipient_email, username, report_type, site_configs
+    recipient_email, username, report_type, site_configs
 ):
     csv_file = StringIO()
     csv_report_writer = csv.writer(csv_file)
@@ -886,9 +886,6 @@ def send_insights_course_detail_report(
         'Email',
         'Enrollment Mode',
         'Enrollment Date',
-        'Farthest Completed Block (Section)',
-        'Farthest Completed Block (Subsection)',
-        'Farthest Completed Block (Unit)',
         'Completion Date',
         'Grade',
         'Graded Course Progress',
@@ -904,7 +901,6 @@ def send_insights_course_detail_report(
             learner['user']['email'],
             learner.get('mode') or 'N/A',
             learner['courses'][0]['date_enrolled'],
-            *get_farthest_complete_block(all_blocks[learner['user']['username']]),
             learner['courses'][0]['progress_data']['passed_timestamp'],
             learner['courses'][0]['progress_data']['letter_grade'],
             '{}%'.format(learner['courses'][0]['progress_data']['course_progress']),
