@@ -323,6 +323,7 @@ class CourseDailyMetricsFactory(DjangoModelFactory):
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
     enrollment_count = factory.Sequence(lambda n: n)
     active_learners_today = factory.Sequence(lambda n: n)
+    active_learners_this_month = factory.Sequence(lambda n: n)
     average_progress = 0.0
     average_days_to_complete = 10
     num_learners_completed = 5

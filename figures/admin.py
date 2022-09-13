@@ -38,7 +38,7 @@ class CourseDailyMetricsAdmin(admin.ModelAdmin):
     """
     list_display = ('id', 'date_for', 'site', 'course_id', 'enrollment_count',
                     'average_progress', 'average_days_to_complete',
-                    'num_learners_completed')
+                    'num_learners_completed', 'active_learners_this_month')
     list_filter = (
         ('site', RelatedOnlyDropdownFilter),
         ('course_id', AllValuesDropdownFilter),

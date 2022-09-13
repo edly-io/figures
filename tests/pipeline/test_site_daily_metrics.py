@@ -52,18 +52,21 @@ CDM_INPUT_TEST_DATA = [
     dict(
         enrollment_count=0,
         active_learners_today=0,
+        active_learners_this_month=0,
         average_progress=None,
         average_days_to_complete=None,
         num_learners_completed=0),
     dict(
         enrollment_count=50,
         active_learners_today=5,
+        active_learners_this_month=5,
         average_progress=0.25,
         average_days_to_complete=24,
         num_learners_completed=0),
     dict(
         enrollment_count=100,
         active_learners_today=10,
+        active_learners_this_month=10,
         average_progress=0.75,
         average_days_to_complete=12,
         num_learners_completed=5),

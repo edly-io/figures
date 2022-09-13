@@ -91,7 +91,45 @@ def get_active_learner_ids_today(course_id, date_for):
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
         modified__day=date_for_as_datetime.day,
-        ).values_list('student__id', flat=True).distinct()
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+
+
+def get_active_learner_ids_this_month(course_id, date_for):
+    """Get unique user ids for learners who are active in this month for the
+    given course and date
+
+    Note: When Figures no longer has to support Django 1.8, we can simplify
+    this date check:
+        https://docs.djangoproject.com/en/1.9/ref/models/querysets/#date
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        course_id=as_course_key(course_id),
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+
+
+def get_active_learner_ids_this_month(course_id, date_for):
+    """Get unique user ids for learners who are active in this month for the
+    given course and date
+
+    Note: When Figures no longer has to support Django 1.8, we can simplify
+    this date check:
+        https://docs.djangoproject.com/en/1.9/ref/models/querysets/#date
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        course_id=as_course_key(course_id),
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
 
 
 def get_average_progress_deprecated(course_id, date_for, course_enrollments):
@@ -296,6 +334,7 @@ class CourseDailyMetricsExtractor(object):
             dict(
                 enrollment_count=data['enrollment_count'],
                 active_learners_today=data['active_learners_today'],
+                active_learners_this_month=data['active_learners_this_month'],
                 average_progress=data.get('average_progress', None),
                 average_days_to_complete=data.get('average_days_to_complete, None'),
                 num_learners_completed=data['num_learners_completed'],
@@ -331,6 +370,14 @@ class CourseDailyMetricsExtractor(object):
             active_learners_today = 0
         data['active_learners_today'] = active_learners_today
 
+        active_learner_ids_this_month = get_active_learner_ids_this_month(
+            course_id, date_for,)
+        if active_learner_ids_this_month:
+            active_learners_this_month = active_learner_ids_this_month.count()
+        else:
+            active_learners_this_month = 0
+        data['active_learners_this_month'] = active_learners_this_month
+
         # Average progress
         progress_data = bulk_calculate_course_progress_data(course_id=course_id, date_for=date_for)
         data['average_progress'] = progress_data['average_progress']
@@ -365,11 +412,13 @@ class CourseDailyMetricsLoader(object):
         defaults = dict(
             enrollment_count=data['enrollment_count'],
             active_learners_today=data['active_learners_today'],
+            active_learners_this_month=data['active_learners_this_month'],
             average_days_to_complete=int(round(data['average_days_to_complete'])),
             num_learners_completed=data['num_learners_completed'],
         )
         if data['average_progress'] is not None:
             defaults['average_progress'] = str(data['average_progress'])
+
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=str(self.course_id),
             site=self.site,

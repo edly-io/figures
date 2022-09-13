@@ -381,7 +381,8 @@ class TestCourseDailyMetricsLoader(object):
                 'average_days_to_complete': 0.0,
                 'course_id': course_id,
                 'date_for': date_for,
-                'active_learners_today': 0}
+                'active_learners_today': 0,
+                'active_learners_this_month':0}
 
         monkeypatch.setattr(
             figures.pipeline.course_daily_metrics.CourseDailyMetricsLoader,
