@@ -814,40 +814,37 @@ def send_insights_course_detail_report(
 
     course_name = course_overview.get('course_name', '')
     csv_report_writer.writerow(['Course Name', course_name])
+
     course_id = course_overview.get('course_id', '')
     csv_report_writer.writerow(['Course ID', course_id])
+
     course_code = course_overview.get('course_code', '')
     csv_report_writer.writerow(['Course Code', course_code])
+    csv_report_writer.writerow([''])
     
     total_learners = (course_overview.get('metrics') or {}).get('enrollment_count', 0)
     csv_report_writer.writerow(['Total Learners', total_learners])
-    csv_report_writer.writerow([''])
 
     total_completion = (course_overview.get('metrics') or {}).get('num_learners_completed', 0)
     csv_report_writer.writerow(['Total Completions', total_completion])
-    csv_report_writer.writerow([''])
 
     completion_rate = round(0 if total_learners == 0 else (total_completion / total_learners) * 100, 2)
     csv_report_writer.writerow(['Completion Rate', '{}%'.format(completion_rate)])
-    csv_report_writer.writerow([''])
 
     csv_report_writer.writerow(['Active Learners (Active in last thirty days)', sum(course_maus.get('counts', []))])
-    csv_report_writer.writerow([''])
 
     avg_course_progress = float((course_overview.get('metrics') or {}).get('average_progress', 0)) * 100
     csv_report_writer.writerow(['Average Course Progress', '{}%'.format(avg_course_progress)])
-    csv_report_writer.writerow([''])
 
     avg_days_to_complete = (course_overview.get('metrics') or {}).get('average_days_to_complete', 0)
     csv_report_writer.writerow(['Average Days to Complete', '{}%'.format(avg_days_to_complete)])
-    csv_report_writer.writerow([''])
 
     enrols_over_time = (course_details.get('learners_enrolled') or {}).get('current_month', 0)
     csv_report_writer.writerow(['Enrollments Over Time', enrols_over_time])
-    csv_report_writer.writerow([''])
 
     completion_over_time = (course_details.get('users_completed') or {}).get('current_month', 0)
     csv_report_writer.writerow(['Completions Over Time', completion_over_time])
+    csv_report_writer.writerow([''])
     csv_report_writer.writerow([''])
 
     csv_report_writer.writerow([
@@ -863,7 +860,6 @@ def send_insights_course_detail_report(
         'Account Created',
         'Last Login'
     ])
-    csv_report_writer.writerow([''])
     for learner in learners:
         csv_report_writer.writerow([
             learner['user']['fullname'],
@@ -878,7 +874,6 @@ def send_insights_course_detail_report(
             learner['user']['date_joined'] or 'N/A',
             learner['user']['last_login'] or 'N/A',
         ])
-        csv_report_writer.writerow([''])
 
     _email_report_with_attachment(
         recipient_email, 'Course Detail Report', username,
