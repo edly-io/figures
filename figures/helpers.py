@@ -812,6 +812,13 @@ def send_insights_course_detail_report(
     csv_report_writer.writerow(['Course Detail Report'])
     csv_report_writer.writerow([''])
 
+    course_name = course_overview.get('course_name', '')
+    csv_report_writer.writerow(['Course Name', course_name])
+    course_id = course_overview.get('course_id', '')
+    csv_report_writer.writerow(['Course ID', course_id])
+    course_code = course_overview.get('course_code', '')
+    csv_report_writer.writerow(['Course Code', course_code])
+    
     total_learners = (course_overview.get('metrics') or {}).get('enrollment_count', 0)
     csv_report_writer.writerow(['Total Learners', total_learners])
     csv_report_writer.writerow([''])
