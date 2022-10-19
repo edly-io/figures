@@ -794,6 +794,10 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
 
     csv_report_writer.writerow(['Username', learners_data.get('username')])
     csv_report_writer.writerow(['Email', learners_data.get('email')])
+    registration_fields = learners_data.get('registration_fields', {}) if learners_data else {}
+    for registration_field in registration_fields:
+        csv_report_writer.writerow([registration_field.title().replace('_', ' '), registration_fields.get(registration_field, '')])
+
     csv_report_writer.writerow(['Courses Enrolled', len(learners_data.get('courses'))])
     course_completed = len([
         course for course in learners_data.get('courses')
