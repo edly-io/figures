@@ -6,28 +6,32 @@ from __future__ import absolute_import
 import datetime
 import time
 
-import six
-
-from django.contrib.sites.models import Site
-from django.utils.timezone import utc
-
 from celery import chord
 from celery.app import shared_task
 from celery.utils.log import get_task_logger
+from completion.models import BlockCompletion
+from django.contrib.sites.models import Site
+from django.utils.timezone import utc
+import six
+from util.query import read_replica_or_default
 
-from openedx.features.edly.models import EdlySubOrganization
+from edly_panel_app.api.v1.helpers import get_block_types_and_keys
+from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
+from openedx.core.djangoapps.content.block_structure.api import get_course_in_cache
+from openedx.core.djangoapps.content.block_structure.transformers import BlockStructureTransformers
+from openedx.features.edly.models import EdlySubOrganization, StudentCourseProgress
+
 from figures.backfill import backfill_enrollment_data_for_site
 from figures.compat import CourseEnrollment, CourseOverview
-from figures.helpers import as_course_key, as_date
+from figures.helpers import as_course_key, as_date, get_course_block_name
 from figures.log import log_exec_time
 from figures.models import PipelineError
 from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
 from figures.pipeline.site_daily_metrics import SiteDailyMetricsLoader
-import figures.sites
 from figures.pipeline.mau_pipeline import collect_course_mau
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
 from figures.pipeline.logger import log_error_to_db
-from util.query import read_replica_or_default
+import figures.sites
 
 
 logger = get_task_logger(__name__)
@@ -103,6 +107,66 @@ def update_enrollment_data(site_id, **_kwargs):
 
 
 @shared_task
+def update_learners_progress_for_course(course):
+    """
+    This updates all learners' progress for the course.
+    """
+    course_enrollments = CourseEnrollment.objects.filter(course=course)
+    course_structure = get_course_in_cache(course._location.course_key)
+    complete_course_structure = course_structure.copy()
+    block_types, course_block_keys = get_block_types_and_keys(course_structure)
+    transformers = BlockStructureTransformers()
+    transformers += [
+        BlocksAPITransformer(
+            block_types_to_count=block_types,
+            requested_student_view_data=set([]),
+            depth=0,
+        )
+    ]
+
+    transformers.transform(course_structure)
+
+    for enrollment in course_enrollments:
+        completions = BlockCompletion.objects.filter(
+            user=enrollment.user,
+            context_key=enrollment.course_id,
+            block_key__in=course_block_keys,
+        )
+
+        if not completions:
+            continue
+
+        farthest_completed_block = None
+        completion_block_ids = [completion.block_key.block_id for completion in completions]
+        for course_block_key in complete_course_structure.topological_traversal():
+            if course_block_key.block_id in completion_block_ids:
+                farthest_completed_block = course_block_key
+
+        if not farthest_completed_block:
+            continue
+
+        completion_date = None
+        for completion in completions:
+            if completion.block_key.block_id == farthest_completed_block.block_id:
+                completion_date = completion.created
+
+        unit = complete_course_structure.get_parents(farthest_completed_block)[0]
+        subsection = complete_course_structure.get_parents(unit)[0]
+        section = complete_course_structure.get_parents(subsection)[0]
+        StudentCourseProgress.objects.update_or_create(
+            student=enrollment.user,
+            course_id=course._location.course_key,
+            defaults=dict(
+                completed_block=get_course_block_name(complete_course_structure, farthest_completed_block),
+                completed_unit=get_course_block_name(complete_course_structure, unit),
+                completed_subsection=get_course_block_name(complete_course_structure, subsection),
+                completed_section=get_course_block_name(complete_course_structure, section),
+                completion_date=completion_date,
+            )
+        )
+
+
+@shared_task
 def populate_daily_metrics(date_for=None, force_update=False):
     '''Populates the daily metrics models for the given date
 
@@ -166,6 +230,7 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     logger=logger,
                     log_pipeline_errors_to_db=True,
                     )
+            update_learners_progress_for_course(course)
 
         populate_site_daily_metrics(
                 site_id=site.id,
