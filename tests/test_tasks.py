@@ -114,12 +114,17 @@ def test_populate_daily_metrics_error(transactional_db, monkeypatch):
         # At least one with and without `message_dict`
         raise ValidationError(message=error_message)
 
+    def mock_update_learners_progress_for_course(course):
+        pass
+
     assert SiteDailyMetrics.objects.count() == 0
     assert CourseDailyMetrics.objects.count() == 0
     monkeypatch.setattr(
         figures.sites, 'get_courses_for_site', mock_get_courses)
     monkeypatch.setattr(
         figures.tasks, 'populate_single_cdm', mock_pop_single_cdm_fails)
+    monkeypatch.setattr(
+        figures.tasks, 'update_learners_progress_for_course', mock_update_learners_progress_for_course)
     assert PipelineError.objects.count() == 0
     figures.tasks.populate_daily_metrics(date_for=date_for)
     assert PipelineError.objects.count() == 1
@@ -149,6 +154,9 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
         # At least one with and without `message_dict`
         raise Exception(message=error_message)
 
+    def mock_update_learners_progress_for_course(course):
+        pass
+
     assert SiteDailyMetrics.objects.count() == 0
     assert CourseDailyMetrics.objects.count() == 0
     monkeypatch.setattr(
@@ -157,7 +165,8 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
         figures.tasks, 'populate_single_cdm', mock_pop_single_cdm)
     monkeypatch.setattr(
         figures.tasks, 'update_enrollment_data', mock_update_enrollment_data_fails)
-
+    monkeypatch.setattr(
+        figures.tasks, 'update_learners_progress_for_course', mock_update_learners_progress_for_course)
     figures.tasks.populate_daily_metrics(date_for=date_for)
     last_log = caplog.records[-1]
     assert last_log.message.startswith(

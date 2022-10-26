@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import six
 
 from celery.task import task
 from django.conf import settings
@@ -16,7 +15,7 @@ from edly_panel_app.api.v1.views import (
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
-from openedx.features.course_experience.utils import get_course_outline_block_tree
+from openedx.features.edly.models import StudentCourseProgress
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import NotFound
@@ -25,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from util.query import read_replica_or_default
 
-from figures.compat import CourseEnrollment, CourseOverview
+from figures.compat import CourseOverview
 import figures.helpers
 from figures.mau import retrieve_live_course_learners_mau_data
 from figures import metrics
@@ -349,10 +348,11 @@ class InsightCoursesCSV(APIView):
         course_enrollments = InsightCoursesCSV._get_course_enrollments(fake_req)
         course_enrollments = InsightCoursesCSV._get_serialized_enrollments(course_enrollments)
 
+        scp_objects = StudentCourseProgress.objects.filter(course_id=course_id)
         course_maus = InsightCoursesCSV._get_courses_maus(site, course_id)
         figures.helpers.send_insights_course_detail_report(
             course_overview, course_details, course_maus, course_enrollments,
-            user_email, username, 'Course Detail Report', site_config
+            user_email, username, 'Course Detail Report', site_config, scp_objects
         )
 
     def get(self, request):
@@ -419,21 +419,11 @@ class LearnersCSV(APIView):
     @task()
     def _prepare_learner_data(learner, admin_username, admin_email, host, path, learners_data, site_configs):
         user = get_user_model().objects.get(username=learner)
-        req = LearnersCSV._get_fake_httprequest(host, path)
-        req.user = user
-        course_ids = CourseEnrollment.objects.filter(
-            user=user).using(read_replica_or_default()).values_list('course_id', flat=True).distinct()
-
-        all_blocks = dict()
-        for course_id in course_ids:
-            all_blocks[six.text_type(course_id)] = get_course_outline_block_tree(
-                req, six.text_type(course_id),
-                user, allow_start_dates_in_future=True
-            )
+        scp_objects = StudentCourseProgress.objects.filter(student=user)
 
         figures.helpers.send_learner_report(
-            learners_data, all_blocks, admin_email, admin_username,
-            'Learner Report', site_configs
+            learners_data, scp_objects, admin_email, admin_username,
+            'Learner Report', site_configs,
         )
 
     def get(self, request):
