@@ -221,6 +221,7 @@ def days_in_month(month_for):
     _, num_days_in_month = calendar.monthrange(month_for.year, month_for.month)
     return num_days_in_month
 
+
 def last_date_of_previous_month(date_for):
     """
     Returns the last date of the previous month.
@@ -230,6 +231,7 @@ def last_date_of_previous_month(date_for):
     """
     last_date = date_for.replace(day=1) - datetime.timedelta(days=1)
     return last_date
+
 
 def first_date_of_next_month(date_for):
     """
@@ -241,12 +243,14 @@ def first_date_of_next_month(date_for):
     first_date = (date_for.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
     return first_date
 
+
 def number_of_months_in_between(start_date, end_date):
     """
     Returns the number of months in bertween the start and end date.
     """
     months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
     return months
+
 
 def is_past_date(val):
     return as_date(val) < datetime.date.today()
@@ -271,6 +275,7 @@ def previous_months_iterator(month_for, months_back):
         last_day_of_month = days_in_month(month_for=dt)
         yield (dt.year, dt.month, last_day_of_month)
 
+
 def calculate_percentage_change(start_value, end_value):
     """
     Calculates the percentage change bbeetweeen end value and start value and
@@ -282,6 +287,7 @@ def calculate_percentage_change(start_value, end_value):
     if start_value == 0:
         return "NA"
     return str(round((end_value/start_value)*100, 2))
+
 
 def get_previous_comparison_time_period(start_date, end_date):
     """
@@ -297,6 +303,7 @@ def get_previous_comparison_time_period(start_date, end_date):
     comparison_end_date = start_date - datetime.timedelta(days=1)
 
     return (comparison_start_date, comparison_end_date)
+
 
 def first_last_days_for_month(month_for):
     """Given a MM/YYYY string, derive the first and last days for the month
@@ -612,6 +619,7 @@ def dates_within_month(start_date, end_date, date_format='%d-%m-%Y'):
     else:
         return True
 
+
 def _email_report_with_attachment(recipient_email, subject, username, platform, from_address, report_type, csv_file):
     """
     figures app is installed as plugin which are loaded before INSTALLED_APPS
@@ -736,6 +744,7 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
         report_type, csv_file.getvalue()
     )
 
+
 def course_complete_rate(course):
     enrollment_count = course['metrics']['enrollment_count']
     num_learners_completed = course['metrics']['num_learners_completed']
@@ -743,6 +752,7 @@ def course_complete_rate(course):
         return round(num_learners_completed/enrollment_count * 100, 2)
 
     return 'N/A'
+
 
 def send_insights_courses_report(courses, recipient_email, username, report_type, site_configuration):
     csv_file = StringIO()
@@ -774,19 +784,25 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
         report_type, csv_file.getvalue()
     )
 
-def get_farthest_complete_block(all_blocks):
-    last_chapter, last_section, last_subsection = None, None, None
-    for chapter in all_blocks.get('children', []):
-        for section in chapter.get('children', []):
-            for subsection in section.get('children', []):
-                if subsection.get('complete'):
-                    last_chapter = chapter.get('display_name')
-                    last_section = section.get('display_name')
-                    last_subsection = subsection.get('display_name')
 
-    return [last_chapter, last_section, last_subsection]
+def get_farthest_complete_course_block(scp_objects, course_key=None, user=None):
+    """
+    This helper method retrieves "StudentCourseProgress" for given course_key.
+    """
+    course_progress = None
+    if course_key is not None:
+        course_progress = scp_objects.filter(course_id = course_key)
+    elif user is not None:
+        course_progress = scp_objects.filter(student__username = user)
 
-def send_learner_report(learners_data, all_blocks, recipient_email, username, report_type, site_configs):
+    if course_progress:
+        scp = course_progress.first()
+        return [scp.completed_section, scp.completed_subsection, scp.completed_unit, scp.completed_block, scp.completion_date]
+
+    return []
+
+
+def send_learner_report(learners_data, scp_objects, recipient_email, username, report_type, site_configs):
     csv_file = StringIO()
     csv_report_writer = csv.writer(csv_file)
     csv_report_writer.writerow(['Learner Detail Report'])
@@ -814,7 +830,6 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
         'Last Course Activity', course_activity.split(' ')[0] if course_activity else 'N/A'
     ])
     csv_report_writer.writerow([''])
-
     csv_report_writer.writerow([
         'Course Title',
         'Enrollment Date',
@@ -825,6 +840,8 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
         'Farthest Completed Block (Section)',
         'Farthest Completed Block (Subsection)',
         'Farthest Completed Block (Unit)',
+        'Farthest Completed Block',
+        'Farthest Completed Block Date',
     ])
 
     for course in learners_data.get('courses'):
@@ -835,7 +852,7 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
             course.get('progress_data').get('letter_grade') or 'N/A',
             '{}%'.format(course.get('progress_data').get('course_progress')),
             '{}%'.format(course.get('progress_data').get('total_progress_percent')),
-            *get_farthest_complete_block(all_blocks[course['course_id']]),
+            *get_farthest_complete_course_block(scp_objects, course_key=course['course_id']),
         ])
 
     _email_report_with_attachment(
@@ -844,9 +861,10 @@ def send_learner_report(learners_data, all_blocks, recipient_email, username, re
         report_type, csv_file.getvalue()
     )
 
+
 def send_insights_course_detail_report(
     course_overview, course_details, course_maus, learners,
-    recipient_email, username, report_type, site_configs
+    recipient_email, username, report_type, site_configs, scp_objects
 ):
     csv_file = StringIO()
     csv_report_writer = csv.writer(csv_file)
@@ -898,6 +916,11 @@ def send_insights_course_detail_report(
         'Grade',
         'Graded Course Progress',
         'Total Course Progress',
+        'Farthest Completed Block (Section)',
+        'Farthest Completed Block (Subsection)',
+        'Farthest Completed Block (Unit)',
+        'Farthest Completed Block',
+        'Farthest Completed Block Date',
         'Account Created',
         'Last Login'
     ])
@@ -912,6 +935,7 @@ def send_insights_course_detail_report(
             learner['courses'][0]['progress_data']['letter_grade'],
             '{}%'.format(learner['courses'][0]['progress_data']['course_progress']),
             '{}%'.format(learner['courses'][0]['progress_data']['total_progress_percent']),
+            *get_farthest_complete_course_block(scp_objects, user=learner['user']['username']),
             learner['user']['date_joined'] or 'N/A',
             learner['user']['last_login'] or 'N/A',
         ])
@@ -920,4 +944,14 @@ def send_insights_course_detail_report(
         recipient_email, 'Course Detail Report', username,
         site_configs.get('platform_name'), site_configs.get('from_address'),
         report_type, csv_file.getvalue()
+    )
+
+
+def get_course_block_name(course_block_structure, block):
+    """
+    This helper methods fetches the block 'display_name'.
+    """
+    return course_block_structure.get_xblock_field(
+        usage_key=block,
+        field_name='display_name',
     )
