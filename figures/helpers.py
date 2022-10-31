@@ -652,24 +652,32 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
     csv_report_writer = csv.writer(csv_file)
     csv_report_writer.writerow(['Learner Analytics Report'])
 
-    csv_report_writer.writerow(['Total Users: ', len(all_learners_details)])
+    csv_report_writer.writerow(['Total Learners: ', len(all_learners_details)])
+    print('Total Learners: ', len(all_learners_details))
     csv_report_writer.writerow([''])
     curr_new_users = site_monthly_matrics.get('current_month', {}).get('new_users', 0)
     prev_new_users = site_monthly_matrics.get('last_month', {}).get('new_users', 0)
-    csv_report_writer.writerow(['New User Registrations (Current Month): ', curr_new_users])
-    csv_report_writer.writerow(['New User Registrations (Last Month): ', prev_new_users])
+    csv_report_writer.writerow(['New Learner Registrations (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['New Learner Registrations (Last Month): ', prev_new_users])
+    print('New Learner Registrations (Current Month): ', curr_new_users)
+    print('New Learner Registrations (Last Month): ', prev_new_users)
 
     curr_month = datetime.datetime.now().month
     curr_new_users = maus['monthly_users_count'][curr_month - 1]
     prev_new_users = maus['monthly_users_count'][curr_month -2]
-    csv_report_writer.writerow(['Monthly Active Users (Current Month): ', curr_new_users])
-    csv_report_writer.writerow(['Monthly Active Users (Last Month): ', prev_new_users])
+    csv_report_writer.writerow(['Monthly Active Learners (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['Monthly Active Learners (Last Month): ', prev_new_users])
+    print('Monthly Active Learners (Current Month): ', curr_new_users)
+    print('Monthly Active Learners (Last Month): ', prev_new_users)
 
     today_users = (site_daily_matrics or [{}])[0].get('todays_active_learners_count', 0)
     csv_report_writer.writerow(['Active Users Today', today_users])
+    print('Active Users Today', today_users)
 
     curr_course_completion = monthly_course_completions['monthly_course_completions_count'][curr_month - 1]
-    csv_report_writer.writerow(['Course Completions', curr_course_completion, ''])
+    csv_report_writer.writerow(['Course Completions', curr_course_completion])
+    print('Course Completions', curr_course_completion)
+
     registration_fields = all_learners_details[0].get('registration_fields', {}) if all_learners_details else {}
     registration_fields = [f.title().replace('_', ' ') for f in registration_fields.keys()]
     csv_report_writer.writerow([''])

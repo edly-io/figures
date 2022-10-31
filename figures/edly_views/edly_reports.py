@@ -181,6 +181,13 @@ class InsightLearnersCSV(APIView):
     def _get_maus(request):
         maus = GetMonthlyActiveUsers()
         maus.request = request
+
+        # if not maus.request.GET._mutable:
+        #     maus.request.GET._mutable = True
+
+        # maus.request.GET['type'] = 'yearly'
+        # maus.request.GET['year'] = datetime.today().year
+        # maus.request.GET['roles'] = 'learner'
         return maus.get(request)
 
     @staticmethod
@@ -192,8 +199,9 @@ class InsightLearnersCSV(APIView):
     @staticmethod
     def _get_learners_analytics(site, context, query_params):
         learners_only = query_params.get('learners_only', None)
+        roles = query_params.get('roles', None)
         queryset = figures.sites.get_edly_users_for_site(site)
-        if learners_only and learners_only.lower() == "true":
+        if (learners_only and learners_only.lower() == "true") or (roles and roles.lower() == "learner") :
             queryset = queryset.filter(
                 ~Q(courseaccessrole__role='course_creator_group'),
                 is_staff=False,
@@ -206,17 +214,37 @@ class InsightLearnersCSV(APIView):
     @staticmethod
     @task()
     def _prepare_learners_data(site, maus, monthly_course_completions, username, user_email, context, site_configs, query_params):
+        print("==============================================================")
+        print("==============================================================")
+        print("site: ", site)
+        print("maus: ", maus)
+        print("monthly_course_completions: ", monthly_course_completions)
+        print("username: ", username)
+        print("user_email: ", user_email)
+        print("context: ", context)
+        print("site_configs: ", site_configs)
+        print("query_params: ", query_params)
+        print("==============================================================")
+        print("==============================================================")
         site_obj = Site.objects.get(id=site)
         context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
             site_obj
         )
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         context['completed_courses'] = set(
             LearnerCourseGradeMetrics.objects.passed_ids_for_site(
             site=site_obj,
         ))
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         site_monthly_matrics = InsightLearnersCSV._get_site_monthly_matrics(site)
+        print("site_monthly_matrics: ", site_monthly_matrics)
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         site_daily_matrics = InsightLearnersCSV._get_site_daily_matrics(site)
+        print("site_daily_matrics: ", site_daily_matrics)
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         all_learners_details = InsightLearnersCSV._get_learners_analytics(site, context, query_params)
+        print("all_learners_details: ", all_learners_details)
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
 
         raw_data = {
             'monthly_course_completions': monthly_course_completions,
@@ -225,6 +253,8 @@ class InsightLearnersCSV(APIView):
             'site_daily_matrics': site_daily_matrics,
             'maus': maus,
         }
+        print("raw_data: ", raw_data)
+        print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         figures.helpers.send_insights_learner_report(
             raw_data, user_email, username,
             'Analytics Learners Report', site_configs
