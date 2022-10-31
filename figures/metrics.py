@@ -988,7 +988,7 @@ def get_current_month_site_metrics(site, **_kwargs):
         site=site,
         start_date=start_date,
         end_date=end_date)
-    new_users = get_total_site_users_joined_for_time_period(
+    new_users = get_total_site_learners_joined_for_time_period(
         site=site,
         start_date=start_date,
         end_date=end_date
@@ -1042,7 +1042,7 @@ def get_last_month_site_metrics(site, **_kwargs):
     registered_users = get_total_site_users_for_time_period(site=site,
                                                             start_date=start_date,
                                                             end_date=end_date)
-    new_users = get_total_site_users_joined_for_time_period(site=site,
+    new_users = get_total_site_learners_joined_for_time_period(site=site,
                                                             start_date=start_date,
                                                             end_date=end_date)
     site_courses = get_total_site_courses_for_time_period(site=site,

@@ -12,6 +12,8 @@ from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
+from edly_panel_app.api.v1.helpers import convert_date_to_str
+
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
@@ -108,14 +110,14 @@ class InsightSummaryCSV(APIView):
     @staticmethod
     @task()
     def _prepare_summary_data(site, maus, monthly_course_completions, username, user_email, site_configs, query_params):
-        general_site_matrics = InsightSummaryCSV._get_figures_general_site_metrics(site, query_params)
+        general_site_metrics = InsightSummaryCSV._get_figures_general_site_metrics(site, query_params)
         courses_stats_by_enrollment = InsightSummaryCSV._get_courses_stats(site, 'enrollment_count,desc')
         courses_stats_by_learners = InsightSummaryCSV._get_courses_stats(site, 'num_learners_completed,desc')
         raw_data = {
             'courses_stats_by_enrollment': courses_stats_by_enrollment,
             'monthly_course_completions': monthly_course_completions,
             'courses_stats_by_learners': courses_stats_by_learners,
-            'general_site_matrics': general_site_matrics,
+            'general_site_metrics': general_site_metrics,
             'maus': maus,
         }
         figures.helpers.send_insights_summary_report(
@@ -165,14 +167,14 @@ class InsightLearnersCSV(APIView):
     permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
 
     @staticmethod
-    def _get_site_monthly_matrics(site):
+    def _get_site_monthly_metrics(site):
         return {
             'current_month': metrics.get_current_month_site_metrics(site),
             'last_month': metrics.get_last_month_site_metrics(site)
         }
 
     @staticmethod
-    def _get_site_daily_matrics(site):
+    def _get_site_daily_metrics(site):
         queryset = SiteDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
         serialized_data = SiteDailyMetricsSerializer(queryset, many=True)
         return serialized_data.data
@@ -182,18 +184,32 @@ class InsightLearnersCSV(APIView):
         maus = GetMonthlyActiveUsers()
         maus.request = request
 
-        # if not maus.request.GET._mutable:
-        #     maus.request.GET._mutable = True
+        if not maus.request.GET._mutable:
+            maus.request.GET._mutable = True
 
-        # maus.request.GET['type'] = 'yearly'
-        # maus.request.GET['year'] = datetime.today().year
-        # maus.request.GET['roles'] = 'learner'
+        maus.request.GET['type'] = 'yearly'
+        maus.request.GET['year'] = datetime.today().year
+        maus.request.GET['roles'] = 'learner'
         return maus.get(request)
 
     @staticmethod
     def _get_monthly_course_completions(request):
         monthly_course_completions = GetMonthlyCourseCompletions()
         monthly_course_completions.request = request
+        
+        if not monthly_course_completions.request.GET._mutable:
+            monthly_course_completions.request.GET._mutable = True
+
+        monthly_course_completions.request.GET['type'] = 'custom'
+        
+        monthly_course_completions.request.GET['start_date'] = convert_date_to_str( 
+            datetime.now().date().replace(month=1, day=1),
+            date_format = '%d-%m-%Y',
+        )
+        monthly_course_completions.request.GET['end_date'] = convert_date_to_str( 
+            datetime.now().date().replace(month=12, day=31),
+            date_format = '%d-%m-%Y',
+        )
         return monthly_course_completions.get(request)
 
     @staticmethod
@@ -236,11 +252,11 @@ class InsightLearnersCSV(APIView):
             site=site_obj,
         ))
         print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
-        site_monthly_matrics = InsightLearnersCSV._get_site_monthly_matrics(site)
-        print("site_monthly_matrics: ", site_monthly_matrics)
+        site_monthly_metrics = InsightLearnersCSV._get_site_monthly_metrics(site)
+        print("site_monthly_metrics: ", site_monthly_metrics)
         print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
-        site_daily_matrics = InsightLearnersCSV._get_site_daily_matrics(site)
-        print("site_daily_matrics: ", site_daily_matrics)
+        site_daily_metrics = InsightLearnersCSV._get_site_daily_metrics(site)
+        print("site_daily_metrics: ", site_daily_metrics)
         print("tttttttttttttttttttttttttttttttttttttttttttttttttttttt")
         all_learners_details = InsightLearnersCSV._get_learners_analytics(site, context, query_params)
         print("all_learners_details: ", all_learners_details)
@@ -249,8 +265,8 @@ class InsightLearnersCSV(APIView):
         raw_data = {
             'monthly_course_completions': monthly_course_completions,
             'all_learners_details': all_learners_details,
-            'site_monthly_matrics': site_monthly_matrics,
-            'site_daily_matrics': site_daily_matrics,
+            'site_monthly_metrics': site_monthly_metrics,
+            'site_daily_metrics': site_daily_metrics,
             'maus': maus,
         }
         print("raw_data: ", raw_data)
