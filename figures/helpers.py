@@ -690,8 +690,11 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
     csv_report_writer.writerow([''])
     csv_report_writer.writerow(['Learners Overview'])
     csv_report_writer.writerow([''])
+    
     csv_report_writer.writerow([
-        'Name', 'Username', 'Email',
+        'Name',
+        'Username',
+        'Email',
         *registration_fields,
         'Courses Enrolled',
         'Courses Completed',

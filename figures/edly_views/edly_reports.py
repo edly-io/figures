@@ -12,7 +12,6 @@ from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
-
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
