@@ -184,6 +184,7 @@ class InsightLearnersCSV(APIView):
 
         if not maus.request.GET._mutable:
             maus.request.GET._mutable = True
+
         maus.request.GET['type'] = 'yearly'
         maus.request.GET['year'] = datetime.today().year
         maus.request.GET['roles'] = 'learner'
@@ -197,6 +198,7 @@ class InsightLearnersCSV(APIView):
         
         if not monthly_course_completions.request.GET._mutable:
             monthly_course_completions.request.GET._mutable = True
+
         monthly_course_completions.request.GET['type'] = 'custom'
         monthly_course_completions.request.GET['start_date'] = figures.helpers.convert_date_to_str( 
             datetime.now().date().replace(month=1, day=1),
@@ -214,7 +216,7 @@ class InsightLearnersCSV(APIView):
         learners_only = query_params.get('learners_only', None)
         roles = query_params.get('roles', None)
         queryset = figures.sites.get_edly_users_for_site(site)
-        if (learners_only and learners_only.lower() == "true") or (roles and roles.lower() == "learner") :
+        if (learners_only and learners_only.lower() == 'true') or (roles and roles.lower() == 'learner') :
             queryset = queryset.filter(
                 ~Q(courseaccessrole__role='course_creator_group'),
                 is_staff=False,
