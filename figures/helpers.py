@@ -505,6 +505,17 @@ def validate_year(year):
         return False
 
 
+def convert_date_to_str(date_value, date_format='%m-%Y'):
+    """
+    Returns the datetime object converted to a string.
+
+    Arguments:
+         date_value (datetime.date): Valid datetime.date object
+         date_format (str): Date string format [optional].
+    """
+    return date_value.strftime(date_format)
+
+
 def validate_date(date, date_format='%m-%Y'):
     """
     Validate the provided date.
@@ -637,7 +648,7 @@ def _email_report_with_attachment(recipient_email, subject, username, platform, 
 
 
 def send_insights_summary_report(raw_data, recipient_email, username, report_type, site_configuration):
-    general_site_matrics = raw_data['general_site_matrics']
+    general_site_metrics = raw_data['general_site_metrics']
     maus = raw_data['maus'].get('data', {})
     monthly_course_completions = raw_data['monthly_course_completions'].get('data', {})
     courses_stats_by_enrollment = raw_data['courses_stats_by_enrollment']
@@ -647,10 +658,10 @@ def send_insights_summary_report(raw_data, recipient_email, username, report_typ
     csv_report_writer = csv.writer(csv_file)
     csv_report_writer.writerow(['Analytics Summary Report'])
     csv_report_writer.writerow([''])
-    total_learners = general_site_matrics.get('total_site_learners', {}).get('current_month', 0)
-    total_site_courses = general_site_matrics.get('total_site_courses', {}).get('current_month', 0)
-    total_active_courses = general_site_matrics.get('total_active_courses', {}).get('current_month', 0)
-    total_staff_users = general_site_matrics.get('total_site_staff_users', {}).get('current_month', 0)
+    total_learners = general_site_metrics.get('total_site_learners', {}).get('current_month', 0)
+    total_site_courses = general_site_metrics.get('total_site_courses', {}).get('current_month', 0)
+    total_active_courses = general_site_metrics.get('total_active_courses', {}).get('current_month', 0)
+    total_staff_users = general_site_metrics.get('total_site_staff_users', {}).get('current_month', 0)
     course_completions = monthly_course_completions.get('total_course_completions', 0)
     csv_report_writer.writerow(['Total Learners: ', total_learners])
     csv_report_writer.writerow(['Monthly Active Users: ', maus.get('total_users_count')])
@@ -679,41 +690,48 @@ def send_insights_summary_report(raw_data, recipient_email, username, report_typ
 
 
 def send_insights_learner_report(raw_data, recipient_email, username, report_type, site_configuration):
+    """
+    Function to write the csv for the Learner Isgihts and send it via email to the recipient
+    """
     monthly_course_completions = raw_data['monthly_course_completions'].get('data', {})
     all_learners_details = raw_data['all_learners_details']
-    site_daily_matrics = raw_data['site_daily_matrics']
-    site_monthly_matrics = raw_data['site_monthly_matrics']
+    site_daily_metrics = raw_data['site_daily_metrics']
+    site_monthly_metrics = raw_data['site_monthly_metrics']
     maus = raw_data['maus'].get('data', {})
 
     csv_file = StringIO()
     csv_report_writer = csv.writer(csv_file)
-    csv_report_writer.writerow(['Learner Analytics Report'])
 
-    csv_report_writer.writerow(['Total Users: ', len(all_learners_details)])
-    csv_report_writer.writerow([''])
-    curr_new_users = site_monthly_matrics.get('current_month', {}).get('new_users', 0)
-    prev_new_users = site_monthly_matrics.get('last_month', {}).get('new_users', 0)
-    csv_report_writer.writerow(['New User Registrations (Current Month): ', curr_new_users])
-    csv_report_writer.writerow(['New User Registrations (Last Month): ', prev_new_users])
+    csv_report_writer.writerow(['Learner Analytics Report'])
+    csv_report_writer.writerow(['Total Learners: ', len(all_learners_details)])
+
+    curr_new_users = site_monthly_metrics.get('current_month', {}).get('new_learners', 0)
+    prev_new_users = site_monthly_metrics.get('last_month', {}).get('new_learners', 0)
+    csv_report_writer.writerow(['New Learner Registrations (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['New Learner Registrations (Last Month): ', prev_new_users])
 
     curr_month = datetime.datetime.now().month
     curr_new_users = maus['monthly_users_count'][curr_month - 1]
     prev_new_users = maus['monthly_users_count'][curr_month -2]
-    csv_report_writer.writerow(['Monthly Active Users (Current Month): ', curr_new_users])
-    csv_report_writer.writerow(['Monthly Active Users (Last Month): ', prev_new_users])
+    csv_report_writer.writerow(['Monthly Active Learners (Current Month): ', curr_new_users])
+    csv_report_writer.writerow(['Monthly Active Learners (Last Month): ', prev_new_users])
 
-    today_users = (site_daily_matrics or [{}])[0].get('todays_active_learners_count', 0)
+    today_users = (site_daily_metrics or [{}])[0].get('todays_active_learners_count', 0)
     csv_report_writer.writerow(['Active Users Today', today_users])
 
     curr_course_completion = monthly_course_completions['monthly_course_completions_count'][curr_month - 1]
-    csv_report_writer.writerow(['Course Completions', curr_course_completion, ''])
+    csv_report_writer.writerow(['Course Completions', curr_course_completion])
+
     registration_fields = all_learners_details[0].get('registration_fields', {}) if all_learners_details else {}
     registration_fields = [f.title().replace('_', ' ') for f in registration_fields.keys()]
     csv_report_writer.writerow([''])
     csv_report_writer.writerow(['Learners Overview'])
     csv_report_writer.writerow([''])
+    
     csv_report_writer.writerow([
-        'Name', 'Username', 'Email',
+        'Name',
+        'Username',
+        'Email',
         *registration_fields,
         'Courses Enrolled',
         'Courses Completed',
