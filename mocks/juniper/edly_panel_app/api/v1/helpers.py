@@ -16,7 +16,8 @@ from django.template.loader import get_template
 from edly_panel_app.api.v1.constants import (
     ERROR_MESSAGES,
     BLOCK_TYPES_TO_FILTER,
-    CORE_BLOCK_TYPES
+    CORE_BLOCK_TYPES,
+    VIDEO_BLOCK_TYPES,
 )
 from lms.djangoapps.course_api.blocks.serializers import BlockDictSerializer
 from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
