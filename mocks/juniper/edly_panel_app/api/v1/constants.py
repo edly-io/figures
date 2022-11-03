@@ -5,7 +5,8 @@ from django.utils.translation import ugettext as _
 
 
 BLOCK_TYPES_TO_FILTER = ['course', 'chapter', 'sequential', 'vertical', 'discussion', 'openassessment']
-CORE_BLOCK_TYPES = ['html', 'video', 'problem']
+CORE_BLOCK_TYPES = ['html', 'video', 'problem', 'video_xblock']
+VIDEO_BLOCK_TYPES = ['video', 'video_xblock']
 
 EDLY_PANEL_WORKER_USER = 'edly_panel_worker'
 
