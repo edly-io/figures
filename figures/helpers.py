@@ -749,6 +749,8 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
     csv_report_writer.writerow([''])
 
     for course in courses:
+        print("--------------------------- helpers.py; line 752; course: ", course.__dict__)
+        print("--------------------------- helpers.py; line 753; course['metrics']: ", course['metrics'].__dict__)
         csv_report_writer.writerow([
             course['course_id'], course['course_name'],
             ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
