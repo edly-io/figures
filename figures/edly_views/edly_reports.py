@@ -388,20 +388,14 @@ class InsightCoursesCSV(APIView):
         GET /api/edly/insights-courses
         """
         site = getattr(request, 'site', get_current_site(request))
-        print("--------------- line 391; site: ", site)
         current_site_configuration = get_current_site_configuration()
-        print("--------------- line 391; current_site_configuration: ", current_site_configuration)
         platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
-        print("--------------- line 391; platform_name: ", platform_name)
         from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
-        print("--------------- line 391; from_address: ", from_address)
         site_configs = dict(
             platform_name=platform_name,
             from_address=from_address,
         )
-        print("--------------- line 391; site_configs: ", site_configs)
         course_id = request.GET.get('course_id')
-        print("--------------- line 391; course_id: ", course_id)
         if course_id:
             self._prepare_advance_course_data.delay(
                 site.id,
