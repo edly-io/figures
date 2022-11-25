@@ -749,7 +749,7 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
     csv_report_writer.writerow([''])
 
     for course in courses:
-        logger.info(f"------------------------------- course {course}")
+        logger.info("------------------------------- course %s", course)
         csv_report_writer.writerow([
             course['course_id'], course['course_name'],
             ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
