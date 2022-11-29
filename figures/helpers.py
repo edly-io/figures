@@ -764,8 +764,8 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
 
 
 def course_complete_rate(course):
-    enrollment_count = course['metrics']['enrollment_count']
-    num_learners_completed = course['metrics']['num_learners_completed']
+    enrollment_count = course['metrics'].get('enrollment_count', 0)
+    num_learners_completed = course['metrics'].get('num_learners_completed', 0)
     if enrollment_count and num_learners_completed:
         return round(num_learners_completed/enrollment_count * 100, 2)
 
@@ -786,15 +786,20 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
     csv_report_writer.writerow([''])
 
     for course in courses:
-        logger.info("------------------------------- course %s", course)
+        if not course['metrics']:
+            course['metrics'] = {}
+
         csv_report_writer.writerow([
             course['course_id'], course['course_name'],
             ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
             dateutil_parse(course['start_date']).strftime('%B %d, %Y'),
             dateutil_parse(course['end_date']).strftime('%B %d, %Y') if course['end_date'] else '',
-            course['metrics']['enrollment_count'], course['metrics']['active_learners_today'],
-            course['metrics']['active_learners_this_month'],course['metrics']['num_learners_completed'],
-            course['metrics']['average_days_to_complete'], course_complete_rate(course)
+            course['metrics'].get('enrollment_count', 0), 
+            course['metrics'].get('active_learners_today', 0),
+            course['metrics'].get('active_learners_this_month', 0),
+            course['metrics'].get('num_learners_completed', 0),
+            course['metrics'].get('average_days_to_complete', 0),
+            course_complete_rate(course)
         ])
 
     _email_report_with_attachment(
