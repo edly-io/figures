@@ -742,9 +742,10 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
     csv_report_writer.writerow([''])
 
     csv_report_writer.writerow([
-        'Course Id', 'Course Title', 'Instructors', 'Start Date', 'End Date',
-        'Total Enrollments', 'Active Learners', 'Total completions',
-        'Average days to complete', 'Completion Rate'
+        'Course ID', 'Course Title', 'Instructors', 'Start Date', 'End Date',
+        'Total Enrollments', 'Active Learners Today',
+        'Active learners this month', 'Total Completions',
+        'Average days to complete', 'Completion Rate',
     ])
     csv_report_writer.writerow([''])
 
@@ -753,7 +754,8 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
             course['metrics'] = {}
 
         csv_report_writer.writerow([
-            course['course_id'], course['course_name'],
+            course['course_id'],
+            course['course_name'],
             ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
             dateutil_parse(course['start_date']).strftime('%B %d, %Y'),
             dateutil_parse(course['end_date']).strftime('%B %d, %Y') if course['end_date'] else '',
