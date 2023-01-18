@@ -690,7 +690,7 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
     csv_report_writer.writerow([''])
     csv_report_writer.writerow(['Learners Overview'])
     csv_report_writer.writerow([''])
-    
+
     csv_report_writer.writerow([
         'Name',
         'Username',
@@ -759,7 +759,7 @@ def send_insights_courses_report(courses, recipient_email, username, report_type
             ','.join([staff['username'] for staff in course['staff'] if staff['role'] == 'instructor']),
             dateutil_parse(course['start_date']).strftime('%B %d, %Y'),
             dateutil_parse(course['end_date']).strftime('%B %d, %Y') if course['end_date'] else '',
-            course['metrics'].get('enrollment_count', 0), 
+            course['metrics'].get('enrollment_count', 0),
             course['metrics'].get('active_learners_today', 0),
             course['metrics'].get('active_learners_this_month', 0),
             course['metrics'].get('num_learners_completed', 0),
@@ -869,7 +869,7 @@ def send_insights_course_detail_report(
     course_code = course_overview.get('course_code', '')
     csv_report_writer.writerow(['Course Code', course_code])
     csv_report_writer.writerow([''])
-    
+
     total_learners = (course_overview.get('metrics') or {}).get('enrollment_count', 0)
     csv_report_writer.writerow(['Total Learners', total_learners])
 
@@ -943,4 +943,7 @@ def get_course_block_name(course_block_structure, block):
     return course_block_structure.get_xblock_field(
         usage_key=block,
         field_name='display_name',
-    )
+    ) or '{} - un-named'.format(course_block_structure.get_xblock_field(
+        usage_key=block,
+        field_name='type'
+    ))
