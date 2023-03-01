@@ -211,6 +211,7 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     course_id=course.id,
                     date_for=date_for,
                     force_update=force_update)
+                update_learners_progress_for_course(course)
             except Exception as e:  # pylint: disable=broad-except
                 logger.exception('figures.tasks.populate_daily_metrics failed')
                 # Always capture CDM load exceptions to the Figures pipeline
@@ -230,7 +231,6 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     logger=logger,
                     log_pipeline_errors_to_db=True,
                     )
-            update_learners_progress_for_course(course)
 
         populate_site_daily_metrics(
                 site_id=site.id,
