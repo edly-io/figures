@@ -554,6 +554,7 @@ class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             request_user,
             site,
         )
+        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(site)
         queryset = get_user_model().objects.filter(email__in=users)
         serializer = LearnerDetailsSerializer(queryset, context=context, many=True)
         pdf_file = figures.helpers.get_prepared_pdf(serializer.data, logo_url)
