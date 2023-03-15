@@ -836,9 +836,10 @@ def send_learner_report(learners_data, scp_objects, recipient_email, username, r
         'Farthest Completed Block',
         'Farthest Completed Block Date',
     ])
-
+    logger.info('5384-line-839:{}'.format(learners_data.get('courses')))
     for course in learners_data.get('courses'):
-        logger.info('5384-line-841:{}'.format(*get_farthest_complete_course_block(scp_objects, course_key=course['course_id'])))
+        logger.info('5384-line-841:{}'.format(course['course_id']))
+        logger.info('5384-line-842:{}'.format(*get_farthest_complete_course_block(scp_objects, course_key=course['course_id'])))
         csv_report_writer.writerow([
             course.get('course_name'),
             course.get('date_enrolled'),

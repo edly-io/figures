@@ -448,7 +448,10 @@ class LearnersCSV(APIView):
     def _prepare_learner_data(learner, admin_username, admin_email, host, path, learners_data, site_configs):
         user = get_user_model().objects.get(username=learner)
         scp_objects = StudentCourseProgress.objects.filter(student=user)
-
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info('5384-line-453:{}'.format(scp_objects))
+        logger.info('5384-line-454:{}'.format(StudentCourseProgress.objects.all()))
         figures.helpers.send_learner_report(
             learners_data, scp_objects, admin_email, admin_username,
             'Learner Report', site_configs,
