@@ -781,11 +781,15 @@ def get_farthest_complete_course_block(scp_objects, course_key=None, user=None):
     course_progress = None
     if course_key is not None:
         course_progress = scp_objects.filter(course_id = course_key)
+        logger.info('5384-line-784:{}'.format(course_progress))
     elif user is not None:
         course_progress = scp_objects.filter(student__username = user)
+        logger.info('5384-line-787:{}'.format(course_progress))
 
     if course_progress:
         scp = course_progress.first()
+        logger.info('5384-line-791:{}'.format(scp))
+        logger.info('5384--line-792:{}, {}, {}, {}, {}'.format(scp.completed_section, scp.completed_subsection, scp.completed_unit, scp.completed_block, scp.completion_date))
         return [scp.completed_section, scp.completed_subsection, scp.completed_unit, scp.completed_block, scp.completion_date]
 
     return []
@@ -834,6 +838,7 @@ def send_learner_report(learners_data, scp_objects, recipient_email, username, r
     ])
 
     for course in learners_data.get('courses'):
+        logger.info('5384-line-841:{}'.format(*get_farthest_complete_course_block(scp_objects, course_key=course['course_id'])))
         csv_report_writer.writerow([
             course.get('course_name'),
             course.get('date_enrolled'),
