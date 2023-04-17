@@ -34,6 +34,7 @@ import mock
 import pytest
 
 from django.contrib.auth import get_user_model
+import django.contrib.sites.shortcuts
 from django.db.models import F
 
 from rest_framework.test import (
@@ -55,6 +56,7 @@ from tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
+    SiteConfigurationFactory,
     SiteFactory,
     UserFactory,
     )
@@ -138,17 +140,20 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db, settings):
         super(TestLearnerDetailsViewSetStandalone, self).setup(db)
+        self.new_site = SiteFactory()
+        SiteConfigurationFactory(site=self.new_site)
+        self.new_org = OrganizationFactory()
+        self.new_edly_org = EdlySubOrganizationFactory(lms_site=self.new_site, edx_organizations=[self.new_org])
         self.course_overviews = [
             CourseOverviewFactory() for i in range(0,4)
         ]
         for course_overview in self.course_overviews:
             OrganizationCourseFactory(
-                organization=self.organization,
+                organization=self.new_org,
                 course_id=str(course_overview.id)
             )
 
-        self.users = [UserFactory(edly_profile__edly_sub_organizations=[self.edly_org]) for i in range(3)]
-        self.users.append(self.staff_user)
+        self.users = [UserFactory(edly_multisite_user__sub_org=self.new_edly_org) for i in range(3)]
 
         self.enrollments = [
             CourseEnrollmentFactory(course=self.course_overviews[0],
@@ -175,7 +180,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         '''
 
         # Spot test with the first CourseEnrollment for the first user
-        enrollments = get_course_enrollments_for_site(self.site)
+        enrollments = get_course_enrollments_for_site(self.new_site)
         queryset = enrollments.filter(user=self.users[0])
         assert queryset
         serializer = LearnerCourseDetailsSerializer(queryset[0])
@@ -184,13 +189,18 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         # the serializer specific tests (see tests/test_serializers.py).
         assert serializer.data
 
-    def test_get_learner_details_retrieve(self):
+    def test_get_learner_details_retrieve(self, monkeypatch):
+
+        def test_site(request):
+            return self.new_site
+
         user = self.users[0]
 
         expected_enrollments = CourseEnrollment.objects.filter(user=user)
         request_path = self.request_path + '{}/'.format(user.id)
         request = APIRequestFactory().get(request_path)
-        request.site = self.site
+        request.site = self.new_site
+        monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'retrieve'})
         response = view(request, pk=user.id)
@@ -199,19 +209,21 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         assert len(response.data['courses']) == expected_enrollments.count()
         assert set(response.data.keys()) == set(self.expected_result_keys)
 
-    def test_get_learner_details_list(self):
+    def test_get_learner_details_list(self, monkeypatch):
         """Tests retrieving a list of users with abbreviated details
 
         The fields in each returned record are identified by
             `figures.serializers.UserIndexSerializer`
 
         """
+        def test_site(request):
+            return self.new_site
         request = APIRequestFactory().get(self.request_path)
-        request.site = self.site
+        request.site = self.new_site
+        monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
-
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
         # assert set(response.data.keys()) == set(
@@ -219,7 +231,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
 
         results = response.data
         assert len(results) == len(self.users)
-        enrollments = get_course_enrollments_for_site(self.site)
+        enrollments = get_course_enrollments_for_site(self.new_site)
         assert enrollments.count() == len(self.enrollments)
 
         for rec in results:

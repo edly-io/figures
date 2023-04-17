@@ -14,6 +14,8 @@ from django.contrib.sites.models import Site
 from django.db import models
 from django.utils.timezone import utc
 from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIRequestFactory
+
 
 from figures.compat import CourseEnrollment
 from figures.models import (
@@ -117,9 +119,13 @@ class TestCourseDetailsSerializer(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        self.site = SiteFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
         self.course_overview = CourseOverviewFactory()
-        self.users = [UserFactory(), UserFactory()]
-
+        self.users = [
+            UserFactory(edly_multisite_user__sub_org=self.edly_org),
+            UserFactory(edly_multisite_user__sub_org=self.edly_org)
+        ]
         self.course_access_roles  = [
             CourseAccessRoleFactory(
                 user=self.users[0],
@@ -183,7 +189,7 @@ class TestCourseDetailsSerializer(object):
         assert parse(data['start_date']) == self.course_overview.start
         assert parse(data['end_date']) == self.course_overview.end
         assert data['self_paced'] == self.course_overview.self_paced
-        
+
         assert data['learners_enrolled']['history'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
         assert data['learners_enrolled']['history'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
         assert data['average_progress']['history'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
@@ -192,7 +198,7 @@ class TestCourseDetailsSerializer(object):
         assert data['average_days_to_complete']['history'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
         assert data['users_completed']['history'][0].get('period', None) == self.custom_dates_within_month.get('start_date')
         assert data['users_completed']['history'][1].get('period', None) == self.custom_dates_within_month.get('end_date')
-    
+
     def test_get_course_detail_with_custom_dates_not_within_month(self):
         data = CourseDetailsSerializer(instance=self.course_overview, context=self.custom_dates_not_within_month).data
 
@@ -205,7 +211,7 @@ class TestCourseDetailsSerializer(object):
         assert parse(data['start_date']) == self.course_overview.start
         assert parse(data['end_date']) == self.course_overview.end
         assert data['self_paced'] == self.course_overview.self_paced
-        
+
         assert data['learners_enrolled']['history'][0].get('period', None) == "Oct-2021"
         assert data['learners_enrolled']['history'][-1].get('period', None) == "Dec-2021"
         assert data['average_progress']['history'][0].get('period', None) == "Oct-2021"
@@ -616,7 +622,7 @@ class TestLearnerDetailsSerializer(object):
             'username': 'alpha_one',
             'profile__name': 'Alpha One',
             'profile__country': 'CA',
-            'edly_profile__edly_sub_organizations': [self.edly_sub_org]
+            'edly_multisite_user__sub_org': self.edly_sub_org
         }
         self.user = UserFactory(**self.user_attributes)
         self.serializer = LearnerDetailsSerializer(

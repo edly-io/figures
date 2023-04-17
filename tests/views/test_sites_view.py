@@ -75,9 +75,11 @@ class TestSiteViewSet(BaseViewTest):
 
         def test_site(request):
             return foo_site
+
         request = APIRequestFactory().get(self.request_path)
         request.META['HTTP_HOST'] = foo_site.domain
         request.user = self.staff_user
+        request.site = foo_site
         monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)

@@ -69,7 +69,7 @@ class TestUserIndexViewSet(BaseViewTest):
 
     def get_expected_results(self, **filter):
         '''returns a list of dicts of the filtered user data
-        
+
         '''
         return list(
             get_user_model().objects.filter(**filter).annotate(
@@ -115,6 +115,6 @@ class TestUserIndexViewSet(BaseViewTest):
 
         assert len(response.data['results']) == len(expected_data)
         for rec in response.data['results']:
-            match_rec = next((item for item in expected_data 
+            match_rec = next((item for item in expected_data
                 if item['username'] == rec['username']))
             assert rec == match_rec

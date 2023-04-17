@@ -17,11 +17,10 @@ from figures.pipeline.site_monthly_metrics import fill_month
 from figures.models import EnrollmentData, LearnerCourseGradeMetrics
 from figures.pipeline.enrollment_metrics import _collect_total_progress_data
 from figures.sites import (
-    student_modules_for_course_enrollment,
     course_enrollments_for_course,
     get_courses_for_site,
 )
-from openedx.features.edly.models import EdlyUserProfile
+from openedx.features.edly.models import EdlyMultiSiteAccess
 from util.query import read_replica_or_default
 
 logger = logging.getLogger(__name__)
@@ -84,15 +83,16 @@ def backfill_enrollment_data_for_site(site):
     return dict(results=enrollment_data, errors=errors)
 
 
-def backfill_course_activity_date():
+def backfill_course_activity_date(site):
     """
     Backfill historical "course_activity_date" for learners who performed course activity in the past.
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
     for student_id in student_ids:
         student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
-        EdlyUserProfile.objects.filter(
-            user_id=student_activity.student_id,
+        EdlyMultiSiteAccess.objects.filter(
+            user__id=student_activity.student_id,
+            sub_org__lms_site=site,
         ).update(course_activity_date=student_activity.modified)
 
 

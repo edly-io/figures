@@ -50,9 +50,9 @@ class TestLearnerCourseGrades(object):
         # set up our sections
         # This is a quick job. We can do it cleaner
         # We do want to label each subsection grade
-        # to make it easier to identify them in the 
+        # to make it easier to identify them in the
         # tests
-        
+
         self.msg1 = MockSubsectionGrade(tw_earned=0.0,tw_possible=0.0),
         self.msg2 = MockSubsectionGrade(tw_earned=0.0,tw_possible=0.5)
         self.msg3 = MockSubsectionGrade(tw_earned=0.5,tw_possible=1.0)

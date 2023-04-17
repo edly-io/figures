@@ -345,7 +345,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
         if is_custom_date_range:
             error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
             if error_response:
-                return 
+                return
 
         data = self.metrics_method(
             site=site,
@@ -366,7 +366,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
                 end_date=comparison_end_date,
             )
             data = metrics.get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data)
-        
+
         elif date_for:
             data = metrics.get_total_site_metric_counts_and_percentage_change(data)
 
@@ -476,7 +476,7 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         context.update({
             "request": self.request,
             "site": self.request.site,
-            "start_date": start_date, 
+            "start_date": start_date,
             "end_date": end_date
             })
 

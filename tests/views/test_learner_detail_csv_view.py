@@ -29,7 +29,7 @@ class TestLearnerDetailCSVView(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db, settings):
         super(TestLearnerDetailCSVView, self).setup(db)
-        self.users = [UserFactory(edly_profile__edly_sub_organizations=[self.edly_org]) for i in range(3)]
+        self.users = [UserFactory(edly_multisite_user__sub_org=self.edly_org) for i in range(3)]
         self.users.append(self.staff_user)
 
     @patch.object(

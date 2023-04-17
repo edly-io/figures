@@ -40,18 +40,18 @@ class TestCourseTopStatsViewSet(object):
     view_class = CourseTopStatsViewSet
 
     def setup(self):
-        self.callers = create_test_users()
+        self.site = SiteFactory(domain='foo.test')
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organizations=[self.organization]
+        )
+        self.callers = create_test_users(self.edly_sub_organization)
         self.course_overviews = [CourseOverviewFactory() for i in range(4)]
         self.expected_result_keys = [
             'course_name', 'enrollment_count', 'num_of_learners_completed'
         ]
         if is_multisite():
-            self.site = SiteFactory(domain='foo.test')
-            self.organization = OrganizationFactory()
-            self.edly_sub_organization = EdlySubOrganizationFactory(
-                lms_site=self.site,
-                edx_organizations=[self.organization]
-            )
             for course_overview in self.course_overviews:
                 OrganizationCourseFactory(
                     organization=self.organization,

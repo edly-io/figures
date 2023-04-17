@@ -320,7 +320,7 @@ class TestCollectMetricsForEnrollment(object):
         if organizations_support_sites():
             UserOrganizationMappingFactory(organization=self.org, user=ce.user)
         lcgm = LearnerCourseGradeMetricsFactory(course_id=ce.course_id, user=ce.user)
-        
+
         ce_sm = StudentModule.objects.filter(course_id=ce.course_id, student_id=ce.user.id)
         assert not ce_sm
         metrics = collect_metrics_for_enrollment(site=self.site,

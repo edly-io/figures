@@ -61,7 +61,7 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
             CourseEnrollmentFactory(
-                user__edly_profile__edly_sub_organizations=[self.edly_org],
+                user__edly_multisite_user__sub_org=self.edly_org,
                 course_id=self.course_overview.id) for i in range(1, 5)
         ]
 
