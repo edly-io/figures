@@ -41,13 +41,13 @@ def generate_sdm_series(site, first_day, last_day):
 class TestSiteDailyMetricsView(BaseViewTest):
     '''
 
-    Note: This test class duplicates some of the code in 
+    Note: This test class duplicates some of the code in
         test_serializers.TestSiteDailyMetricsSerializer
 
     We might want to do the date handling/comparing code as a mix-in
 
     TODO: AFter we finish and commit the view test for this, set the serialization
-    type for the dates. This should simplify this a lot 
+    type for the dates. This should simplify this a lot
     # http://www.django-rest-framework.org/api-guide/fields/#date-and-time-fields
 
     '''

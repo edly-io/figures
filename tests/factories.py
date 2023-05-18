@@ -26,7 +26,6 @@ from openedx.core.djangoapps.course_groups.models import (
     CourseUserGroup,
     CohortMembership,
 )
-from openedx.features.edly.tests.factories import EdlyUserProfileFactory
 
 from figures.compat import StudentModule, GeneratedCertificate
 
@@ -97,7 +96,6 @@ class UserFactory(DjangoModelFactory):
 
     # TODO: Figure out if this can be a SubFactory and the advantages
     profile = factory.RelatedFactory(UserProfileFactory, 'user')
-    edly_profile = factory.RelatedFactory(EdlyUserProfileFactory, 'user')
 
     @factory.post_generation
     def teams(self, create, extracted, **kwargs):
@@ -107,6 +105,18 @@ class UserFactory(DjangoModelFactory):
         if extracted:
             for team in extracted:
                 self.teams.add(team)
+
+    @factory.post_generation
+    def edly_multisite_user(obj, create, extracted, **kwargs):  # pylint: disable=unused-argument, missing-function-docstring
+        if create:
+            from openedx.features.edly.tests.factories import EdlyMultiSiteAccessFactory
+
+            obj.save()
+            return EdlyMultiSiteAccessFactory.create(user=obj, **kwargs)
+        elif kwargs:
+            raise Exception('Cannot build a user profile without saving the user')
+        else:
+            return None
 
 
 if organizations_support_sites():

@@ -71,7 +71,6 @@ class Command(BaseCommand):
             sites = Site.objects.all()
         for site in sites:
             backfill_site(site, overwrite=options['overwrite'])
-
-        backfill_course_activity_date()
+            backfill_course_activity_date(site)
 
         print('DONE: Backfill Figures Metrics')

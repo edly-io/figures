@@ -19,8 +19,8 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q
-from figures.compat import GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day, as_date
+from figures.compat import StudentModule
+from figures.helpers import as_course_key, as_datetime, next_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -29,9 +29,8 @@ from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from openedx.features.edly.models import EdlyUserProfile
+from openedx.features.edly.models import EdlyMultiSiteAccess
 from student.models import CourseEnrollment  # pylint: disable=import-error
-from student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 from util.query import read_replica_or_default
 import figures.sites
 
@@ -64,7 +63,7 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
     return CourseEnrollment.objects.filter(**filter_args).filter(
         course_id=as_course_key(course_id)).filter(
         ~Q(user__courseaccessrole__role='course_creator_group'),
-        user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
         user__is_staff=False,
         user__is_superuser=False,
     ).using(read_replica_or_default())
@@ -153,9 +152,9 @@ def get_average_progress_deprecated(course_id, date_for, course_enrollments):
     return average_progress
 
 
-def update_learners_activity_for_date(date_for):
+def update_learners_activity_for_date(date_for, site):
     """
-    Update EdlyUserProfile for learners who performed course activity for given date.
+    Update Course Activity for respective organization for learners who performed course activity for given date.
     """
     date_for_as_datetime = as_datetime(date_for)
     student_ids = StudentModule.objects.filter(
@@ -166,8 +165,9 @@ def update_learners_activity_for_date(date_for):
 
     for student_id in student_ids:
         student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
-        EdlyUserProfile.objects.filter(
-            user_id=student_activity.student_id,
+        EdlyMultiSiteAccess.objects.filter(
+            user__id=student_activity.student_id,
+            sub_org__lms_site=site,
         ).update(course_activity_date=student_activity.modified)
 
 
@@ -194,7 +194,7 @@ def get_days_to_complete(site, course_id, date_for):
     """
     users_ids = User.objects.filter(
         ~Q(courseaccessrole__role='course_creator_group'),
-        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
         is_staff=False,
         is_superuser=False,
     ).using(read_replica_or_default()).values_list(
@@ -241,7 +241,7 @@ def get_average_days_to_complete(site, course_id, date_for):
 def get_num_learners_completed(site, course_id, date_for):
     users_ids = User.objects.filter(
         ~Q(courseaccessrole__role='course_creator_group'),
-        edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
         is_staff=False,
         is_superuser=False,
     ).using(read_replica_or_default()).values_list(
@@ -404,6 +404,6 @@ class CourseDailyMetricsLoader(object):
             # record not found, move on to creating
             pass
 
-        update_learners_activity_for_date(date_for=date_for)
+        update_learners_activity_for_date(date_for=date_for, site=self.site)
         data = self.get_data(date_for=date_for)
         return self.save_metrics(date_for=date_for, data=data)

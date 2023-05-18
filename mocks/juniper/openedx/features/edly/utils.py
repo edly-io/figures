@@ -251,10 +251,9 @@ def edly_panel_user_has_edly_org_access(request):
     """
     Check if requesting user is an Edly panel user.
     """
-    return EdlyUserProfile.objects.filter(
-        edly_sub_organizations__lms_site=request.site,
-        user=request.user,
-        user__groups__name__in=[
+    return request.user.edly_multisite_user.filter(
+        sub_org__lms_site=request.site,
+        groups__name__in=[
             settings.EDLY_PANEL_ADMIN_USERS_GROUP,
             settings.EDLY_PANEL_USERS_GROUP,
         ]
@@ -434,3 +433,17 @@ def is_course_org_same_as_site_org(site, course_id):
 
     LOGGER.info('Course organization does not match site organization')
     return False
+
+def get_edly_sub_org_from_request(request):
+    """
+    Helper method to get edly sub organization from request object.
+
+    Returns:
+        EdlySubOrg: edly_sub_org object
+    """
+    try:
+        edly_sub_org = request.site.edly_sub_org_for_lms
+    except EdlySubOrganization.DoesNotExist:
+        edly_sub_org = request.site.edly_sub_org_for_studio
+
+    return edly_sub_org

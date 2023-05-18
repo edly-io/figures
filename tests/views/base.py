@@ -33,11 +33,11 @@ class BaseViewTest(object):
 
     # @pytest.fixture(autouse=True)  # TODO Review, removed this to fix a failure
     def setup(self, db):
-        self.callers = create_test_users()
         self.site = Site.objects.first()
         SiteConfigurationFactory(site=self.site)
         self.organization = OrganizationFactory()
         self.edly_org = EdlySubOrganizationFactory(lms_site=self.site, edx_organizations=[self.organization])
+        self.callers = create_test_users(sub_org=self.edly_org)
 
     @pytest.mark.skip()
     @pytest.mark.parametrize('username, status_code', [
@@ -72,5 +72,4 @@ class BaseViewTest(object):
     @property
     def staff_user(self):
         staff_user = get_user_model().objects.get(username='staff_user')
-        staff_user.edly_profile.edly_sub_organizations.add(self.edly_org)
         return staff_user

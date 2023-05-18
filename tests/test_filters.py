@@ -34,10 +34,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import TestCase
 
-from openedx.features.edly.tests.factories import (
-    EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
-)
+from openedx.features.edly.tests.factories import EdlyMultiSiteAccessFactory, EdlySubOrganizationFactory
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
     CourseDailyMetricsFilter,
@@ -99,9 +96,11 @@ USER_DATA = [
 ]
 
 
-def make_user(**kwargs):
+def make_user(sub_org, **kwargs):
     return UserFactory(
-        id=kwargs['id'], username=kwargs['username'], profile__name=kwargs['fullname'])
+        id=kwargs['id'], username=kwargs['username'], profile__name=kwargs['fullname'],
+        edly_multisite_user__sub_org=sub_org,
+    )
 
 
 @pytest.mark.skipif(django_filters_pre_v1(),
@@ -109,8 +108,13 @@ def make_user(**kwargs):
 @pytest.mark.django_db
 class CourseEnrollmentFilterTest(TestCase):
     def setUp(self):
+        self.site = SiteFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
         self.users = [
-            UserFactory(username=data['username'], profile__name=data['fullname']) for data in USER_DATA
+            UserFactory(
+                username=data['username'], profile__name=data['fullname'],
+                edly_multisite_user__sub_org=self.edly_org
+            ) for data in USER_DATA
         ]
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
@@ -475,7 +479,6 @@ class UserFilterSetTest(TestCase):
 
     def setUp(self):
         self.User = get_user_model()
-        self.users = [make_user(**data) for data in USER_DATA]
         self.site = SiteFactory(domain='my-site.test')
         self.organization = OrganizationFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(
@@ -483,6 +486,7 @@ class UserFilterSetTest(TestCase):
             edx_organization=self.organization,
             edx_organizations=[self.organization]
         )
+        self.users = [make_user(self.edly_sub_organization, **data) for data in USER_DATA]
         self.course_overview = CourseOverviewFactory()
         OrganizationCourseFactory(
             organization=self.organization,
@@ -491,12 +495,6 @@ class UserFilterSetTest(TestCase):
         self.course_enrollments = [
             CourseEnrollmentFactory(course_id=self.course_overview.id,
                                     user=self.users[i]) for i in range(2)]
-
-        for course_enrollment in self.course_enrollments:
-            EdlyUserProfileFactory(
-                user=course_enrollment.user,
-                edly_sub_organizations=[self.edly_sub_organization]
-            )
 
     def tearDown(self):
         pass

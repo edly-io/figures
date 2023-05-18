@@ -122,8 +122,6 @@ class UserActivitySerializer(serializers.Serializer):
 
                     start_date_range = start_date_range + timedelta(days=1)
                 return dummy_data
-        else:
-            return {}
 
         while datetime(
                 day=1, month=start_month, year=start_year).date() <= datetime(

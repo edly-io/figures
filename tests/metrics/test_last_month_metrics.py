@@ -10,10 +10,7 @@ from figures.metrics import (
     get_last_month_site_metrics
 )
 import figures.helpers
-from openedx.features.edly.tests.factories import (
-    EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
-)
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from student.tests.factories import UserFactory
 from tests.factories import (
     CourseOverviewFactory,
@@ -26,9 +23,7 @@ def create_edly_sub_org_user(edly_sub_org):
     """
     Helper method to create 'EdlySubOrganization`'s User.
     """
-    edly_user = UserFactory()
-    edly_user_profile = EdlyUserProfileFactory(user=edly_user)
-    edly_user_profile.edly_sub_organizations.add(edly_sub_org)
+    edly_user = UserFactory(edly_multisite_user__sub_org=edly_sub_org)
     return edly_user
 
 

@@ -8,14 +8,11 @@ from django.conf import settings
 import django.contrib.sites.shortcuts
 from django.conf import settings
 
-from organizations.models import Organization
-
 try:
     from organizations.models import UserOrganizationMapping
 except ImportError:
     pass
 
-from openedx.features.edly.models import EdlyUserProfile
 from openedx.features.edly.utils import edly_panel_user_has_edly_org_access
 
 import figures.helpers
@@ -34,8 +31,12 @@ def has_insights_access(request):
     """
     Validate request User has Insights access.
     """
-    return request.user.is_active and request.user.groups.filter(
-        name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
+    return request.user.is_active and request.user.edly_multisite_user.filter(
+        sub_org__lms_site=request.site,
+        groups__name__in=[
+            settings.EDLY_INSIGHTS_GROUP,
+            settings.EDLY_PANEL_ADMIN_USERS_GROUP
+        ]
     ).exists()
 
 

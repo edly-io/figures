@@ -79,12 +79,12 @@ class UserFactory(DjangoModelFactory):
             return None
 
     @factory.post_generation
-    def edly_profile(obj, create, extracted, **kwargs):  # pylint: disable=unused-argument, missing-function-docstring
+    def edly_multisite_user(obj, create, extracted, **kwargs):  # pylint: disable=unused-argument, missing-function-docstring
         if create:
-            from openedx.features.edly.tests.factories import EdlyUserProfileFactory
+            from openedx.features.edly.tests.factories import EdlyMultiSiteAccessFactory
 
             obj.save()
-            return EdlyUserProfileFactory.create(user=obj, **kwargs)
+            return EdlyMultiSiteAccessFactory.create(user=obj, **kwargs)
         elif kwargs:
             raise Exception('Cannot build a user profile without saving the user')
         else:
@@ -99,7 +99,7 @@ class UserFactory(DjangoModelFactory):
             extracted = [extracted]
 
         for group_name in extracted:
-            self.groups.add(GroupFactory.simple_generate(create, name=group_name))
+            self.edly_multisite_user.groups.add(GroupFactory.simple_generate(create, name=group_name))
 
 
 class AnonymousUserFactory(factory.Factory):

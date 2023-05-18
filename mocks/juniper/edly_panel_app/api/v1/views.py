@@ -484,7 +484,7 @@ class GetMonthlyCourseCompletions(APIView):
         """
         learners_only = self.request.GET.get('learners_only', None)
         users = User.objects.filter(
-            edly_profile__edly_sub_organizations=self.request.site.edly_sub_org_for_lms
+            edly_multisite_user__sub_org=self.request.site.edly_sub_org_for_lms
         ).using(
             read_replica_or_default()
         )
@@ -522,7 +522,7 @@ class GetMonthlyCourseCompletions(APIView):
         """
         learners_only = self.request.GET.get('learners_only', None)
         users = User.objects.filter(
-            edly_profile__edly_sub_organizations=self.request.site.edly_sub_org_for_lms
+            edly_multisite_user__sub_org=self.request.site.edly_sub_org_for_lms
         ).using(
             read_replica_or_default()
         )

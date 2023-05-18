@@ -8,7 +8,6 @@ from tests.helpers import organizations_support_sites
 
 from openedx.features.edly.tests.factories import (
     EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
 )
 
 from tests.factories import (
@@ -50,11 +49,8 @@ def sm_test_data(db):
 
     sm = []
     for co in course_overviews:
-        user = UserFactory()
-        EdlyUserProfileFactory(
-            user=user,
-            edly_sub_organizations=[edly_sub_organization]
-        )
+        user = UserFactory(edly_multisite_user__sub_org=edly_sub_organization)
+
         OrganizationCourseFactory(organization=org, course_id=str(co.id))
         sm.append(
             StudentModuleFactory(
@@ -96,7 +92,7 @@ def make_site_data(num_users=3, num_courses=2):
     users = [UserFactory() for i in range(num_users)]
     enrollments = []
 
-    users = [UserFactory(edly_profile__edly_sub_organizations=[edly_sub_org]) for i in range(num_users)]
+    users = [UserFactory(edly_multisite_user__sub_org=edly_sub_org) for i in range(num_users)]
 
     enrollments = []
     for i, user in enumerate(users):
