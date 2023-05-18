@@ -244,8 +244,11 @@ class TestSiteDailyMetricsExtractor(object):
                 lms_site=self.site,
                 edx_organizations=[self.organization]
             )
-            for user in self.users:
-                user.edly_profile.edly_sub_organizations.add(edly_sub_org)
+            self.users = [UserFactory(
+                    date_joined=as_datetime(self.date_for - datetime.timedelta(days=60)),
+                    edly_multisite_user__sub_org=edly_sub_org
+                ) for i in range(0, 3)
+            ]
 
             for co in self.course_overviews:
                 OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))

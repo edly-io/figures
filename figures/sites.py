@@ -24,8 +24,8 @@ import organizations
 from figures.helpers import as_course_key, is_multisite, import_from_path
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from openedx.features.edly.models import (
+    EdlyMultiSiteAccess,
     EdlySubOrganization,
-    EdlyUserProfile,
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key
@@ -205,32 +205,32 @@ def get_courses_for_site(site):
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
-        edly_user_profiles = EdlyUserProfile.objects.filter(
-            edly_sub_organizations__lms_site=site
+        edly_access_users = EdlyMultiSiteAccess.objects.filter(
+            sub_org__lms_site=site
         ).using(read_replica_or_default()).exclude(
-            user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
 
-        user_ids = edly_user_profiles.values_list('user', flat=True)
+        user_ids = edly_access_users.values_list('user', flat=True)
     else:
         user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
-            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         ).values_list('id', flat=True)
     return user_ids
 
 
 def get_edly_users_for_site(site):
     if figures.helpers.is_multisite():
-        user_ids = get_user_model().objects.filter(
-            edly_profile__edly_sub_organizations__lms_site=site,
-        ).exclude(groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP).select_related(
-            'profile', 'edly_profile',
-        )
+        user_ids = get_user_model().objects.select_related(
+            'profile',
+        ).prefetch_related('edly_multisite_user').filter(
+            edly_multisite_user__sub_org__lms_site=site,
+        ).exclude(edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP)
     else:
-        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
-            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
-        ).select_related(
-            'profile', 'edly_profile',
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().select_related(
+            'profile',
+        ).prefetch_related('edly_multisite_user').exclude(
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
 
     return user_ids
@@ -252,7 +252,7 @@ def get_course_enrollments_for_site(site):
         course_id__in=course_keys
     ).filter(
         ~Q(user__courseaccessrole__role='course_creator_group'),
-        user__edly_profile__edly_sub_organizations=site.edly_sub_org_for_lms,
+        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
         user__is_staff=False,
         user__is_superuser=False,
     ).using(read_replica_or_default())

@@ -70,17 +70,17 @@ class Command(BaseCommand):
         )
         print('BEGIN: Backfill Figures Metrics')
 
-        call_command(
-            'backfill_figures_monthly_metrics',
-            overwrite=options['overwrite'],
-            site=options['site']
-        )
-        call_command(
-            'backfill_figures_daily_metrics',
-            overwrite=options['overwrite'],
-            site=options['site']
-        )
+        if options['site']:
+            sites = [get_site(options['site'])]
+        else:
+            # Would be great to be able to filter out dead sites
+            # Would be really great to be able to filter out dead sites
+            # Would be really Really great to be able to filter out dead sites
+            # Would be really Really REALLY great to be able to filter out dead sites
 
-        backfill_course_activity_date()
+            sites = Site.objects.all()
+        for site in sites:
+            backfill_site(site, overwrite=options['overwrite'])
+            backfill_course_activity_date(site)
 
         print('DONE: Backfill Figures Metrics')

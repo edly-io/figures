@@ -16,10 +16,7 @@ from figures.helpers import as_datetime, next_day
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline import course_daily_metrics as pipeline_cdm
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
-from openedx.features.edly.tests.factories import (
-    EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
-)
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from student.models import CourseEnrollment
 from tests.factories import (
     CourseAccessRoleFactory,
@@ -72,12 +69,6 @@ class TestGetCourseEnrollments(object):
             self.course_enrollments.extend(
                 [CourseEnrollmentFactory(course_id=co.id) for i in range(1, 3)])
 
-        for course_enrollment in self.course_enrollments:
-            EdlyUserProfileFactory(
-                user=course_enrollment.user,
-                edly_sub_organizations=[self.edly_sub_organization]
-            )
-
     def test_get_course_enrollments_for_course(self):
         course_id = self.course_overviews[0].id
         expected_ce = CourseEnrollment.objects.filter(
@@ -116,15 +107,6 @@ class TestCourseDailyMetricsPipelineFunctions(object):
 
         self.course_overview = CourseOverviewFactory()
         self.organization = OrganizationFactory()
-        if OPENEDX_RELEASE == GINKGO:
-            self.course_enrollments = [CourseEnrollmentFactory(
-                course_id=self.course_overview.id,
-                created=as_datetime(dt)
-                ) for dt in self.enrollment_dates]
-        else:
-            self.course_enrollments = [CourseEnrollmentFactory(
-                course=self.course_overview) for i in range(4)]
-
         self.site = SiteFactory(domain='my-site.test')
         self.edly_sub_organization = EdlySubOrganizationFactory(
             lms_site=self.site,
@@ -132,15 +114,20 @@ class TestCourseDailyMetricsPipelineFunctions(object):
             edx_organizations=[self.organization]
         )
 
+        if OPENEDX_RELEASE == GINKGO:
+            self.course_enrollments = [CourseEnrollmentFactory(
+                course_id=self.course_overview.id) for i in range(4)]
+        else:
+            self.course_enrollments = [
+                CourseEnrollmentFactory(
+                    course=self.course_overview,
+                    user__edly_multisite_user__sub_org=self.edly_sub_organization
+                ) for i in range(4)]
+
         OrganizationCourseFactory(
             organization=self.organization,
             course_id=str(self.course_overview.id)
         )
-        for course_enrollment in self.course_enrollments:
-            EdlyUserProfileFactory(
-                user=course_enrollment.user,
-                edly_sub_organizations=[self.edly_sub_organization]
-            )
 
         self.course_access_roles = [CourseAccessRoleFactory(
             user=self.course_enrollments[i].user,
@@ -178,7 +165,7 @@ class TestCourseDailyMetricsPipelineFunctions(object):
         # Get course admins (non-students) count for the course
         ce_students = course_enrollments.filter(
             ~Q(user__courseaccessrole__role='course_creator_group'),
-            user__edly_profile__edly_sub_organizations=self.site.edly_sub_org_for_lms,
+            user__edly_multisite_user__sub_org=self.site.edly_sub_org_for_lms,
             user__is_staff=False,
             user__is_superuser=False,
         ).count()
@@ -300,12 +287,7 @@ class TestCourseDailyMetricsExtractor(object):
                 course_id=str(course_enrollment.course.id),
             )
 
-        self.user = UserFactory()
-        EdlyUserProfileFactory(
-            user=self.user,
-            edly_sub_organizations=[self.edly_sub_organization]
-        )
-
+        self.user = UserFactory(edly_multisite_user__sub_org=self.edly_sub_organization)
         self.student_module = StudentModuleFactory(student=self.user)
 
     def test_extract_default(self, monkeypatch):
@@ -357,11 +339,6 @@ class TestCourseDailyMetricsLoader(object):
             OrganizationCourseFactory(
                 organization=self.organization,
                 course_id=str(course_enrollment.course.id),
-            )
-
-            EdlyUserProfileFactory(
-                user=course_enrollment.user,
-                edly_sub_organizations=[self.edly_sub_organization]
             )
 
         self.student_module = StudentModuleFactory()

@@ -10,13 +10,13 @@ import django.contrib.sites.shortcuts
 from rest_framework.test import APIRequestFactory
 
 from openedx.features.edly.tests.factories import (
+    EdlyMultiSiteAccessFactory,
     EdlySubOrganizationFactory,
-    EdlyUserFactory,
-    EdlyUserProfileFactory,
 )
 
 import figures.permissions
 import figures.helpers
+from student.tests.factories import GroupFactory, UserFactory
 
 from tests.factories import SiteFactory
 
@@ -39,7 +39,9 @@ class TestPermissionsForStandaloneMode(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.callers = create_test_users()
+        self.site = SiteFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
+        self.callers = create_test_users(self.edly_org)
 
     @pytest.mark.parametrize('username, allow', [
         ('regular_user', False),
@@ -87,27 +89,38 @@ class TestSiteAdminPermissionsForMultisiteMode(object):
     def setup(self, db):
         self.site = SiteFactory()
         self.edly_sub_organization = EdlySubOrganizationFactory(lms_site=self.site)
+        self.edly_admin_group = GroupFactory(name=settings.EDLY_PANEL_ADMIN_USERS_GROUP)
+        self.edly_user_group = GroupFactory(name=settings.EDLY_PANEL_USERS_GROUP)
+
+        edly_panel_admin = UserFactory(
+            username='edly_panel_admin',
+            edly_multisite_user__sub_org=self.edly_sub_organization
+        )
+        edly_panel_admin.edly_multisite_user.get(
+            sub_org=self.edly_sub_organization
+        ).groups.add(self.edly_admin_group)
+
+        edly_panel_user = UserFactory(
+            username='edly_panel_user',
+            edly_multisite_user__sub_org=self.edly_sub_organization,
+        )
+        edly_panel_user.edly_multisite_user.get(
+            sub_org=self.edly_sub_organization
+        ).groups.add(self.edly_user_group)
+
         self.callers = [
-            EdlyUserFactory(
+            UserFactory(
                 username='alpha_nonadmin',
-                profile__edly_sub_organizations=[self.edly_sub_organization]
+                edly_multisite_user__sub_org=self.edly_sub_organization
             ),
-            EdlyUserFactory(
-                username='edly_panel_admin',
-                profile__edly_sub_organizations=[self.edly_sub_organization],
-                groups=[settings.EDLY_PANEL_ADMIN_USERS_GROUP]
-            ),
-            EdlyUserFactory(
-                username='edly_panel_user',
-                profile__edly_sub_organizations=[self.edly_sub_organization],
-                groups=[settings.EDLY_PANEL_USERS_GROUP]
-            ),
-            EdlyUserFactory(
+            edly_panel_admin,
+            edly_panel_user,
+            UserFactory(
                 username='nosite_staff',
-                profile__edly_sub_organizations=[self.edly_sub_organization]
+                edly_multisite_user__sub_org=self.edly_sub_organization
             ),
         ]
-        self.callers += create_test_users()
+        self.callers += create_test_users(self.edly_sub_organization)
         self.features = {'FIGURES_IS_MULTISITE': True}
 
     @pytest.mark.parametrize('username, allow', [
@@ -121,8 +134,10 @@ class TestSiteAdminPermissionsForMultisiteMode(object):
         ('nosite_staff', False),
         ])
     def test_is_site_admin_user(self, monkeypatch, settings, username, allow):
+
         def test_site(request):
             return self.site
+
         request = APIRequestFactory().get('/')
         request.META['HTTP_HOST'] = self.site.domain
         request.user = get_user_model().objects.get(username=username)
@@ -159,6 +174,7 @@ class TestSiteAdminPermissionsForMultisiteMode(object):
         """
         def test_site(request):
             return self.site
+
         request = APIRequestFactory().get('/')
         request.META['HTTP_HOST'] = self.site.domain
         request.user = get_user_model().objects.get(username=username)
@@ -167,7 +183,11 @@ class TestSiteAdminPermissionsForMultisiteMode(object):
         settings.FEATURES['FIGURES_IS_MULTISITE'] = True
         assert figures.helpers.is_multisite()
         org2 = EdlySubOrganizationFactory()
-        EdlyUserProfileFactory(user=request.user, edly_sub_organizations=[org2])
+        param_user = EdlyMultiSiteAccessFactory(
+            user=request.user,
+            sub_org=org2,
+        )
+
         permission = figures.permissions.IsSiteAdminUser().has_permission(request, None)
         assert permission == allow, 'User "{username}" should have access'.format(
             username=username)
@@ -184,6 +204,7 @@ class TestSiteAdminPermissionsForMultisiteMode(object):
 
         request = APIRequestFactory().get('/')
         request.user = get_user_model().objects.get(username=username)
+        request.site = self.site
         permission = figures.permissions.IsStaffUserOnDefaultSite().has_permission(request, None)
         assert permission == allow, 'username: "{username}"'.format(username=username)
 

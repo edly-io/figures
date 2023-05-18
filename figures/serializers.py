@@ -769,7 +769,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         allow_blank=True, required=False,)
     bio = serializers.CharField(source='profile.bio', required=False)
 
-    course_activity_date = serializers.CharField(source='edly_profile.course_activity_date', required=False)
+    course_activity_date = serializers.SerializerMethodField()
     registration_fields = serializers.SerializerMethodField()
 
     # Would like to make this work without using the SerializerMethodField
@@ -818,6 +818,17 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
             many=True,
             context=dict(completed_courses=self.context.get('completed_courses')),
         ).data
+
+    def get_course_activity_date(self, user):
+        try:
+            site = self.context['request'].site
+        except:
+            site = self.context['site']
+
+        edly_access_user = user.edly_multisite_user.get(
+            sub_org__lms_site=site,
+        )
+        return edly_access_user.course_activity_date
 
 
 class CourseMauMetricsSerializer(serializers.ModelSerializer):

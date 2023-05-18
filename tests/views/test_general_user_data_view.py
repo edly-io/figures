@@ -44,10 +44,12 @@ from rest_framework.test import (
 from figures.compat import CourseEnrollment
 from figures.helpers import is_multisite
 from figures.views import GeneralUserDataViewSet
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
 from tests.factories import (
     CourseEnrollmentFactory,
     CourseOverviewFactory,
+    SiteFactory,
     UserFactory,
     )
 from tests.views.base import BaseViewTest
@@ -84,7 +86,7 @@ SEARCH_TERMS = [
     {'term': 'Bravo Two', 'expected_result': 1},
 ]
 
-def make_user(**kwargs):
+def make_user(sub_org, **kwargs):
     '''
 
     NOTE: Consider adding more fields. Refere to the serializer test for  the
@@ -97,6 +99,7 @@ def make_user(**kwargs):
         profile__name=kwargs['fullname'],
         profile__country=kwargs['country'],
         is_active=kwargs['is_active'],
+        edly_multisite_user__sub_org=sub_org,
     )
 
 
@@ -129,13 +132,10 @@ class TestGeneralUserViewSet(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         super(TestGeneralUserViewSet, self).setup(db)
-        self.users = [make_user(**data) for data in USER_DATA]
+        self.new_site = SiteFactory()
+        self.new_edly_org = EdlySubOrganizationFactory(lms_site=self.new_site)
+        self.users = [make_user(self.new_edly_org, **data) for data in USER_DATA]
         self.usernames = [data['username'] for data in USER_DATA]
-        for user in self.users:
-            user.edly_profile.edly_sub_organizations.add(self.edly_org)
-
-        self.users.append(self.staff_user)
-        self.usernames.append(self.staff_user.username)
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
         self.course_enrollments = [
             make_course_enrollments(user, self.course_overviews) for user in self.users]
@@ -165,7 +165,7 @@ class TestGeneralUserViewSet(BaseViewTest):
             return recs[0]
 
         request = APIRequestFactory().get(self.request_path)
-        request.site = self.site
+        request.sites = self.new_site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
@@ -208,7 +208,7 @@ class TestGeneralUserViewSet(BaseViewTest):
         """
         request_path = self.request_path + '?search=' + search_term['term']
         request = APIRequestFactory().get(request_path)
-        request.site = self.site
+        request.sites = self.new_site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)

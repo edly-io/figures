@@ -34,11 +34,7 @@ from django.contrib.sites.models import Site
 from openedx.core.djangoapps.content.course_overviews.models import (
     CourseOverview,
 )
-from openedx.features.edly.tests.factories import (
-    EdlySubOrganizationFactory,
-    EdlyUserProfileFactory,
-    EdlyUserFactory,
-)
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from organizations.tests.factories import OrganizationFactory
 from tests.factories import (
     CourseEnrollmentFactory,
@@ -119,7 +115,7 @@ class TestHandlersForStandaloneMode(object):
 
     def test_get_course_enrollments_for_site(self):
         expected_ce = [CourseEnrollmentFactory(
-            user__edly_profile__edly_sub_organizations=[self.edly_sub_organization]
+            user__edly_multisite_user__sub_org=self.edly_sub_organization
         ) for i in range(3)]
         with mock.patch('figures.helpers.settings.FEATURES', self.features):
             course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
@@ -210,8 +206,8 @@ class TestHandlersForMultisiteMode(object):
     @pytest.mark.parametrize('ce_count', [0, 1, 2])
     def test_get_course_enrollments_for_site(self, ce_count):
         self.users = [
-            EdlyUserFactory(
-                profile__edly_sub_organizations=[self.edly_sub_organization]
+            UserFactory(
+                edly_multisite_user__sub_org=self.edly_sub_organization
             ) for i in range(ce_count)
         ]
         course_overview = CourseOverviewFactory()
@@ -233,11 +229,7 @@ class TestHandlersForMultisiteMode(object):
                                       course_id=str(co.id))
 
         assert get_user_model().objects.count() == 0
-        user = UserFactory()
-        EdlyUserProfileFactory(
-            user=user,
-            edly_sub_organizations=[self.edly_sub_organization]
-        )
+        user = UserFactory(edly_multisite_user__sub_org=self.edly_sub_organization)
 
         student_module_count = 1
         student_module_expected = [StudentModuleFactory(course_id=course_overviews[0].id,
@@ -291,12 +283,7 @@ class TestUserHandlersForMultisiteMode(object):
             edx_organizations=[self.organization]
         )
         assert get_user_model().objects.count() == 0
-        self.users = [UserFactory() for i in range(3)]
-        for user in self.users:
-            EdlyUserProfileFactory(
-                user=user,
-                edly_sub_organizations=[self.edly_sub_organization]
-            )
+        self.users = [UserFactory(edly_multisite_user__sub_org=self.edly_sub_organization) for i in range(3)]
         # Now verify that "EdlySubOrganizationFactory" has created a studio site along with the lms site
         assert Site.objects.count() == 3
         self.features = {'FIGURES_IS_MULTISITE': True}
