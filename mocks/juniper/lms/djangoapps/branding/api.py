@@ -572,11 +572,14 @@ def get_logo_url(is_secure=True):
     # if the configuration has an overide value for the logo_image_url
     # let's use that
     image_url = configuration_helpers.get_value('logo_image_url')
+    log.info('Image URL: {0}'.format(image_url))
     if image_url:
-        return _absolute_url_staticfile(
+        image_url_staticfile = _absolute_url_staticfile(
             is_secure=is_secure,
             name=image_url,
         )
+        log.info('Image URL staticfile: {0}'.format(image_url_staticfile))
+        return image_url_staticfile
 
     # otherwise, use the legacy means to configure this
     university = configuration_helpers.get_value('university')
