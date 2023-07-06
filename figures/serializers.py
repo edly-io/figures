@@ -640,7 +640,7 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         model = CourseEnrollment
         fields = (
             'course_name', 'course_code', 'course_id', 'date_enrolled',
-            'progress_data', 'enrollment_id',
+            'progress_data', 'enrollment_id', 'is_active'
             )
         read_only_fields = fields
 
