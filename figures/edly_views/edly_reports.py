@@ -8,7 +8,6 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.http.request import HttpRequest
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from edly_panel_app.api.v1.permissions import AdminAccessEdlyPanel
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
@@ -32,6 +31,7 @@ from figures.models import (
     CourseDailyMetrics, LearnerCourseGradeMetrics,
     SiteDailyMetrics
 )
+from figures.permissions import CanAccessEdlyInsights
 import figures.sites
 from figures.serializers import (
     CourseDetailsSerializer,
@@ -49,7 +49,7 @@ class InsightSummaryCSV(APIView):
     """
 
     authentication_classes = (OAuth2Authentication, SessionAuthentication,)
-    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+    permission_classes = [IsAuthenticated, CanAccessEdlyInsights]
 
     @staticmethod
     def _get_figures_general_site_metrics(site, query_params):
@@ -162,7 +162,7 @@ class InsightLearnersCSV(APIView):
     """
 
     authentication_classes = (OAuth2Authentication, SessionAuthentication,)
-    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+    permission_classes = [IsAuthenticated, CanAccessEdlyInsights]
 
     @staticmethod
     def _get_site_monthly_metrics(site):
@@ -302,7 +302,7 @@ class InsightCoursesCSV(APIView):
     """
 
     authentication_classes = (OAuth2Authentication, SessionAuthentication,)
-    permission_classes = [IsAuthenticated, AdminAccessEdlyPanel]
+    permission_classes = [IsAuthenticated, CanAccessEdlyInsights]
 
     @staticmethod
     def _get_course_enrollments(request):
