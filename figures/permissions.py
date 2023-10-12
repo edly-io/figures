@@ -13,8 +13,10 @@ try:
 except ImportError:
     pass
 
-from openedx.features.edly.utils import edly_panel_user_has_edly_org_access
-
+from openedx.features.edly.utils import (
+    edly_panel_user_has_edly_org_access, get_edly_sub_org_from_request,
+    user_has_edly_organization_access
+)
 import figures.helpers
 import figures.sites
 
@@ -95,3 +97,18 @@ class IsStaffUserOnDefaultSite(BasePermission):
 
     def has_permission(self, request, view):
         return is_staff_user_on_default_site(request) or has_insights_access(request)
+
+
+class CanAccessEdlyInsights(BasePermission):
+    """
+    Allow access to edly panel admin or insights users.
+    """
+
+    def has_permission(self, request, view):
+        sub_org = get_edly_sub_org_from_request(request)
+        is_edly_access_user = request.user.edly_multisite_user.filter(
+            sub_org=sub_org,
+            groups__name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
+        ).exists()
+        has_edly_user_access = user_has_edly_organization_access(request) and (is_edly_access_user)
+        return has_edly_user_access
