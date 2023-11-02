@@ -818,6 +818,8 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         try:
             site = self.context['request'].site
         except:
+            if not self.context.get('site'):
+                return None
             site = self.context['site']
 
         edly_access_user = user.edly_multisite_user.get(
