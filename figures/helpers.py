@@ -55,6 +55,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
+from django.contrib.staticfiles import finders
 from django.utils.timezone import utc
 from django.template.loader import get_template
 from fpdf import FPDF
@@ -377,6 +378,10 @@ def get_prepared_pdf(pdf_data, logo_url):
     """
     Prepare pdf for learners overview data.
     """
+    font_path = finders.find('fonts/DejaVuFonts/DejaVuSerif.ttf')
+    font_bold_path = finders.find('fonts/DejaVuFonts/DejaVuSerif-Bold.ttf')
+    font_italic_path = finders.find('fonts/DejaVuFonts/DejaVuSerif-Italic.ttf')
+
     class LearnerPDF(FPDF):
         """
         Custom class for FPDF.
@@ -387,7 +392,8 @@ def get_prepared_pdf(pdf_data, logo_url):
             """
             self.set_left_margin(0)
             self.set_fill_color(242, 242, 242)
-            self.set_font('Arial', size=14)
+            self.add_font('DejaVuSerif', '', font_path, uni=True)
+            self.set_font('DejaVuSerif', size=14)
             self.cell(0, 18, '', 0, 0, 'C', True)
             self.ln(1)
             self.image(name=logo_url, x=70, w=65, h=15)
@@ -401,7 +407,8 @@ def get_prepared_pdf(pdf_data, logo_url):
             self.set_text_color(255, 255, 255)
             self.set_fill_color(47, 42, 42)
             self.set_y(-15)
-            self.set_font('Arial', '', 9)
+            self.add_font('DejaVuSerif', '', font_path, uni=True)
+            self.set_font('DejaVuSerif', '', 9)
             self.cell(0, 15, PDF_COPYRIGHT_TEXT, 0, 0, 'C', True)
 
     pdf = LearnerPDF()
@@ -410,14 +417,16 @@ def get_prepared_pdf(pdf_data, logo_url):
     pdf.set_right_margin(0)
     pdf.add_page()
     pdf.set_left_margin(3)
-    pdf.set_font('Arial', size=14, style='B')
+    pdf.add_font('DejaVuSerif-Bold', '', font_bold_path, uni=True)
+    pdf.set_font('DejaVuSerif-Bold', size=14)
     pdf.set_text_color(70, 64, 64)
     pdf.multi_cell(w=0, h=10, txt='Learners Overview', border=0, align='L', fill=False)
     pdf.ln(10)
-    pdf.set_font('Arial', 'B', 9)
+    pdf.add_font('DejaVuSerif-Italic', '', font_italic_path, uni=True)
     line_height = pdf.font_size * 2.5
     pdf.set_fill_color(242, 242, 242)
     pdf.set_draw_color(242, 242, 242)
+    pdf.set_font('DejaVuSerif-Bold', size=9)
     pdf.cell(50, line_height, 'Name', border='LTB', fill=True)
     pdf.cell(65, line_height, 'Email', border='TB', fill=True)
     pdf.cell(17, line_height, 'Courses', border='TB', fill=True)
@@ -432,21 +441,20 @@ def get_prepared_pdf(pdf_data, logo_url):
     pdf.cell(20, line_height, 'Created', border='TB', fill=True)
     pdf.cell(32, line_height, '', border='TBR', fill=True)
     pdf.ln(line_height)
-    pdf.set_font('Arial', size=9)
+    pdf.set_font('DejaVuSerif', size=9)
     for row in pdf_data:
         course_count = len(row['courses']) if row['courses'] else 0
         pdf.set_text_color(221, 31, 37)
-        pdf.cell(50, line_height, row['name'], border='LTB')
+        pdf.cell(47, line_height, row['name'], border='LTBR')
         pdf.set_text_color(7, 64, 64)
-        pdf.cell(65, line_height, row['email'], border='TB')
-        pdf.cell(17, line_height, str(course_count), border='TB')
-        pdf.cell(20, line_height, _get_completed_courses(row['courses']), border='TB')
-        pdf.cell(20, line_height, _get_formatted_datetime_string(row['date_joined']), border='TB')
-        pdf.cell(32, line_height, _get_formatted_datetime_string(row['last_login'], True), border='TBR')
+        pdf.cell(65, line_height, row['email'], border='TBR')
+        pdf.cell(17, line_height, str(course_count), border='TBR')
+        pdf.cell(20, line_height, _get_completed_courses(row['courses']), border='TBR')
+        pdf.cell(20, line_height, _get_formatted_datetime_string(row['date_joined']), border='TBR')
+        pdf.cell(35, line_height, _get_formatted_datetime_string(row['last_login'], True), border='TBR')
         pdf.ln(line_height)
         pdf.set_left_margin(3)
-
-    pdf.set_font('Arial', 'I', 8)
+    pdf.set_font('DejaVuSerif-Italic', size=8)
     pdf.multi_cell(w=0, h=pdf.font_size*2, txt=PDF_NOTE, border=0, align='L', fill=False)
     return pdf.output(dest='S')
 
