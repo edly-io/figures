@@ -274,7 +274,7 @@ def get_num_learners_completed(site, course_id, date_for):
         edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
         is_staff=False,
         is_superuser=False,
-    ).using(read_replica_or_default()).values_list(
+    ).exclude(username__icontains='retired__user').using(read_replica_or_default()).values_list(
         'pk',
         flat=True
     )
