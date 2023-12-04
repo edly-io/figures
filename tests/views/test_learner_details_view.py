@@ -170,7 +170,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         self.expected_result_keys = [
             'id', 'username', 'name', 'email', 'country', 'is_active', 'last_login',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'registration_fields',
-            'bio', 'goals', 'mailing_address', 'courses', 'course_activity_date'
+            'bio', 'courses', 'course_activity_date'
         ]
 
     def test_serializer(self):

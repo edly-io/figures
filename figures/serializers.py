@@ -760,8 +760,6 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         source='profile.level_of_education',
         allow_blank=True, required=False,)
     bio = serializers.CharField(source='profile.bio', required=False)
-    goals = serializers.CharField(source='profile.goals', required=False)
-    mailing_address = serializers.CharField(source='profile.mailing_address', required=False)
 
 
     course_activity_date = serializers.SerializerMethodField()
@@ -777,7 +775,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'name', 'email', 'country', 'is_active', 'course_activity_date',
             'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
-            'bio','goals', 'mailing_address', 'courses', 'registration_fields',
+            'bio', 'courses', 'registration_fields',
             )
         read_only_fields = fields
 
