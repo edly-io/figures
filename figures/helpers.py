@@ -309,7 +309,7 @@ def get_required_registration_fields_for_user(user, site):
 
     required_registration_fields = [
         field for field, value in registration_fields.items()
-        if value == 'required'
+        if value in ('required', 'optional')
     ]
     user_required_fields = [
         field for field in required_registration_fields
