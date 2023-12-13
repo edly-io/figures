@@ -396,7 +396,7 @@ def get_prepared_pdf(pdf_data, logo_url):
             self.set_font('DejaVuSerif', size=14)
             self.cell(0, 18, '', 0, 0, 'C', True)
             self.ln(1)
-            self.image(name=logo_url, x=70, w=65, h=15)
+            self.image(name=logo_url, x=70, h=25)
             self.ln(5)
 
         def footer(self):
