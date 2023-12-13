@@ -718,13 +718,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
       "name": "Maxi Fernandez",
       "country": "UY",
       "is_active": true,
-      "year_of_birth": 1985,
-      "level_of_education": "b",
-      "gender": "m",
       "date_joined": "2018-05-06T14:01:58Z",
       "last_login": "2018-05-06T14:01:58Z",
       "bio": null,
-      "level_of_education": "b",
       "language_proficiencies": [],
       "email": "maxi+localtest@appsembler.com",
       "courses": [
@@ -747,20 +743,18 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         }
         ...
       ]
+      "registration_fields": {
+                "year_of_birth": null,
+                "gender": null,
+                "level_of_education": null,
+                "country": "",
+                "goals": null
+      }
     }
 
     """
     name = serializers.CharField(source='profile.name', default=None,)
-    country = SerializeableCountryField(
-        source='profile.country',
-        required=False, allow_blank=True)
-    year_of_birth = serializers.IntegerField(source='profile.year_of_birth',)
-    gender = serializers.CharField(source='profile.gender',)
-    level_of_education = serializers.CharField(
-        source='profile.level_of_education',
-        allow_blank=True, required=False,)
     bio = serializers.CharField(source='profile.bio', required=False)
-
 
     course_activity_date = serializers.SerializerMethodField()
     registration_fields = serializers.SerializerMethodField()
@@ -773,10 +767,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         model = get_user_model()
         editable = False
         fields = (
-            'id', 'username', 'name', 'email', 'country', 'is_active', 'course_activity_date',
-            'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
-            'bio', 'courses', 'registration_fields',
-            )
+            'id', 'username', 'name', 'email', 'is_active', 'course_activity_date',
+            'date_joined', 'last_login', 'bio', 'courses', 'registration_fields',
+        )
         read_only_fields = fields
 
     def get_registration_fields(self, user):
