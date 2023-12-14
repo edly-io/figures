@@ -397,6 +397,7 @@ def get_prepared_pdf(pdf_data, logo_url):
             self.cell(0, 18, '', 0, 0, 'C', True)
             self.ln(1)
             x = (self.w - self.get_string_width(logo_url)) / 2
+            logger.info("X value is: ", x)
             self.image(name=logo_url, x=x, h=15)
             self.ln(5)
 
