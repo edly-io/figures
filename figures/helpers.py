@@ -44,8 +44,8 @@ This is not an exhaustive list. We'll grow it as needed.
 An important point is that we should not expect this module to be a permanent
 home for functionality.
 """
-
 from __future__ import absolute_import
+import os
 import calendar
 import csv
 import datetime
@@ -396,7 +396,7 @@ def get_prepared_pdf(pdf_data, logo_url):
             self.set_font('DejaVuSerif', size=14)
             self.cell(0, 18, '', 0, 0, 'C', True)
             self.ln(1)
-            self.image(name=logo_url, x=70, w=65, h=15)
+            self.image(name=logo_url, x=110, h=15)
             self.ln(5)
 
         def footer(self):
