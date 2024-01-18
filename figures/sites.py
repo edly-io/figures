@@ -162,6 +162,21 @@ def get_organizations_for_site(site):
     return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(
         read_replica_or_default())
 
+def get_course_keys_for_sites_slugs(site_slugs):
+    """This function return a list of courses keys based on the sub_orgainzation slugs"""
+    if figures.helpers.is_multisite():
+        edx_orgs = EdlySubOrganization.objects.filter(slug__in=site_slugs).using(read_replica_or_default()).values_list(
+            'edx_organizations', flat=True)
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+            read_replica_or_default())
+
+        course_ids = org_courses.values_list('course_id', flat=True)
+    else:
+        course_ids = CourseOverview.objects.using(
+            read_replica_or_default()).all().values_list('id', flat=True)
+
+    return [as_course_key(cid) for cid in course_ids]
+
 
 def get_course_keys_for_site(site):
     if figures.helpers.is_multisite():
@@ -203,6 +218,22 @@ def get_courses_for_site(site):
     return courses
 
 
+def get_user_ids_for_sites(sites):
+    if figures.helpers.is_multisite():
+        edly_access_users = EdlyMultiSiteAccess.objects.filter(
+            sub_org__slug__in=sites
+        ).using(read_replica_or_default()).exclude(
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        )
+
+        user_ids = edly_access_users.values_list('user', flat=True)
+    else:
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        ).values_list('id', flat=True)
+    return user_ids
+
+
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
@@ -234,6 +265,16 @@ def get_edly_users_for_site(site):
         )
 
     return user_ids
+
+
+def get_users_for_sites(sites):
+    if figures.helpers.is_multisite():
+        user_ids = get_user_ids_for_sites(sites)
+        users = get_user_model().objects.filter(id__in=user_ids).using(
+            read_replica_or_default())
+    else:
+        users = get_user_model().objects.using(read_replica_or_default()).all()
+    return users
 
 
 def get_users_for_site(site):

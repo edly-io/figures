@@ -159,6 +159,8 @@ urlpatterns = [
     # Non-router API endpoints
     url(r'^api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
         name='general-site-metrics'),
+    url(r'^api/general-sites-metrics', views.GeneralSitesMetricsView.as_view(),
+        name='general-sites-metrics'),
     url(r'^api/edly/insights-summary/$', edly_reports.InsightSummaryCSV.as_view(), name='edly-insights-summary'),
     url(r'^api/edly/insights-learner/$', edly_reports.InsightLearnersCSV.as_view(), name='edly-insights-learners'),
     url(r'^api/edly/insights-courses/$', edly_reports.InsightCoursesCSV.as_view(), name='edly-insights-courses'),
