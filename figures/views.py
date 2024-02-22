@@ -376,6 +376,86 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
             }
         return Response(data)
 
+class GeneralSitesMetricsView(CommonAuthMixin, APIView):
+    """Viewset intended for Edly Super Admin Dashboard Insights
+
+    TODO: Determine when we remove this class
+
+    Assuming that the user have multiple sites, and showing learners and stuff user statictics
+    """
+
+    pagination_class = FiguresPageLevelPagination
+
+    def get_total_staf_user_for_sub_orgs(self, sub_org, end_date, date_format):
+        """calculate total number of stuff user for given user sites from sub_organization"""
+        filter_args = dict(
+          date_joined__date__lte=datetime.strptime(end_date, date_format),
+        )
+        stuff_users = figures.sites.get_users_for_sites(sub_org).filter(
+            courseaccessrole__role='global_course_creator',
+            is_staff=False,
+            is_superuser=False
+        ).using(read_replica_or_default())
+        return stuff_users.filter(**filter_args).values('id').distinct().count()
+    
+    def get_total_learner_for_sub_orgs(self, sub_org, end_date, date_format):
+        """calculate total learner of stuff user for given user sites from sub_organization"""
+        filter_args = dict(
+          date_joined__date__lte=datetime.strptime(end_date, date_format),
+        )
+        learner_users = figures.sites.get_users_for_sites(sub_org).filter(
+            ~Q(courseaccessrole__role='course_creator_group'),
+            is_staff=False,
+            is_superuser=False
+        ).using(read_replica_or_default())
+        return learner_users.filter(**filter_args).values('id').distinct().count()
+
+    def get(self, request, format=None):  # pylint: disable=redefined-builtin
+        '''
+        Does not yet support multi-tenancy
+        '''
+        site = django.contrib.sites.shortcuts.get_current_site(request)
+        sub_org = self.request.GET.get('sub_org', '')
+        sub_org = [site.name.split('.')[0]] if not sub_org else sub_org.split(',')
+ 
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        date_format = '%d-%m-%Y'
+        is_custom_date_range = start_date or end_date
+        if is_custom_date_range:
+            error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
+            if error_response:
+                return
+        
+        total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, end_date, date_format)
+        total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, end_date, date_format)
+        _, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
+            figures.helpers.get_date(start_date, date_format),
+            figures.helpers.get_date(end_date, date_format),
+        )
+        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
+        prev_total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
+
+        data = {
+            'total_site_staff_users': {
+                'current_month':total_stuff_user, 
+                'prev_month':prev_total_stuff_user,
+                'total_count':total_stuff_user, 
+                'percentage_change':  figures.helpers.calculate_percentage_change(
+                    prev_total_stuff_user, total_stuff_user
+                )
+            },
+            'total_site_learners': {
+                'current_month':total_learner_user,
+                'prev_month':prev_total_learner_user,
+                'total_count':total_learner_user, 
+                'percentage_change':  figures.helpers.calculate_percentage_change(
+                    prev_total_learner_user, total_learner_user
+                )   
+            }
+        }
+
+        return Response(data)
 
 class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     """Viewset intended for Figures Web UI
@@ -422,10 +502,25 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = CourseDailyMetrics
     pagination_class = FiguresPageLevelPagination
     serializer_class = CourseTopStatsSerializer
+    authentication_classes = (
+        BasicAuthentication,
+        SessionAuthentication,
+        TokenAuthentication,
+    )
+    permission_classes = (
+        IsAuthenticated,
+        figures.permissions.IsSiteAdminUser
+    )
 
     def get_queryset(self):
         site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
-        course_ids = figures.sites.get_course_keys_for_site(site)
+        sub_org = self.request.GET.get('sub_org', '')
+        course_ids=[]
+        if sub_org:
+            course_ids = figures.sites.get_course_keys_for_sites_slugs(sub_org.split(','))
+        else:
+            course_ids = figures.sites.get_course_keys_for_site(site)
+
         queryset = self.model.objects.filter(
             course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
         order_by = self.request.query_params.get('order_by', '')
