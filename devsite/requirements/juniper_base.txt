@@ -100,4 +100,6 @@ openedx-calc==1.0.9
 beautifulsoup4==4.8.2
 shapely==1.7.0
 web-fragments==0.3.2
+social-auth-app-django==4.0.0
+social-auth-core==3.3.3
 -e git+https://github.com/edx/codejail.git@4127fc4bd5775cc72aee8d7f0a70e31405e22439#egg=codejail

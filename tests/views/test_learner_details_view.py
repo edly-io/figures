@@ -168,7 +168,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         ]
 
         self.expected_result_keys = [
-            'id', 'username', 'name', 'email', 'is_active', 'last_login', 'date_joined',
+            'id', 'username', 'name', 'email', 'sso_id', 'is_active', 'last_login', 'date_joined',
             'registration_fields', 'bio', 'courses', 'course_activity_date'
         ]
 

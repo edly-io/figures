@@ -55,6 +55,7 @@ from figures.models import (
 from figures.pipeline.logger import log_error
 import figures.sites
 from util.query import read_replica_or_default
+from social_django.models import UserSocialAuth
 
 
 # Temporarily hardcoding here
@@ -635,14 +636,22 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
     date_enrolled = serializers.DateTimeField(source='created', format="%Y-%m-%d")
     progress_data = serializers.SerializerMethodField()
     enrollment_id = serializers.IntegerField(source='id')
+    sso_id = serializers.SerializerMethodField()
 
     class Meta:
         model = CourseEnrollment
         fields = (
             'course_name', 'course_code', 'course_id', 'date_enrolled',
-            'progress_data', 'enrollment_id', 'is_active'
+            'progress_data', 'enrollment_id', 'is_active', 'sso_id',
             )
         read_only_fields = fields
+
+    def get_sso_id(self, course_enrollment):
+        auth_object = UserSocialAuth.objects.filter(user=course_enrollment.user).first()
+        if not auth_object:
+            return ""
+
+        return auth_object.uid
 
     def get_progress_data(self, course_enrollment):
         """
@@ -762,13 +771,14 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
     # Would like to make this work without using the SerializerMethodField
     # courses = LearnerCourseDetailsSerializer(many=True)
     courses = serializers.SerializerMethodField()
+    sso_id = serializers.CharField(source='UserSocialAuth.uid', default=None,)
 
     class Meta:
         model = get_user_model()
         editable = False
         fields = (
             'id', 'username', 'name', 'email', 'is_active', 'course_activity_date',
-            'date_joined', 'last_login', 'bio', 'courses', 'registration_fields',
+            'date_joined', 'last_login', 'bio', 'courses', 'registration_fields', 'sso_id',
         )
         read_only_fields = fields
 
