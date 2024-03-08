@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'experiments',
     'oauth2_provider',
     'edx_proctoring',
+    'social_django',
     'edly_panel_app',
 ]
 

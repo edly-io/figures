@@ -907,6 +907,7 @@ def send_insights_course_detail_report(
         'Name',
         'Username',
         'Email',
+        'SSO ID'
         'Enrollment Mode',
         'Enrollment Date',
         'Completion Date',
@@ -927,6 +928,7 @@ def send_insights_course_detail_report(
             learner['user']['fullname'],
             learner['user']['username'],
             learner['user']['email'],
+            learner['user'].get('sso_id'),
             learner.get('mode') or 'N/A',
             learner['courses'][0]['date_enrolled'],
             learner['courses'][0]['progress_data']['passed_timestamp'],
