@@ -569,7 +569,7 @@ class TestLearnerCourseDetailsSerializer(object):
     def test_has_fields(self):
 
         expected_fields = set([
-            'course_name', 'course_code', 'course_id', 'date_enrolled',
+            'sso_id', 'course_name', 'course_code', 'course_id', 'date_enrolled',
             'progress_data', 'enrollment_id', 'is_active'
             ])
 
@@ -670,7 +670,7 @@ class TestLearnerDetailsSerializer(object):
             https://docs.python.org/2/library/stdtypes.html#dict.items
         '''
         expected_fields = set([
-        'id', 'username', 'name', 'email', 'is_active', 'date_joined', 'bio',
+        'id', 'username', 'name', 'email', 'sso_id', 'is_active', 'date_joined', 'bio',
         'courses', 'last_login', 'course_activity_date', 'registration_fields'
         ])
         data = self.serializer.data
