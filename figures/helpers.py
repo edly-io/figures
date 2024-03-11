@@ -907,7 +907,7 @@ def send_insights_course_detail_report(
         'Name',
         'Username',
         'Email',
-        'SSO ID'
+        'SSO ID',
         'Enrollment Mode',
         'Enrollment Date',
         'Completion Date',
