@@ -290,7 +290,8 @@ def get_users_for_site(site):
 def get_course_enrollments_for_site(site):
     course_keys = get_course_keys_for_site(site)
     return CourseEnrollment.objects.filter(
-        course_id__in=course_keys
+        course_id__in=course_keys,
+        is_active=True
     ).filter(
         ~Q(user__courseaccessrole__role='course_creator_group'),
         user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
