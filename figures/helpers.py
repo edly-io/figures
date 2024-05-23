@@ -447,7 +447,7 @@ def get_prepared_pdf(pdf_data, logo_url):
         pdf.set_text_color(221, 31, 37)
         pdf.cell(47, line_height, row['name'], border='LTBR')
         pdf.set_text_color(7, 64, 64)
-        pdf.cell(65, line_height, row['email'], border='TBR')
+        pdf.cell(65, line_height, (row['email'][:35] + '..') if len(row['email']) > 37 else row['email'], border='TBR')
         pdf.cell(17, line_height, str(course_count), border='TBR')
         pdf.cell(20, line_height, _get_completed_courses(row['courses']), border='TBR')
         pdf.cell(20, line_height, _get_formatted_datetime_string(row['date_joined']), border='TBR')
