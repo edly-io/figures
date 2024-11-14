@@ -2,7 +2,7 @@
 """
 
 from __future__ import absolute_import
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 from celery.task import task
 from django.conf import settings
@@ -517,9 +517,18 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             course_ids = figures.sites.get_course_keys_for_sites_slugs(sub_org.split(','))
         else:
             course_ids = figures.sites.get_course_keys_for_site(site)
-
+        
+        current_time = datetime.now(timezone.utc)
         queryset = self.model.objects.filter(
-            course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
+            course_id__in=course_ids, date_for=current_time
+        ).using(read_replica_or_default())
+
+        if not queryset.exists():
+            queryset = self.model.objects.filter(
+                course_id__in=course_ids,
+                date_for=current_time - timedelta(days=1)
+            ).using(read_replica_or_default())
+
         order_by = self.request.query_params.get('order_by', '')
         if order_by:
             order_by_name = order_by.split(',')[0]
