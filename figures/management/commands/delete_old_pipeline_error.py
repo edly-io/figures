@@ -24,9 +24,17 @@ class Command(BaseCommand):
         days = options['days']
         cutoff_date = now() - timedelta(days=days)
 
-        print(f"Deleting PipelineError records older than {days} days...")
+        print(f"Deleting PipelineError records older than {days} days in batches...")
 
-        deleted_count, _ = PipelineError.objects.filter(created__lt=cutoff_date).delete()
+        batch_size = 1000
+        total_deleted = 0
+        while True:
+            old_records = PipelineError.objects.filter(created__lt=cutoff_date)[:batch_size]
+            if not old_records:
+                break
+            deleted_count = old_records.delete()[0]
+            total_deleted += deleted_count
+            print(f"Deleted {deleted_count} records in this batch. Total deleted: {total_deleted}.")
 
-        print(f"Deleted {deleted_count} PipelineError records older than {days} days.")
+        print(f"Deletion complete. Total {total_deleted} PipelineError records older than {days} days deleted.")
         print('Done.')
