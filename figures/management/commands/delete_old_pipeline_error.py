@@ -26,15 +26,17 @@ class Command(BaseCommand):
 
         print(f"Deleting PipelineError records older than {days} days in batches...")
 
-        batch_size = 1000
+        batch_size = 1000  # Adjust batch size as needed for optimal performance
         total_deleted = 0
+
         while True:
             old_records = PipelineError.objects.filter(created__lt=cutoff_date)[:batch_size]
-            if not old_records:
+            if not old_records.exists():
                 break
-            deleted_count = old_records.delete()[0]
-            total_deleted += deleted_count
-            print(f"Deleted {deleted_count} records in this batch. Total deleted: {total_deleted}.")
+            ids_to_delete = list(old_records.values_list('id', flat=True))
+            PipelineError.objects.filter(id__in=ids_to_delete).delete()
+            total_deleted += len(ids_to_delete)
+            print(f"Deleted {len(ids_to_delete)} records in this batch. Total deleted: {total_deleted}.")
 
         print(f"Deletion complete. Total {total_deleted} PipelineError records older than {days} days deleted.")
         print('Done.')
