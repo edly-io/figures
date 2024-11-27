@@ -26,7 +26,7 @@ class Command(BaseCommand):
 
         print(f"Deleting PipelineError records older than {days} days in batches...")
 
-        batch_size = 1000  # Adjust batch size as needed for optimal performance
+        batch_size = 1000
         total_deleted = 0
 
         while True:
