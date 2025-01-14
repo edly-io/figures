@@ -9,9 +9,10 @@ course enrollments as examples
 TODO:
 Document how organization site mapping works
 """
-from datetime import datetime
 
 from __future__ import absolute_import
+
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
@@ -179,13 +180,13 @@ def get_course_keys_for_site(site, active_courses=False):
         if active_courses:
             org_courses = org_courses.filter(active=True)
 
-        return org_courses.values_list('course_id', flat=True)
+        course_ids = org_courses.values_list('course_id', flat=True)
     else:
         course_ids = CourseOverview.objects.all()
         if active_courses: 
             course_ids = course_ids.filter(end_date__gte=datetime.now())
         
-        return [str(key) for key in course_ids.values_list('id', flat=True)]
+    return [str(key) for key in course_ids.values_list('id', flat=True)]
 
 
 def site_course_ids(site):

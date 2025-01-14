@@ -82,9 +82,9 @@ class Command(BaseCommand):
                     experimental_populate_daily_metrics.delay(**kwargs)  # pragma: no cover
             else:
                 if options['no_delay']:
-                    populate_daily_metrics(**kwargs, options['active_courses'])
+                    populate_daily_metrics(active_courses=options['active_courses'], **kwargs)
                 else:
-                    populate_daily_metrics.delay(**kwargs, options['active_courses'])  # pragma: no cover
+                    populate_daily_metrics.delay(active_courses=options['active_courses'], **kwargs)  # pragma: no cover
 
         # TODO: improve this message to say 'today' when options['date'] is None
         print('Management command populate_figures_metrics complete. date_for: {}'.format(
