@@ -45,6 +45,10 @@ class Command(BaseCommand):
                             action='store_true',
                             default=False,
                             help='Run just the MAU pipeline')
+        parser.add_argument('--active-courses',
+                            action='active_courses',
+                            default=False,
+                            help='Populate only active courses')
 
     def handle(self, *args, **options):
         '''
@@ -78,9 +82,9 @@ class Command(BaseCommand):
                     experimental_populate_daily_metrics.delay(**kwargs)  # pragma: no cover
             else:
                 if options['no_delay']:
-                    populate_daily_metrics(**kwargs)
+                    populate_daily_metrics(**kwargs, options['active_courses'])
                 else:
-                    populate_daily_metrics.delay(**kwargs)  # pragma: no cover
+                    populate_daily_metrics.delay(**kwargs, options['active_courses'])  # pragma: no cover
 
         # TODO: improve this message to say 'today' when options['date'] is None
         print('Management command populate_figures_metrics complete. date_for: {}'.format(

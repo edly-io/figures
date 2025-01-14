@@ -167,7 +167,7 @@ def update_learners_progress_for_course(course):
 
 
 @shared_task
-def populate_daily_metrics(date_for=None, force_update=False):
+def populate_daily_metrics(date_for=None, force_update=False, active_courses=False):
     '''Populates the daily metrics models for the given date
 
     This method populates CourseDailyMetrics for all the courses in the site,
@@ -198,7 +198,7 @@ def populate_daily_metrics(date_for=None, force_update=False):
     sites_count = len(lms_sites)
     for i, site in enumerate(Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites)):
         try:
-            courses = figures.sites.get_courses_for_site(site)
+            courses = figures.sites.get_courses_for_site(site, active_courses)
         except Exception:  # pylint: disable=broad-except
             courses = []
             msg = ('FIGURES:FAIL populate_daily_metrics unhandled site level'

@@ -9,6 +9,7 @@ course enrollments as examples
 TODO:
 Document how organization site mapping works
 """
+from datetime import datetime
 
 from __future__ import absolute_import
 from django.contrib.auth import get_user_model
@@ -168,19 +169,23 @@ def get_course_keys_for_sites_slugs(site_slugs):
     return [as_course_key(cid) for cid in course_ids]
 
 
-def get_course_keys_for_site(site):
+def get_course_keys_for_site(site, active_courses=False):
     if figures.helpers.is_multisite():
         edx_orgs = EdlySubOrganization.objects.filter(lms_site=site).using(read_replica_or_default()).values_list(
             'edx_organizations', flat=True)
         org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
             read_replica_or_default())
+        
+        if active_courses:
+            org_courses = org_courses.filter(active=True)
 
-        course_ids = org_courses.values_list('course_id', flat=True)
+        return org_courses.values_list('course_id', flat=True)
     else:
-        course_ids = CourseOverview.objects.using(
-            read_replica_or_default()).all().values_list('id', flat=True)
-
-    return [as_course_key(cid) for cid in course_ids]
+        course_ids = CourseOverview.objects.all()
+        if active_courses: 
+            course_ids = course_ids.filter(end_date__gte=datetime.now())
+        
+        return [str(key) for key in course_ids.values_list('id', flat=True)]
 
 
 def site_course_ids(site):
@@ -196,16 +201,19 @@ def site_course_ids(site):
             'id', flat=True)]
 
 
-def get_courses_for_site(site):
+def get_courses_for_site(site, active_courses=False):
     """Returns the courses accessible by the user on the site
 
     This function relies on Appsembler's fork of edx-organizations
     """
     if figures.helpers.is_multisite():
-        course_keys = get_course_keys_for_site(site)
+        course_keys = get_course_keys_for_site(site, active_courses)
         courses = CourseOverview.objects.filter(id__in=course_keys).using(read_replica_or_default())
     else:
         courses = CourseOverview.objects.using(read_replica_or_default()).all()
+        if active_courses:
+            courses = courses.filter(active=True)
+
     return courses
 
 
