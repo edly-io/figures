@@ -46,7 +46,7 @@ class Command(BaseCommand):
                             default=False,
                             help='Run just the MAU pipeline')
         parser.add_argument('--active-courses',
-                            action='active_courses',
+                            action='store_true',
                             default=False,
                             help='Populate only active courses')
 
