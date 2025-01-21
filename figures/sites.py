@@ -182,11 +182,11 @@ def get_course_keys_for_site(site, active_courses=False):
 
         course_ids = org_courses.values_list('course_id', flat=True)
     else:
-        course_ids = CourseOverview.objects.all()
+        course_ids = CourseOverview.objects.using(read_replica_or_default()).all()
         if active_courses: 
             course_ids = course_ids.filter(end_date__gte=datetime.now())
         
-    return [str(key) for key in course_ids.values_list('id', flat=True)]
+    return [as_course_key(key) for key in course_ids.values_list('id', flat=True)]
 
 
 def site_course_ids(site):
