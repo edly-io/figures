@@ -53,6 +53,8 @@ from figures.filters import (
     SiteFilterSet,
     SiteMauMetricsFilter,
     UserFilterSet,
+    CustomLearnerSearchFilter,
+    NullsLastOrderingFilter,
 )
 from figures.models import (
     CourseDailyMetrics,
@@ -669,7 +671,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
     pagination_class = FiguresPageLevelPagination
     serializer_class = LearnerDetailsSerializer
-    filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter, )
+    filter_backends = (DjangoFilterBackend, CustomLearnerSearchFilter, NullsLastOrderingFilter, )
     search_fields = ['profile__name', 'username', 'email']
     ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined', 'last_login', ]
     filter_class = UserFilterSet
