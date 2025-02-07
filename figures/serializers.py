@@ -29,6 +29,8 @@ from rest_framework import serializers
 from rest_framework.fields import empty
 
 from openedx.core.djangoapps.user_api.accounts.serializers import AccountLegacyProfileSerializer  # noqa pylint: disable=import-error
+from openedx.core.djangoapps.user_api.models import UserRetirementStatus
+from django.conf import settings
 
 from figures.compat import (RELEASE_LINE,
                             CourseAccessRole,
@@ -780,15 +782,26 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
     # courses = LearnerCourseDetailsSerializer(many=True)
     courses = serializers.SerializerMethodField()
     sso_id = serializers.CharField(source='UserSocialAuth.uid', default=None,)
+    is_retired = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
         editable = False
         fields = (
             'id', 'username', 'name', 'email', 'is_active', 'course_activity_date',
-            'date_joined', 'last_login', 'bio', 'courses', 'registration_fields', 'sso_id',
+            'date_joined', 'last_login', 'bio', 'courses', 'registration_fields', 'sso_id', 'is_retired'
         )
         read_only_fields = fields
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.email.startswith(settings.RETIRED_EMAIL_PREFIX):
+            retirement_status = UserRetirementStatus.objects.filter(user=instance).first()
+            if retirement_status:
+                representation['username'] = retirement_status.original_username
+                representation['email'] = retirement_status.original_email
+
+        return representation
 
     def get_registration_fields(self, user):
         registration_fields = dict()
@@ -835,6 +848,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
             sub_org__lms_site=site,
         )
         return edly_access_user.course_activity_date
+    
+    def get_is_retired(self, user):
+        return user.email.startswith(settings.RETIRED_EMAIL_PREFIX)
 
 
 class CourseMauMetricsSerializer(serializers.ModelSerializer):

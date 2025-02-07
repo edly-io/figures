@@ -21,7 +21,8 @@ TODO: Rename classes so they eiher all end with "Filter" or "FilterSet" then
 from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.db.models import F
+from django.db.models import F, Q, Value
+from django.db.models.functions import NullIf
 
 import django_filters
 
@@ -37,6 +38,9 @@ from figures.models import (
     SiteMauMetrics,
 )
 from util.query import read_replica_or_default
+from openedx.core.djangoapps.user_api.models import UserRetirementStatus
+from rest_framework import filters
+from django.conf import settings
 
 
 def hack_get_version(version_string):
@@ -418,6 +422,69 @@ class UserFilterSet(django_filters.FilterSet):
         user_ids = enrollments.values_list('user__id', flat=True)
         return queryset.filter(id__in=user_ids).using(read_replica_or_default())
 
+
+class CustomLearnerSearchFilter(filters.SearchFilter):
+    def filter_queryset(self, request, queryset, view):
+
+        search_terms = self.get_search_terms(request)
+
+        if not search_terms:
+            return queryset
+
+        search_queries = Q()
+        for term in search_terms:
+            search_queries |= (
+                Q(original_username__icontains=term) | 
+                Q(original_email__icontains=term)
+            )
+
+        retired_users = queryset.filter(email__startswith=settings.RETIRED_EMAIL_PREFIX)
+
+        retirement_statuses = UserRetirementStatus.objects.filter(
+            user__in=retired_users
+        ).filter(search_queries)
+
+        return super().filter_queryset(request, queryset, view) | queryset.filter(
+            id__in=retirement_statuses.values_list('user_id', flat=True)
+            )
+
+class NullsLastOrderingFilter(filters.OrderingFilter):
+
+    def filter_queryset(self, request, queryset, view):
+        ordering = self.get_ordering(request, queryset, view)
+        if not ordering:
+            return queryset
+        
+        annotations = {}
+        ordering_expressions = []
+        
+        for field in ordering:
+            clean_field = field.lstrip("-")
+            field_parts = clean_field.split('__')
+            
+            if len(field_parts) > 1:
+                annotation_name = f"{field_parts[0]}_{field_parts[1]}_non_empty"
+                annotations[annotation_name] = NullIf(F(clean_field), Value(''))
+        
+        if annotations:
+            queryset = queryset.annotate(**annotations)
+        
+        for field in ordering:
+            clean_field = field.lstrip("-")
+            is_desc = field.startswith("-")
+            field_parts = clean_field.split('__')
+            
+            if len(field_parts) > 1:
+                order_field = f"{field_parts[0]}_{field_parts[1]}_non_empty"
+            else:
+                order_field = clean_field
+                
+            order_exp = (F(order_field).desc(nulls_last=True) 
+                        if is_desc 
+                        else F(order_field).asc(nulls_last=True))
+            ordering_expressions.append(order_exp)
+        
+        return queryset.order_by(*ordering_expressions)
 
 class CourseDailyMetricsFilter(django_filters.FilterSet):
     '''Provides filtering for the courseDailyMetrics model objects
