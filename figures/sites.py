@@ -186,7 +186,10 @@ def get_course_keys_for_site(site, active_courses=False):
         if active_courses: 
             course_ids = course_ids.filter(end_date__gte=datetime.now())
         
-    return [as_course_key(key) for key in course_ids.values_list('id', flat=True)]
+        course_keys = course_ids.values_list('id', flat=True)
+        print(f"DEBUG: Course Keys -> {course_keys}")
+        
+    return [as_course_key(str(key)) for key in course_ids.values_list('id', flat=True)]
 
 
 def site_course_ids(site):
