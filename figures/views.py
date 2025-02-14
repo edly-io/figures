@@ -4,7 +4,7 @@
 from __future__ import absolute_import
 from datetime import datetime, timedelta, timezone
 import logging
-from celery.task import task
+from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -649,7 +649,7 @@ class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         )
         return Response('Learners overview email sent successfully')
 
-    @task()
+    @shared_task()
     def send_learners_data_pdf(users, email, site_id, logo_url, platform_name, from_address):
         context = dict()
         request_user = get_user_model().objects.get(email=email)

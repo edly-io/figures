@@ -5,7 +5,7 @@ Asynchronous tasks related to the Course Blocks sub-application.
 
 import logging
 
-from celery.task import task
+from celery import shared_task
 from django.conf import settings
 from edxval.api import ValInternalError
 from lxml.etree import XMLSyntaxError
@@ -16,7 +16,7 @@ from openedx.core.djangoapps.content.block_structure import api
 from openedx.core.djangoapps.content.block_structure.config import STORAGE_BACKING_FOR_CACHE, waffle
 from xmodule.modulestore.exceptions import ItemNotFoundError
 
-log = logging.getLogger('edx.celery.task')
+log = logging.getLogger('edx.celery.shared_task')
 
 # TODO: TNL-5799 is ongoing; narrow these lists down until the general exception is no longer needed
 RETRY_TASKS = (ItemNotFoundError, TypeError, ValInternalError)
@@ -27,7 +27,7 @@ def block_structure_task(**kwargs):
     """
     Decorator for block structure tasks.
     """
-    return task(
+    return shared_task(
         default_retry_delay=settings.BLOCK_STRUCTURES_SETTINGS['TASK_DEFAULT_RETRY_DELAY'],
         max_retries=settings.BLOCK_STRUCTURES_SETTINGS['TASK_MAX_RETRIES'],
         bind=True,

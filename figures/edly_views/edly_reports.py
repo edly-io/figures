@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from celery.task import task
+from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -106,7 +106,7 @@ class InsightSummaryCSV(APIView):
         return monthly_course_completions.get(request)
 
     @staticmethod
-    @task()
+    @shared_task()
     def _prepare_summary_data(site, maus, monthly_course_completions, username, user_email, site_configs, query_params):
         general_site_metrics = InsightSummaryCSV._get_figures_general_site_metrics(site, query_params)
         courses_stats_by_enrollment = InsightSummaryCSV._get_courses_stats(site, 'enrollment_count,desc')
@@ -227,7 +227,7 @@ class InsightLearnersCSV(APIView):
         return serialized_data.data
 
     @staticmethod
-    @task()
+    @shared_task()
     def _prepare_learners_data(site, maus, monthly_course_completions, username, user_email, context, site_configs, query_params):
         """
         Prepare raw data for learner insights
@@ -342,7 +342,7 @@ class InsightCoursesCSV(APIView):
         )
 
     @staticmethod
-    @task()
+    @shared_task()
     def _prepare_courses_data(site, user_email, username, site_configs):
         course_generals = InsightCoursesCSV._get_course_generals(site)
         figures.helpers.send_insights_courses_report(
@@ -363,7 +363,7 @@ class InsightCoursesCSV(APIView):
         )
 
     @staticmethod
-    @task()
+    @shared_task()
     def _prepare_advance_course_data(
         site, user_email, username,
         host, path, site_config, course_id, query_params
@@ -444,7 +444,7 @@ class LearnersCSV(APIView):
         return learner_data
 
     @staticmethod
-    @task()
+    @shared_task()
     def _prepare_learner_data(learner, admin_username, admin_email, host, path, learners_data, site_configs):
         user = get_user_model().objects.get(username=learner)
         scp_objects = StudentCourseProgress.objects.filter(student=user)
