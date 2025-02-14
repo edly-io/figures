@@ -11,6 +11,7 @@
 
 celery>=4.0
 six==1.15.0
+pyparsing==2.4.7
 
 lazy==1.4
 event-tracking==0.3.2
