@@ -10,7 +10,6 @@
 ###
 
 celery>=4.0
-django-celery==3.3.1
 six==1.15.0
 
 lazy==1.4
