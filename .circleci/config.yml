@@ -16,11 +16,9 @@ jobs:
           name: "Install python requirements"
           command: |
             sudo pip install --upgrade pip
-            sudo pip install "setuptools<58"
             sudo pip install virtualenv
             virtualenv venv
             . venv/bin/activate
-            pip install anyjson==0.3.3
             pip install -r devsite/requirements/py35_juniper.txt
       - save_cache:
           key: figures-test-deps-{{ checksum "devsite/requirements/py35_juniper.txt" }}
