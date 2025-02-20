@@ -29,7 +29,6 @@ from rest_framework import serializers
 from rest_framework.fields import empty
 
 from openedx.core.djangoapps.user_api.accounts.serializers import AccountLegacyProfileSerializer  # noqa pylint: disable=import-error
-from openedx.core.djangoapps.user_api.models import UserRetirementStatus
 from django.conf import settings
 
 from figures.compat import (RELEASE_LINE,
@@ -788,6 +787,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if instance.email.startswith(settings.RETIRED_EMAIL_PREFIX):
+            from openedx.core.djangoapps.user_api.models import UserRetirementStatus
             retirement_status = UserRetirementStatus.objects.filter(user=instance).first()
             if retirement_status:
                 representation['username'] = retirement_status.original_username
