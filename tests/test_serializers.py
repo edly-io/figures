@@ -646,7 +646,7 @@ class TestLearnerDetailsSerializer(object):
         '''
         expected_fields = set([
         'id', 'username', 'name', 'email', 'sso_id', 'is_active', 'date_joined', 'bio',
-        'courses', 'last_login', 'course_activity_date', 'registration_fields'
+        'courses', 'last_login', 'course_activity_date', 'registration_fields', 'is_retired'
         ])
         data = self.serializer.data
         assert set(data.keys()) == expected_fields

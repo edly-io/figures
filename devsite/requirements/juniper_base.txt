@@ -9,9 +9,9 @@
 ## General Python package dependencies
 ###
 
-celery==3.1.26.post2
-django-celery==3.3.1
+celery>=4.0
 six==1.15.0
+pyparsing==2.4.7
 
 lazy==1.4
 event-tracking==0.3.2

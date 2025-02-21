@@ -5,7 +5,7 @@ jobs:
     working_directory: ~/circleci-figures
     docker:
       # CircleCI Python images available at: https://hub.docker.com/r/circleci/python/
-      - image: circleci/python:3.5.4
+      - image: circleci/python:3.8
         environment:
           BASH_ENV: ~/.bashrc
     steps: # steps that comprise the `build` job
@@ -15,7 +15,7 @@ jobs:
       - run:
           name: "Install python requirements"
           command: |
-            sudo pip install --upgrade pip==20.0.2
+            sudo pip install --upgrade pip
             sudo pip install virtualenv
             virtualenv venv
             . venv/bin/activate

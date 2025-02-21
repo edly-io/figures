@@ -7,7 +7,7 @@ from smtplib import SMTPException
 
 import requests
 import simplejson
-from celery import Task, task
+from celery import Task, shared_task
 from celery.states import FAILURE
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -73,7 +73,7 @@ class BaseSoftwareSecureTask(Task):
             )
 
 
-@task(routing_key=ACE_ROUTING_KEY)
+@shared_task(routing_key=ACE_ROUTING_KEY)
 def send_verification_status_email(context):
     """
     Spins a task to send verification status email to the learner
@@ -94,7 +94,7 @@ def send_verification_status_email(context):
         log.warning(u"Failure in sending verification status e-mail to %s", dest_addr)
 
 
-@task(
+@shared_task(
     base=BaseSoftwareSecureTask,
     bind=True,
     default_retry_delay=settings.SOFTWARE_SECURE_REQUEST_RETRY_DELAY,
