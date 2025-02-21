@@ -33,9 +33,10 @@ class Command(BaseCommand):
             old_records = PipelineError.objects.filter(created__lt=cutoff_date)[:batch_size]
             if not old_records.exists():
                 break
-            deleted, _ = old_records.delete()
-            total_deleted += deleted
-            print(f"Deleted {deleted} records in this batch. Total deleted: {total_deleted}.")
+            ids_to_delete = list(old_records.values_list('id', flat=True))
+            PipelineError.objects.filter(id__in=ids_to_delete).delete()
+            total_deleted += len(ids_to_delete)
+            print(f"Deleted {len(ids_to_delete)} records in this batch. Total deleted: {total_deleted}.")
 
         print(f"Deletion complete. Total {total_deleted} PipelineError records older than {days} days deleted.")
         print('Done.')
