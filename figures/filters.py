@@ -38,7 +38,6 @@ from figures.models import (
     SiteMauMetrics,
 )
 from util.query import read_replica_or_default
-from openedx.core.djangoapps.user_api.models import UserRetirementStatus
 from rest_framework import filters
 from django.conf import settings
 
@@ -440,6 +439,7 @@ class CustomLearnerSearchFilter(filters.SearchFilter):
 
         retired_users = queryset.filter(email__startswith=settings.RETIRED_EMAIL_PREFIX)
 
+        from openedx.core.djangoapps.user_api.models import UserRetirementStatus
         retirement_statuses = UserRetirementStatus.objects.filter(
             user__in=retired_users
         ).filter(search_queries)

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 
-from celery.task import task
+from celery import shared_task
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
 from django.db.models import Q
@@ -122,7 +122,7 @@ def _render_template(path, context):
     return txt_template.render(context)
 
 
-@task()
+@shared_task()
 def email_report_with_attachment(recipient_email, subject, username, platform_name, from_address, report_type, csv_file):
     """
     Send email with attachment to given recipient.
@@ -430,7 +430,7 @@ def convert_date_to_str(date_value, date_format='%m-%Y'):
     return date_value.strftime(date_format)
 
 
-@task()
+@shared_task()
 def send_maus_report(raw_data, recipient_email, username, report_type, site_configuration):
     csv_file = StringIO()
     csv_report_writer = csv.writer(csv_file)
