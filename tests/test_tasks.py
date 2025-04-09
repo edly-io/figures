@@ -14,6 +14,7 @@ from openedx.core.djangoapps.content.course_overviews.models import (
 )
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
+from figures.constants import EDLY_SAAS
 from figures.helpers import as_course_key, as_date
 from figures.models import (
     CourseDailyMetrics,
@@ -31,6 +32,7 @@ from tests.factories import (
     SiteDailyMetricsFactory,
     SiteMonthlyMetricsFactory,
     OrganizationFactory,
+    SiteConfigurationFactory
     )
 
 from six.moves import range
@@ -78,7 +80,13 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
                                                  monkeypatch,
                                                  caplog):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
+    site = SiteFactory()
+    SiteConfigurationFactory(site=site, site_values={
+        'DJANGO_SETTINGS_OVERRIDE':{
+            'CURRENT_PLAN': EDLY_SAAS
+        }
+    })
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=site)
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
@@ -101,7 +109,13 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
                     reason='Broken test. Apparent Django 1.8 incompatibility')
 def test_populate_daily_metrics_error(transactional_db, monkeypatch):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
+    site = SiteFactory()
+    SiteConfigurationFactory(site=site, site_values={
+        'DJANGO_SETTINGS_OVERRIDE':{
+            'CURRENT_PLAN': EDLY_SAAS
+        }
+    })
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=site)
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
@@ -138,7 +152,13 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
                                                       monkeypatch,
                                                       caplog):
     date_for = '2019-01-02'
-    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=SiteFactory())
+    site = SiteFactory()
+    SiteConfigurationFactory(site=site, site_values={
+        'DJANGO_SETTINGS_OVERRIDE':{
+            'CURRENT_PLAN': EDLY_SAAS
+        }
+    })
+    EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=site)
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
@@ -250,6 +270,13 @@ def test_populate_all_mau_multiple_site(transactional_db, monkeypatch):
     assert Site.objects.count() == 1
     sites = [Site.objects.first()]
     sites += [SiteFactory() for i in range(3)]
+    for site in sites:
+        EdlySubOrganizationFactory(edx_organizations=[OrganizationFactory()], lms_site=site)
+        SiteConfigurationFactory(site=site, site_values={
+            'DJANGO_SETTINGS_OVERRIDE':{
+                'CURRENT_PLAN': EDLY_SAAS
+            }
+        })
     sites_visited = []
 
     def mock_populate_mau_metrics_for_site(site_id, force_update=False):
