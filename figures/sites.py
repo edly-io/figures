@@ -178,7 +178,7 @@ def get_course_keys_for_site(site, active_courses=False):
             read_replica_or_default())
 
         if active_courses:
-            org_courses = org_courses.filter(active=True)
+            org_courses = org_courses.filter(active=True, end_date__gte=datetime.now())
 
         course_ids = org_courses.values_list('course_id', flat=True)
     else:
@@ -215,7 +215,7 @@ def get_courses_for_site(site, active_courses=False):
     else:
         courses = CourseOverview.objects.using(read_replica_or_default()).all()
         if active_courses:
-            courses = courses.filter(active=True)
+            courses = courses.filter(active=True, end_date__gte=datetime.now())
 
     return courses
 
