@@ -176,20 +176,19 @@ def get_course_keys_for_site(site, active_courses=False):
             'edx_organizations', flat=True)
         org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
             read_replica_or_default())
-        
+
         if active_courses:
             org_courses = org_courses.filter(active=True)
 
         course_ids = org_courses.values_list('course_id', flat=True)
     else:
         course_ids = CourseOverview.objects.using(read_replica_or_default()).all()
-        if active_courses: 
+        if active_courses:
             course_ids = course_ids.filter(end_date__gte=datetime.now())
-        
-        course_keys = course_ids.values_list('id', flat=True)
-        print(f"DEBUG: Course Keys -> {course_keys}")
-        
-    return [as_course_key(str(key)) for key in course_ids.values_list('course_id', flat=True)]
+
+        course_ids = course_ids.values_list('id', flat=True)
+
+    return [as_course_key(cid) for cid in course_ids]
 
 
 def site_course_ids(site):

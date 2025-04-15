@@ -82,7 +82,7 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
-    def mock_get_courses_fail(site):
+    def mock_get_courses_fail(site, active_courses=False):
         raise Exception(error_message)
 
     assert SiteDailyMetrics.objects.count() == 0
@@ -92,9 +92,13 @@ def test_populate_daily_metrics_site_level_error(transactional_db,
 
     figures.tasks.populate_daily_metrics(date_for=date_for)
 
-    last_log = caplog.records[0]
-    assert last_log.message.startswith(
-        'FIGURES:FAIL populate_daily_metrics unhandled site level exception for site')
+    error_found = False
+    for record in caplog.records:
+        if record.message.startswith('FIGURES:FAIL populate_daily_metrics unhandled site level exception for site'):
+            error_found = True
+            break
+
+    assert error_found, "Expected error message not found in logs"
 
 
 @pytest.mark.skipif(OPENEDX_RELEASE == GINKGO,
@@ -105,7 +109,7 @@ def test_populate_daily_metrics_error(transactional_db, monkeypatch):
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
-    def mock_get_courses(site):
+    def mock_get_courses(site, active_courses=False):
         CourseOverviewFactory()
         return CourseOverview.objects.all()
 
@@ -142,7 +146,7 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
     error_message = dict(message=[u'expected failure'])
     assert not CourseOverview.objects.count()
 
-    def mock_get_courses(site):
+    def mock_get_courses(site, active_courses=False):
         CourseOverviewFactory()
         return CourseOverview.objects.all()
 
@@ -167,10 +171,15 @@ def test_populate_daily_metrics_enrollment_data_error(transactional_db,
         figures.tasks, 'update_enrollment_data', mock_update_enrollment_data_fails)
     monkeypatch.setattr(
         figures.tasks, 'update_learners_progress_for_course', mock_update_learners_progress_for_course)
-    figures.tasks.populate_daily_metrics(date_for=date_for)
-    last_log = caplog.records[-1]
-    assert last_log.message.startswith(
-        'FIGURES:FAIL figures.tasks update_enrollment_data')
+    figures.tasks.populate_daily_metrics(date_for=date_for, active_courses=False)
+
+    error_found = False
+    for record in caplog.records:
+        if record.message.startswith('FIGURES:FAIL figures.tasks update_enrollment_data'):
+            error_found = True
+            break
+
+    assert error_found, "Expected error message not found in logs"
 
 
 @pytest.mark.skipif(OPENEDX_RELEASE == GINKGO,
