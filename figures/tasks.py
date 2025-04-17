@@ -22,8 +22,9 @@ from openedx.core.djangoapps.content.block_structure.transformers import BlockSt
 from openedx.features.edly.models import EdlySubOrganization, StudentCourseProgress
 
 from figures.backfill import backfill_enrollment_data_for_site
+from figures.constants import DEACTIVATED, TRIAL_EXPIRED
 from figures.compat import CourseEnrollment, CourseOverview
-from figures.helpers import as_course_key, as_date, get_course_block_name
+from figures.helpers import as_course_key, as_date, get_course_block_name, get_site_ids_filter_by_plan
 from figures.log import log_exec_time
 from figures.models import PipelineError
 from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
@@ -193,9 +194,12 @@ def populate_daily_metrics(date_for=None, force_update=False):
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
-    lms_sites = EdlySubOrganization.objects.using(
-        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
+    active_sites = EdlySubOrganization.objects.using(
+        read_replica_or_default()).filter(is_active=True)
+
+    lms_sites = get_site_ids_filter_by_plan(active_sites, [DEACTIVATED, TRIAL_EXPIRED])
     sites_count = len(lms_sites)
+    logger.info(f"Total number of Site For populate_figures_metrics: {sites_count}")
     for i, site in enumerate(Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites)):
         try:
             courses = figures.sites.get_courses_for_site(site)
@@ -360,7 +364,11 @@ def populate_all_mau():
     Initially, run it every day to observe monthly active user accumulation for
     the month and evaluate the results
     """
-    for site in Site.objects.using(read_replica_or_default()).all():
+    active_sites = EdlySubOrganization.objects.using(
+        read_replica_or_default()).filter(is_active=True)
+
+    lms_sites = get_site_ids_filter_by_plan(active_sites, [DEACTIVATED, TRIAL_EXPIRED])
+    for site in Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites):
         populate_mau_metrics_for_site(site_id=site.id, force_update=False)
 
 
@@ -376,7 +384,11 @@ def run_figures_monthly_metrics():
     TODO: only run for active sites. Requires knowing which sites we can skip
     """
     logger.info('Starting figures.tasks.run_figures_monthly_metrics...')
-    lms_sites = EdlySubOrganization.objects.using(
-        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
+    active_sites = EdlySubOrganization.objects.using(
+        read_replica_or_default()).filter(is_active=True)
+
+    lms_sites = get_site_ids_filter_by_plan(active_sites, [DEACTIVATED, TRIAL_EXPIRED])
+    sites_count = len(lms_sites)
+    logger.info(f"Total number of Site For run_figures_monthly_metrics: {sites_count}")
     for site in Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites):
         populate_monthly_metrics_for_site.delay(site_id=site.id)

@@ -959,3 +959,19 @@ def get_course_block_name(course_block_structure, block):
         usage_key=block,
         field_name='type'
     ))
+
+
+def get_site_ids_filter_by_plan(active_sites, exclude_plan):
+    """
+    Returns the site id filter based on the exclude_plan list.
+    """
+    
+    lms_sites = [
+        site.lms_site.id for site in active_sites
+        if hasattr(site.lms_site, 'configuration') and 
+            site.lms_site.configuration.site_values.get(
+                'DJANGO_SETTINGS_OVERRIDE', {}).get(
+                    'CURRENT_PLAN'
+                ) not in exclude_plan
+    ]
+    return lms_sites
