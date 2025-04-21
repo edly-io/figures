@@ -17,7 +17,7 @@ from django.db.models import F
 from jsonfield import JSONField
 
 from model_utils.models import TimeStampedModel
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 from figures.compat import CourseEnrollment
 from figures.helpers import as_course_key, utc_yesterday
@@ -260,7 +260,6 @@ class EnrollmentDataManager(models.Manager):
         return obj, created
 
 
-@python_2_unicode_compatible
 class EnrollmentData(TimeStampedModel):
     """Tracks most recent enrollment data for an enrollment
 

@@ -99,7 +99,7 @@ from figures.mau import (
     retrieve_live_course_learners_mau_data,
     retrieve_live_site_mau_data,
 )
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 UNAUTHORIZED_USER_REDIRECT_URL = '/'

@@ -16,7 +16,6 @@ from django.db.models.fields import BooleanField, DateTimeField, DecimalField, F
 from django.db.models.signals import post_save, post_delete
 from django.db.utils import IntegrityError
 from django.template import defaultfilters
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from model_utils.models import TimeStampedModel
 from opaque_keys.edx.django.models import CourseKeyField, UsageKeyField
@@ -40,7 +39,6 @@ class CourseOverviewCaseMismatchException(Exception):
     pass
 
 
-@python_2_unicode_compatible
 class CourseOverview(TimeStampedModel):
     """
     Model for storing and caching basic information about a course.
@@ -792,7 +790,6 @@ class CourseOverviewTab(models.Model):
         return self.tab_id
 
 
-@python_2_unicode_compatible
 class CourseOverviewImageSet(TimeStampedModel):
     """
     Model for Course overview images. Each column is an image type/size.
@@ -935,7 +932,6 @@ class CourseOverviewImageSet(TimeStampedModel):
         )
 
 
-@python_2_unicode_compatible
 class CourseOverviewImageConfig(ConfigurationModel):
     """
     This sets the size of the thumbnail images that Course Overviews will generate
@@ -971,7 +967,6 @@ class CourseOverviewImageConfig(ConfigurationModel):
         )
 
 
-@python_2_unicode_compatible
 class SimulateCoursePublishConfig(ConfigurationModel):
     """
     Manages configuration for a run of the simulate_publish management command.

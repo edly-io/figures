@@ -10,7 +10,6 @@ from functools import partial
 import six
 import yaml
 from contracts import contract, new_contract
-from django.utils.encoding import python_2_unicode_compatible
 from lazy import lazy
 from lxml import etree
 from opaque_keys.edx.asides import AsideDefinitionKeyV2, AsideUsageKeyV2
@@ -921,7 +920,6 @@ class XModuleToXBlockMixin(object):
 
 
 @XBlock.needs("i18n")
-@python_2_unicode_compatible
 class XModule(XModuleToXBlockMixin, HTMLSnippet, XModuleMixin):
     """ Implements a generic learning module.
 

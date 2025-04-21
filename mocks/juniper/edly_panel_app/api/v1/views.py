@@ -35,7 +35,7 @@ from edly_panel_app.api.v1.permissions import CanAccessEdlyPanel
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from student.models import User
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 class GetMonthlyActiveUsers(APIView):

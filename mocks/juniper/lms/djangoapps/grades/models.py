@@ -19,7 +19,6 @@ import six
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.timezone import now
 from lazy import lazy
 from model_utils.models import TimeStampedModel
@@ -128,7 +127,6 @@ class BlockRecordList(object):
         return cls(blocks, course_key)
 
 
-@python_2_unicode_compatible
 class VisibleBlocks(models.Model):
     """
     A django model used to track the state of a set of visible blocks under a
@@ -264,7 +262,6 @@ class VisibleBlocks(models.Model):
         return u"visible_blocks_cache.{}.{}".format(course_key, user_id)
 
 
-@python_2_unicode_compatible
 class PersistentSubsectionGrade(TimeStampedModel):
     """
     A django model tracking persistent grades at the subsection level.
@@ -507,7 +504,6 @@ class PersistentSubsectionGrade(TimeStampedModel):
         return u"subsection_grades_cache.{}".format(course_id)
 
 
-@python_2_unicode_compatible
 class PersistentCourseGrade(TimeStampedModel):
     """
     A django model tracking persistent course grades.
@@ -644,7 +640,6 @@ class PersistentCourseGrade(TimeStampedModel):
         events.course_grade_calculated(grade)
 
 
-@python_2_unicode_compatible
 class PersistentSubsectionGradeOverride(models.Model):
     """
     A django model tracking persistent grades overrides at the subsection level.

@@ -9,7 +9,6 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
 from course_modes.models import CourseMode
@@ -26,7 +25,6 @@ from student.role_helpers import has_staff_roles
 from xmodule.partitions.partitions import ENROLLMENT_TRACK_PARTITION_ID
 
 
-@python_2_unicode_compatible
 class ContentTypeGatingConfig(StackedConfigurationModel):
     """
     A ConfigurationModel used to manage configuration for Content Type Gating (Feature Based Enrollments).

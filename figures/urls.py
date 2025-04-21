@@ -4,7 +4,7 @@ Figures URL definitions
 
 from __future__ import absolute_import
 from django import VERSION as DJANGO_VERSION
-from django.conf.urls import include, url
+from django.urls import include, re_path as url
 from rest_framework import routers
 
 from figures import views
@@ -137,17 +137,19 @@ router.register(
 router.register(
     r'learner-metrics',
     views.LearnerMetricsViewSetV2,
-    base_name='learner-metrics')
+    basename='learner-metrics')
 
 router.register(
     r'learner-metrics-v1',
     views.LearnerMetricsViewSetV1,
-    base_name='learner-metrics-v1')
+    basename='learner-metrics-v1')
 
 router.register(
     r'learner-metrics',
     views.LearnerMetricsViewSetV2,
-    base_name='learner-metrics')
+    basename='learner-metrics')
+
+users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
 
 users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
 
@@ -157,7 +159,7 @@ urlpatterns = [
     url(r'^$', views.figures_home, name='figures-home'),
 
     # Non-router API endpoints
-    url(r'^api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
+    url(r'api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
         name='general-site-metrics'),
     url(r'^api/general-sites-metrics', views.GeneralSitesMetricsView.as_view(),
         name='general-sites-metrics'),

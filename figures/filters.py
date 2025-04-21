@@ -37,7 +37,7 @@ from figures.models import (
     LearnerCourseGradeMetrics,
     SiteMauMetrics,
 )
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 from rest_framework import filters
 from django.conf import settings
 

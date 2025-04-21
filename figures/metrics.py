@@ -67,7 +67,7 @@ from figures.models import (
     SiteMonthlyMetrics,
 )
 import figures.sites
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 # period_str

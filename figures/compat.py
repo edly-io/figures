@@ -74,11 +74,11 @@ else:  # Assume Hawthorn or greater
 # preemptive addition. Added it here to avoid adding to figures.models
 # In fact, we should probably do a refactoring that makes all Figures import it
 # from here
-from student.models import CourseAccessRole, CourseEnrollment  # noqa pylint: disable=unused-import,import-error
+from common.djangoapps.student.models import CourseAccessRole, CourseEnrollment  # noqa pylint: disable=unused-import,import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=unused-import,import-error
 
 from lms.djangoapps.grades.models import PersistentCourseGrade
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 def course_grade(learner, course):

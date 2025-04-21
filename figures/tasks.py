@@ -13,7 +13,7 @@ from completion.models import BlockCompletion
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
 import six
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 from edly_panel_app.api.v1.helpers import get_block_types_and_keys
 from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
@@ -36,7 +36,7 @@ from figures.pipeline.mau_pipeline import collect_course_mau
 from figures.pipeline.helpers import DateForCannotBeFutureError
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
 from figures.pipeline.logger import log_error_to_db
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 logger = get_task_logger(__name__)

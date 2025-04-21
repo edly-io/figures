@@ -55,7 +55,7 @@ from figures.models import (
     )
 from figures.pipeline.logger import log_error
 import figures.sites
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 from social_django.models import UserSocialAuth
 
 

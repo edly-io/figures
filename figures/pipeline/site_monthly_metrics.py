@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 from figures.compat import RELEASE_LINE
 from figures.models import SiteMonthlyMetrics
 from figures.sites import get_student_modules_for_site
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 def _get_fill_month_raw_sql_for_month(site_ids, month_for):

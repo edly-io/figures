@@ -23,7 +23,7 @@ from figures.sites import (
 )
 from figures.pipeline.site_monthly_metrics import fill_month
 from openedx.features.edly.models import EdlyMultiSiteAccess
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 logger = logging.getLogger(__name__)
 

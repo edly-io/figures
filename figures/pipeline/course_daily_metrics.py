@@ -19,8 +19,13 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q
-from figures.compat import StudentModule
-from figures.helpers import as_course_key, as_datetime, next_day, as_date
+
+from common.djangoapps.student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
+from figures.compat import (CourseEnrollment,
+                            CourseOverview,
+                            GeneratedCertificate,
+                            StudentModule)
+from figures.helpers import as_course_key, as_datetime, is_past_date, next_day
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -34,7 +39,7 @@ from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disabl
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from openedx.features.edly.models import EdlyMultiSiteAccess
 from student.models import CourseEnrollment  # pylint: disable=import-error
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 import figures.sites
 
 

@@ -9,7 +9,6 @@ from collections import OrderedDict, defaultdict
 import six
 from ccx_keys.locator import CCXLocator
 from django.conf import settings
-from django.utils.encoding import python_2_unicode_compatible
 from lazy import lazy
 
 from openedx.core.lib.grade_utils import round_away_from_zero
@@ -21,7 +20,6 @@ from .subsection_grade import ZeroSubsectionGrade
 from .subsection_grade_factory import SubsectionGradeFactory
 
 
-@python_2_unicode_compatible
 class CourseGradeBase(object):
     """
     Base class for Course Grades.

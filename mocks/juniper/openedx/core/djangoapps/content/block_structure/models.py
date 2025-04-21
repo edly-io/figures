@@ -14,7 +14,6 @@ from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 from django.core.files.base import ContentFile
 from django.db import models, transaction
-from django.utils.encoding import python_2_unicode_compatible
 from model_utils.models import TimeStampedModel
 
 from openedx.core.djangoapps.xmodule_django.models import UsageKeyWithRunField
@@ -128,7 +127,6 @@ def _storage_error_handling(bs_model, operation, is_read_operation=False):
             raise
 
 
-@python_2_unicode_compatible
 class BlockStructureModel(TimeStampedModel):
     """
     Model for storing Block Structure information.

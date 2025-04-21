@@ -5,7 +5,6 @@ Model to hold edx-video-pipeline configurations.
 from config_models.models import ConfigurationModel
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 from opaque_keys.edx.django.models import CourseKeyField
 import six
@@ -45,7 +44,6 @@ class VideoPipelineIntegration(ConfigurationModel):
         return User.objects.get(username=self.service_username)
 
 
-@python_2_unicode_compatible
 class VideoUploadsEnabledByDefault(ConfigurationModel):
     """
     Enables video uploads enabled By default feature across the platform.
@@ -87,7 +85,6 @@ class VideoUploadsEnabledByDefault(ConfigurationModel):
         )
 
 
-@python_2_unicode_compatible
 class CourseVideoUploadsEnabledByDefault(ConfigurationModel):
     """
     Enables video uploads enabled by default feature for a specific course. Its global feature must be

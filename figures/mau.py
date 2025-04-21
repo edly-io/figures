@@ -18,7 +18,7 @@ from figures.sites import (
     get_student_modules_for_site,
     get_student_modules_for_course_in_site,
 )
-from util.query import read_replica_or_default
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 def get_mau_from_student_modules(student_modules, year, month):
