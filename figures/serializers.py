@@ -22,6 +22,7 @@ import datetime
 from decimal import Decimal
 
 from crum import get_current_request
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django_countries import Countries
@@ -161,16 +162,22 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
 
     def get_courses(self, obj):
         site = self.context.get('site', getattr(self.context.get('request'), 'site', None))
-        course_enrollments = figures.sites.get_course_enrollments_for_site(site).filter(
-            user=obj.user
-        ).using(read_replica_or_default())
-
-        if obj.course_id:
-            course_enrollments = course_enrollments.filter(
-                course_id=as_course_key(obj.course_id)
+        course_enrollments_qs = (
+            figures.sites.get_course_enrollments_for_site(site)
+            .select_related('user__profile')
+            .prefetch_related(
+                Prefetch(
+                    'user__social_auth',
+                    queryset=UserSocialAuth.objects.all(),
+                    to_attr='prefetched_social'
+                )
             )
-
-        return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
+            .using(read_replica_or_default())
+        )
+        user_qs = course_enrollments_qs.filter(user=obj.user)
+        if obj.course_id:
+            user_qs = user_qs.filter(course_id=as_course_key(obj.course_id))
+        return LearnerCourseDetailsSerializer(user_qs, many=True).data
 
     class Meta:
         model = CourseEnrollment
@@ -648,11 +655,8 @@ class LearnerCourseDetailsSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_sso_id(self, course_enrollment):
-        auth_object = UserSocialAuth.objects.filter(user=course_enrollment.user).first()
-        if not auth_object:
-            return ""
-
-        return auth_object.uid
+        auth_list = getattr(course_enrollment.user, 'prefetched_social', [])
+        return auth_list[0].uid if auth_list else None
 
     def get_progress_data(self, course_enrollment):
         """
