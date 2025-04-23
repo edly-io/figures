@@ -178,15 +178,3 @@ else:
 
 # Reroute all unmatched traffic to Figures main UI page
 urlpatterns.append(url(r'^(?:.*)/?$', views.figures_home, name='router-catch-all'))
-]
-
-# Include router endpoints
-# Breaking changes between Django 1.8 and Django 2.0 so we do this
-
-if DJANGO_VERSION[0] < 2:
-    urlpatterns.append(url(r'^api/', include(router.urls, namespace='api')))
-else:
-    urlpatterns.append(url(r'^api/', include((router.urls, 'api'), namespace='api')))
-
-# Reroute all unmatched traffic to Figures main UI page
-urlpatterns.append(url(r'^(?:.*)/?$', views.figures_home, name='router-catch-all'))
