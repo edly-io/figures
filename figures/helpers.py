@@ -55,6 +55,7 @@ from __future__ import absolute_import
 import calendar
 import csv
 import datetime
+from importlib import import_module
 from dateutil import parser
 from io import StringIO
 import logging
@@ -89,6 +90,23 @@ def is_multisite():
     TODO: Move to `figures.sites`
     """
     return bool(settings.FEATURES.get('FIGURES_IS_MULTISITE', False))
+
+
+def import_from_path(path):
+    """
+    Import a function or class from a its string Python path.
+
+    Note: This help does _not_ attempt to handle exceptions well.
+      Instead it throws them as is. The rationale is that such exceptions are
+      only fixable at the deploy time and attempting to handle such errors
+      would risk hiding the errors and making it more difficult to fix.
+
+    :param path: string path in the format "module.submodule:variable".
+    :return object
+    """
+    module_path, variable_name = path.split(':', 1)
+    module = import_module(module_path)
+    return getattr(module, variable_name)
 
 
 def log_pipeline_errors_to_db():
