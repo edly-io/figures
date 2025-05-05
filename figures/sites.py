@@ -25,7 +25,7 @@ from openedx.features.edly.models import (
     EdlySubOrganization,
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key
+from figures.helpers import as_course_key, import_from_path, is_multisite
 import figures.helpers
 from util.query import read_replica_or_default
 
@@ -359,3 +359,46 @@ def site_certificates(site):
             user__organizations__sites__in=[site])
     else:
         return GeneratedCertificate.objects.all()
+
+
+def _get_all_sites():
+    """
+    Return all sites. Do not use this helper directly, but use `get_sites()`.
+
+    Default backend for get_sites() in multi-site mode.
+    """
+    return Site.objects.all()
+
+
+def get_sites():
+    """
+    Get a list of sites for Figures purposes in a configurable manner.
+
+    :return list of Site (QuerySet)
+
+    For multisite mode, when `settings.FEATURES['FIGURES_IS_MULTISITE'] == True`,
+    this functions makes use of the `SITES_BACKEND` setting if configured, otherwise
+    it defaults to  _get_all_sites().
+
+    For standalone mode, the default site is returned as the single record in
+    the QuerySet result
+    """
+    if is_multisite():
+        sites_backend_path = settings.ENV_TOKENS['FIGURES'].get('SITES_BACKEND')
+        if sites_backend_path:
+            sites_backend = import_from_path(sites_backend_path)
+            sites = sites_backend()
+        else:
+            sites = _get_all_sites()
+    else:
+        # We do the filter so that we are returning a QuerySet object
+        sites = Site.objects.filter(id__in=[default_site().id])
+
+    return sites
+
+
+def get_sites_by_id(site_ids):
+    """
+    Convenience function to get a QuerySet of Sites by id.
+    """
+    return Site.objects.filter(id__in=site_ids)

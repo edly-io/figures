@@ -13,14 +13,17 @@ Future: add a remote mode to pull data via REST API
 """
 from __future__ import absolute_import
 import datetime
+from figures.pipeline.helpers import pipeline_date_for_rule
 import figures.pipeline.loaders
 import logging
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q
 from figures.compat import StudentModule
-from figures.helpers import as_course_key, as_datetime, next_day, as_date
+from figures.helpers import as_course_key, as_datetime, is_past_date, next_day, as_date
+from figures.compat import GeneratedCertificate
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -28,6 +31,7 @@ from figures.pipeline.enrollment_metrics_next import (
     calculate_course_progress as calculate_course_progress_next
 )
 
+from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
@@ -174,7 +178,7 @@ def update_learners_activity_for_date(date_for, site):
         ).update(course_activity_date=student_activity.modified)
 
 
-def get_days_to_complete(site, course_id, date_for):
+def get_days_to_complete(course_id, date_for):
     """Return a dict with a list of days to complete and errors
 
     NOTE: This is a work in progress, as it has issues to resolve:
@@ -195,32 +199,34 @@ def get_days_to_complete(site, course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
-    users_ids = User.objects.filter(
-        ~Q(courseaccessrole__role='course_creator_group'),
-        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
-        is_staff=False,
-        is_superuser=False,
-    ).using(read_replica_or_default()).values_list(
-        'pk',
-        flat=True
-    )
-
-    grades = PersistentCourseGrade.objects.filter(
+    certificates = GeneratedCertificate.objects.filter(
         course_id=as_course_key(course_id),
-        user_id__in=users_ids,
-        passed_timestamp__isnull=False,
-        passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
-    ).using(read_replica_or_default()).values('user_id', 'passed_timestamp')
+        created_date__lte=as_datetime(date_for))
 
     days = []
-    for grade in grades:
-        course_enrollment = CourseEnrollment.objects.filter(
+    errors = []
+    for cert in certificates:
+        ce = CourseEnrollment.objects.filter(
             course_id=as_course_key(course_id),
-            user__id=grade.get('user_id')
-        ).using(read_replica_or_default()).first()
-        days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
-
-    return dict(days=days)
+            user=cert.user)
+        # How do we want to handle multiples?
+        if ce.count() > 1:
+            errors.append(
+                dict(msg='Multiple CE records',
+                     course_id=course_id,
+                     user_id=cert.user.id,
+                     ))
+        try:
+            days.append((cert.created_date - ce[0].created).days)
+        except IndexError:
+            # sometimes a course enrollment is deleted after the cert is generated.  why, who knows?
+            # in which case just leave out that data
+            errors.append(
+                dict(msg='No CourseEnrollment matching user course certificate',
+                     course_id=course_id,
+                     user_id=cert.user.id,
+                     ))
+    return dict(days=days, errors=errors)
 
 
 def calc_average_days_to_complete(days):
@@ -231,9 +237,9 @@ def calc_average_days_to_complete(days):
         return 0.0
 
 
-def get_average_days_to_complete(site, course_id, date_for):
+def get_average_days_to_complete(course_id, date_for):
 
-    days_to_complete = get_days_to_complete(site, course_id, date_for)
+    days_to_complete = get_days_to_complete(course_id, date_for)
     # TODO: Track any errors in getting days to complete
     # This is in days_to_complete['errors']
     average_days_to_complete = calc_average_days_to_complete(
@@ -241,25 +247,19 @@ def get_average_days_to_complete(site, course_id, date_for):
     return average_days_to_complete
 
 
-def get_num_learners_completed(site, course_id, date_for):
-    users_ids = User.objects.filter(
-        ~Q(courseaccessrole__role='course_creator_group'),
-        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
-        is_staff=False,
-        is_superuser=False,
-    ).exclude(username__icontains='retired__user').using(read_replica_or_default()).values_list(
-        'pk',
-        flat=True
-    )
+def get_num_learners_completed(course_id, date_for):
+    """
+    Get the total number of certificates generated for the course up to the
+    'date_for' date
 
-    grades = PersistentCourseGrade.objects.filter(
+    We will need to relabel this to "certificates"
+
+    We may want to get the number of certificates granted in the given day
+    """
+    certificates = GeneratedCertificate.objects.filter(
         course_id=as_course_key(course_id),
-        user_id__in=users_ids,
-        passed_timestamp__isnull=False,
-        passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
-    ).using(read_replica_or_default())
-
-    return grades.count()
+        created_date__lt=as_datetime(next_day(date_for)))
+    return certificates.count()
 
 # Formal extractor classes
 

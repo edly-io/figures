@@ -8,7 +8,6 @@ import logging
 import time
 from datetime import date
 import timeit
-from time import time
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -215,8 +214,6 @@ class EnrollmentDataManager(models.Manager):
     """
 
     def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
-
-    def set_enrollment_data(self, site, user, course_id, course_enrollment=None):
         """
         This is an expensive call as it needs to call CourseGradeFactory if
         there is not already a LearnerCourseGradeMetrics record for the learner
@@ -254,8 +251,20 @@ class EnrollmentDataManager(models.Manager):
                 sections_possible=lcgm.sections_possible,
                 sections_worked=lcgm.sections_worked
             )
-
-            defaults.update(progress_data)
+        else:
+            ep = EnrollmentProgress(user=user, course_id=course_id)
+            # TODO: If we get progress worked and there is no LCGM, then we have
+            # a bug OR there was progress after the last daily metrics collection
+            progress_data = dict(
+                date_for=date.today(),
+                is_completed=ep.is_completed(),
+                progress_percent=ep.progress_percent(),
+                points_possible=ep.progress.get('points_possible', 0),
+                points_earned=ep.progress.get('points_earned', 0),
+                sections_possible=ep.progress.get('sections_possible', 0),
+                sections_worked=ep.progress.get('sections_worked', 0)
+            )
+        defaults.update(progress_data)
 
         obj, created = self.update_or_create(
             site=site,
