@@ -206,6 +206,10 @@ def days_in_month(month_for):
     return num_days_in_month
 
 
+def is_past_date(val):
+    return as_date(val) < datetime.date.today()
+
+
 def last_date_of_previous_month(date_for):
     """
     Returns the last date of the previous month.

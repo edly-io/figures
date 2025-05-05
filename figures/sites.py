@@ -25,7 +25,7 @@ from openedx.features.edly.models import (
     EdlySubOrganization,
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key, import_from_path, is_multisite
+from figures.helpers import as_course_key, is_multisite
 import figures.helpers
 from util.query import read_replica_or_default
 
@@ -383,6 +383,8 @@ def get_sites():
     For standalone mode, the default site is returned as the single record in
     the QuerySet result
     """
+    from figures.helpers import import_from_path
+
     if is_multisite():
         sites_backend_path = settings.ENV_TOKENS['FIGURES'].get('SITES_BACKEND')
         if sites_backend_path:
