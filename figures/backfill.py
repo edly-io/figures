@@ -137,8 +137,7 @@ def backfill_course_activity_date(site):
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
     for student_id in student_ids:
-        student_activity = StudentModule.objects.filter(
-            student__id=student_id).order_by('-modified').first()
+        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
             sub_org__lms_site=site,
