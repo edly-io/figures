@@ -64,23 +64,71 @@ def backfill_enrollment_data_for_site(site):
     Potential improvements: iterate by course id within site, have a function
     specific to a course. more queries, but breaks up the work
     """
-    enrollment_data = []
+    records_to_create = []
+    records_to_update = []
     errors = []
     site_course_enrollments = get_course_enrollments_for_site(site)
+    users = [e.user for e in site_course_enrollments]
+    course_ids = [str(e.course_id) for e in site_course_enrollments]
+
+    # Prepare lookup dictionaries
+    latest_grades = LearnerCourseGradeMetrics.objects.bulk_latest_lcgm(users, course_ids)
+    existing_data = {
+        (ed.user_id, ed.course_id): ed
+        for ed in EnrollmentData.objects.filter(
+            site=site,
+            user__in=users,
+            course_id__in=course_ids
+        )
+    }
+
     for rec in site_course_enrollments:
         try:
-            obj, created = EnrollmentData.objects.set_enrollment_data(
-                site=site,
-                user=rec.user,
-                course_id=rec.course_id)
-            enrollment_data.append((obj, created))
+            user = rec.user
+            course_id_str = str(rec.course_id)
+            key = (user.id, course_id_str)
+
+            # Prepare base data
+            defaults = {
+                'site': site,
+                'user': user,
+                'course_id': course_id_str,
+                'is_enrolled': rec.is_active,
+                'date_enrolled': rec.created,
+            }
+
+            if grade := latest_grades.get(key):
+                defaults.update({
+                    'date_for': grade.date_for,
+                    'is_completed': grade.completed,
+                    'progress_percent': grade.progress_percent,
+                    'points_possible': grade.points_possible,
+                    'points_earned': grade.points_earned,
+                    'sections_possible': grade.sections_possible,
+                    'sections_worked': grade.sections_worked,
+                })
+
+            # Handle record creation/update
+            if existing := existing_data.get(key):
+                records_to_update.append(existing)
+            else:
+                records_to_create.append(EnrollmentData(**defaults))
+
         except CourseNotFound:
             msg = ('CourseNotFound for course "{course}". '
                    ' CourseEnrollment ID={ce_id}')
             errors.append(msg.format(course=str(rec.course_id),
                                      ce_id=rec.id))
 
-    return dict(results=enrollment_data, errors=errors)
+    # Bulk operations
+    EnrollmentData.objects.bulk_create(records_to_create)
+    fields = [f.name for f in EnrollmentData._meta.fields if f.name not in ('id')]
+    EnrollmentData.objects.bulk_update(records_to_update, fields)
+
+    results = list(zip(records_to_create, [True] * len(records_to_create))) + \
+        list(zip(records_to_update, [False] * len(records_to_update)))
+
+    return dict(results=results, errors=errors)
 
 
 def backfill_course_activity_date(site):
@@ -89,7 +137,8 @@ def backfill_course_activity_date(site):
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
     for student_id in student_ids:
-        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        student_activity = StudentModule.objects.filter(
+            student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
             sub_org__lms_site=site,

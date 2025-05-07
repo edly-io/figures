@@ -4,6 +4,7 @@ TODO: Create a base "SiteModel" or a "SiteModelMixin"
 """
 
 from __future__ import absolute_import
+from django.db.models import OuterRef, Subquery, Max
 import logging
 import time
 from datetime import date
@@ -345,6 +346,38 @@ class LearnerCourseGradeMetricsManager(models.Manager):
         queryset = self.filter(user=user,
                                course_id=str(course_id)).order_by('-date_for')
         return queryset[0] if queryset else None
+
+    def bulk_latest_lcgm(self, user_ids, course_ids):
+        """
+        Gets the most recent records for the given users and courses in bulk.
+        Returns a dictionary mapping (user_id, course_id) tuples to their latest record.
+
+        Args:
+            user_ids: List/QuerySet of user IDs
+            course_ids: List/QuerySet of course IDs (as strings)
+
+        Returns:
+            dict: {(user_id, course_id): latest_lcgm_record}
+        """
+        # Subquery to find the latest date_for for each user-course pair
+        latest_dates = self.filter(
+            user_id=OuterRef('user_id'),
+            course_id=OuterRef('course_id')
+        ).values('user_id', 'course_id').annotate(
+            latest_date=Max('date_for')
+        ).values('latest_date')[:1]
+
+        # Main query to get full records with the latest dates
+        queryset = self.filter(
+            user_id__in=user_ids,
+            course_id__in=course_ids,
+            date_for=Subquery(latest_dates)
+        ).order_by('user_id', 'course_id', '-date_for')
+
+        return {
+            (lcgm.user_id, lcgm.course_id): lcgm
+            for lcgm in queryset
+        }
 
     def most_recent_for_course(self, course_id):
         statement = """ \
