@@ -114,21 +114,30 @@ def backfill_enrollment_data_for_site(site):
             else:
                 records_to_create.append(EnrollmentData(**defaults))
 
-        except CourseNotFound:
-            msg = ('CourseNotFound for course "{course}". '
-                   ' CourseEnrollment ID={ce_id}')
-            errors.append(msg.format(course=str(rec.course_id),
-                                     ce_id=rec.id))
+        except Exception as e:
+            msg = (
+                'Error processing course enrollment for user %s in course %s: %s',
+                rec.user.id, rec.course_id, e
+            )
+            errors.append(msg)
+            logger.error(msg)
 
     # Bulk operations
-    EnrollmentData.objects.bulk_create(records_to_create)
-    fields = [f.name for f in EnrollmentData._meta.fields if f.name not in ('id')]
-    EnrollmentData.objects.bulk_update(records_to_update, fields)
+    try:
+        EnrollmentData.objects.bulk_create(records_to_create)
+        fields_to_update = [
+            'is_enrolled', 'date_enrolled', 'date_for', 'is_completed',
+            'progress_percent', 'points_possible', 'points_earned',
+            'sections_possible', 'sections_worked'
+        ]
+        EnrollmentData.objects.bulk_update(records_to_update, fields_to_update)
+    except Exception as e:
+        logger.exception('Error during bulk operations: %s', e)
 
-    results = list(zip(records_to_create, [True] * len(records_to_create))) + \
+    enrollment_data = list(zip(records_to_create, [True] * len(records_to_create))) + \
         list(zip(records_to_update, [False] * len(records_to_update)))
 
-    return dict(results=results, errors=errors)
+    return dict(results=enrollment_data, errors=errors)
 
 
 def backfill_course_activity_date(site):
