@@ -5,13 +5,14 @@ Initially developed to support API performance improvements
 
 from __future__ import absolute_import
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from dateutil.rrule import rrule, MONTHLY
 from dateutil.relativedelta import relativedelta
 
 from django.utils.timezone import utc
 
 from figures.compat import CourseNotFound, StudentModule
+from figures.progress import EnrollmentProgress
 from figures.sites import get_course_enrollments_for_site, get_student_modules_for_site
 from figures.pipeline.site_monthly_metrics import fill_month
 from figures.models import EnrollmentData, LearnerCourseGradeMetrics
@@ -67,9 +68,12 @@ def backfill_enrollment_data_for_site(site):
     records_to_create = []
     records_to_update = []
     errors = []
+    users = []
+    course_ids = []
     site_course_enrollments = get_course_enrollments_for_site(site)
-    users = [e.user for e in site_course_enrollments]
-    course_ids = [str(e.course_id) for e in site_course_enrollments]
+    for e in site_course_enrollments:
+        users.append(e.user)
+        course_ids.append(e.course_id)
 
     # Prepare lookup dictionaries
     latest_grades = LearnerCourseGradeMetrics.objects.bulk_latest_lcgm(users, course_ids)
@@ -98,16 +102,30 @@ def backfill_enrollment_data_for_site(site):
             }
 
             if grade := latest_grades.get(key):
-                defaults.update({
-                    'date_for': grade.date_for,
-                    'is_completed': grade.completed,
-                    'progress_percent': grade.progress_percent,
-                    'points_possible': grade.points_possible,
-                    'points_earned': grade.points_earned,
-                    'sections_possible': grade.sections_possible,
-                    'sections_worked': grade.sections_worked,
-                })
+                progress_data = dict(
+                    date_for=grade.date_for,
+                    is_completed=grade.completed,
+                    progress_percent=grade.progress_percent,
+                    points_possible=grade.points_possible,
+                    points_earned=grade.points_earned,
+                    sections_possible=grade.sections_possible,
+                    sections_worked=grade.sections_worked
+                )
+            else:
+                ep = EnrollmentProgress(user=user, course_id=course_id_str)
+                # TODO: If we get progress worked and there is no LCGM, then we have
+                # a bug OR there was progress after the last daily metrics collection
+                progress_data = dict(
+                    date_for=date.today(),
+                    is_completed=ep.is_completed(),
+                    progress_percent=ep.progress_percent(),
+                    points_possible=ep.progress.get('points_possible', 0),
+                    points_earned=ep.progress.get('points_earned', 0),
+                    sections_possible=ep.progress.get('sections_possible', 0),
+                    sections_worked=ep.progress.get('sections_worked', 0)
+                )
 
+            defaults.update(progress_data)
             # Handle record creation/update
             if existing := existing_data.get(key):
                 records_to_update.append(existing)
@@ -146,7 +164,8 @@ def backfill_course_activity_date(site):
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
     for student_id in student_ids:
-        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        student_activity = StudentModule.objects.filter(
+            student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
             sub_org__lms_site=site,
