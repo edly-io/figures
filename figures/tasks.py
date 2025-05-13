@@ -234,9 +234,9 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     site=site,
                     logger=logger,
                     log_pipeline_errors_to_db=True,
-                    )
-            update_learners_activity_for_date(date_for=date_for, site=site)
+                )
 
+        update_learners_activity_for_date(date_for=date_for, site=site)
         populate_site_daily_metrics(
                 site_id=site.id,
                 date_for=date_for,
