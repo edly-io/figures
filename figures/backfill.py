@@ -127,8 +127,8 @@ def backfill_enrollment_data_for_site(site):
 
             defaults.update(progress_data)
             # Handle record creation/update
-            if existing := existing_data.get(key):
-                records_to_update.append(existing)
+            if existing_data.get(key):
+                records_to_update.append(defaults)
             else:
                 records_to_create.append(EnrollmentData(**defaults))
 
