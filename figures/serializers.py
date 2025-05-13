@@ -849,6 +849,54 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
         return user.email.startswith(settings.RETIRED_EMAIL_PREFIX)
 
 
+class LearnerDetailsSerializerV2(serializers.ModelSerializer):
+    """
+    {
+        "id": 1843,
+        "username": "maxi",
+        "email": "max@test.com",
+        "name": "Maxi Fernandez",
+        "date_joined": "2018-05-06T14:01:58Z",
+        "last_login": "2018-05-06T14:01:58Z",
+        "completion_count": 10,
+        "enrollment_count": 10, 
+        "is_retired": false,
+    """
+    name = serializers.CharField(source='profile.name', default=None,)
+    is_retired = serializers.SerializerMethodField()
+    enrollment_count = serializers.SerializerMethodField()
+    completion_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = get_user_model()
+        editable = False
+        fields = (
+            'id', 'username', 'name', 'email', 'date_joined', 'last_login', 
+            'completion_count', 'enrollment_count', 'is_retired'
+        )
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.email.startswith(settings.RETIRED_EMAIL_PREFIX):
+            from openedx.core.djangoapps.user_api.models import UserRetirementStatus
+            retirement_status = UserRetirementStatus.objects.filter(user=instance).first()
+            if retirement_status:
+                representation['username'] = retirement_status.original_username
+                representation['email'] = retirement_status.original_email
+
+        return representation
+
+    def get_is_retired(self, user):
+        return user.email.startswith(settings.RETIRED_EMAIL_PREFIX)
+    
+    def get_completion_count(self, user):
+        return user.completion_count
+
+    def get_enrollment_count(self, user):
+        return user.enrollment_count
+
+
 class CourseMauMetricsSerializer(serializers.ModelSerializer):
     domain = serializers.CharField(source='site.domain')
 
