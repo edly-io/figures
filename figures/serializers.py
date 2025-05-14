@@ -879,8 +879,13 @@ class LearnerDetailsSerializerV2(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if instance.email.startswith(settings.RETIRED_EMAIL_PREFIX):
-            from openedx.core.djangoapps.user_api.models import UserRetirementStatus
-            retirement_status = UserRetirementStatus.objects.filter(user=instance).first()
+            from openedx.core.djangoapps.user_api.models import (
+                UserRetirementStatus
+            )
+
+            retirement_status = UserRetirementStatus.objects.filter(
+                user=instance
+            ).first()
             if retirement_status:
                 representation['username'] = retirement_status.original_username
                 representation['email'] = retirement_status.original_email
@@ -889,12 +894,12 @@ class LearnerDetailsSerializerV2(serializers.ModelSerializer):
 
     def get_is_retired(self, user):
         return user.email.startswith(settings.RETIRED_EMAIL_PREFIX)
-    
+
     def get_completion_count(self, user):
-        return user.completion_count
+        return self.context.get('completed_courses').filter(user=user).count()
 
     def get_enrollment_count(self, user):
-        return user.enrollment_count
+        return self.context.get('course_enrollments').filter(user=user).count()
 
 
 class CourseMauMetricsSerializer(serializers.ModelSerializer):

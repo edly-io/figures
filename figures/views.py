@@ -736,10 +736,12 @@ class LearnerDetailsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         if 'no_page' in self.request.query_params:
             return None
         else:
-            return self.paginator.paginate_queryset(queryset, self.request, view=self)
+            return self.paginator.paginate_queryset(
+                queryset, self.request, view=self
+            )
 
     def get_queryset(self):
-        learners_only = self.request.GET.get('learners_only', None)
+        learners_only = self.request.GET.get('learners_only')
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
         queryset = figures.sites.get_edly_users_for_site(site)
         if learners_only and learners_only.lower() == "true":
@@ -747,18 +749,21 @@ class LearnerDetailsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 ~Q(courseaccessrole__role='course_creator_group'),
                 is_staff=False,
                 is_superuser=False
-            ).using(read_replica_or_default())
-
-        queryset =  queryset.annotate(
-            enrollment_count=Count('courseenrollment')
-        ).annotate(
-            completion_count=Count(
-                'learnercoursegrademetrics',
-                filter=Q(learnercoursegrademetrics__passed_timestamp__isnull=False)
             )
-        )
 
         return queryset
+
+    def get_serializer_context(self):
+        context = super(LearnerDetailsViewSetV2, self).get_serializer_context()
+        current_site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
+            current_site
+        )
+        context['completed_courses'] = LearnerCourseGradeMetrics.objects.passed_ids_for_site(
+            site=current_site
+        )
+
+        return context
 
 
 class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
