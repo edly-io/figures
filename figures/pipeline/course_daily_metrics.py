@@ -404,6 +404,5 @@ class CourseDailyMetricsLoader(object):
             # record not found, move on to creating
             pass
 
-        update_learners_activity_for_date(date_for=date_for, site=self.site)
         data = self.get_data(date_for=date_for)
         return self.save_metrics(date_for=date_for, data=data)

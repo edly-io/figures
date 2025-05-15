@@ -27,7 +27,7 @@ from figures.compat import CourseEnrollment, CourseOverview
 from figures.helpers import as_course_key, as_date, get_course_block_name, get_site_ids_filter_by_plan
 from figures.log import log_exec_time
 from figures.models import PipelineError
-from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
+from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader, update_learners_activity_for_date
 from figures.pipeline.site_daily_metrics import SiteDailyMetricsLoader
 from figures.pipeline.mau_pipeline import collect_course_mau
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
@@ -234,8 +234,9 @@ def populate_daily_metrics(date_for=None, force_update=False):
                     site=site,
                     logger=logger,
                     log_pipeline_errors_to_db=True,
-                    )
+                )
 
+        update_learners_activity_for_date(date_for=date_for, site=site)
         populate_site_daily_metrics(
                 site_id=site.id,
                 date_for=date_for,
