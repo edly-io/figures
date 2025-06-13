@@ -9,7 +9,7 @@ from django.utils.timezone import utc
 
 from calendar import month_abbr
 from collections import OrderedDict
-from figures.compat import RELEASE_LINE, timedelta
+from figures.compat import RELEASE_LINE
 from django.db.models import Count, Q
 from django.db.models.functions import ExtractDay, ExtractMonth, ExtractYear
 from figures.models import CourseMauMetrics, SiteMauMetrics

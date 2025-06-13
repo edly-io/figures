@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 from django.db import migrations
-from student.models import CourseAccessRole
+from common.djangoapps.student.models  import CourseAccessRole
 
 
 def add_data_researcher(apps, schema_editor):

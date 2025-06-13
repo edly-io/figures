@@ -85,7 +85,7 @@ router.register(
 router.register(
     r'courses/stats',
     views.CourseTopStatsViewSet,
-    base_name='courses-top-stats')
+    basename='courses-top-stats')
 
 router.register(
     r'courses-detail',
@@ -132,7 +132,7 @@ router.register(
 router.register(
     r'learner-metrics-v1',
     views.LearnerMetricsViewSetV1,
-    base_name='learner-metrics-v1')
+    basename='learner-metrics-v1')
 
 router.register(
     r'learner-metrics',

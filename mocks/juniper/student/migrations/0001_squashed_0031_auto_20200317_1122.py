@@ -18,7 +18,7 @@ import uuid
 
 from experiments.models import ExperimentData
 from openedx.features.course_duration_limits.config import EXPERIMENT_DATA_HOLDBACK_KEY, EXPERIMENT_ID
-from student.models import CourseAccessRole, CourseEnrollment, FBEEnrollmentExclusion
+from common.djangoapps.student.models  import CourseAccessRole, CourseEnrollment, FBEEnrollmentExclusion
 
 # These data migrations do not require changes when building from scratch.
 # student.migrations.0029_add_data_researcher

@@ -22,7 +22,7 @@ from xblock.runtime import KeyValueStore
 
 from openedx.core.djangoapps.util.user_messages import PageLevelMessages
 from openedx.core.djangolib.markup import HTML
-from student.models import CourseEnrollment
+from common.djangoapps.student.models  import CourseEnrollment
 from student.role_helpers import has_staff_roles
 from util.json_request import JsonResponse, expect_json
 from xmodule.partitions.partitions import NoSuchUserPartitionGroupError

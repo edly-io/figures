@@ -20,7 +20,7 @@ from lms.djangoapps.courseware.masquerade import (
 from openedx.core.djangoapps.config_model_utils.models import StackedConfigurationModel
 from openedx.core.djangoapps.config_model_utils.utils import is_in_holdback
 from openedx.features.content_type_gating.helpers import FULL_ACCESS, LIMITED_ACCESS, correct_modes_for_fbe
-from student.models import CourseEnrollment
+from common.djangoapps.student.models  import CourseEnrollment
 from student.role_helpers import has_staff_roles
 from xmodule.partitions.partitions import ENROLLMENT_TRACK_PARTITION_ID
 

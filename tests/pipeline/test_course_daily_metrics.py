@@ -17,7 +17,7 @@ from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline import course_daily_metrics as pipeline_cdm
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
-from student.models import CourseEnrollment
+from common.djangoapps.student.models  import CourseEnrollment
 from tests.factories import (
     CourseAccessRoleFactory,
     CourseEnrollmentFactory,

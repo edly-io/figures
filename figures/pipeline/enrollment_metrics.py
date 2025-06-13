@@ -74,7 +74,7 @@ from figures.sites import (
     course_enrollments_for_course,
     UnlinkedCourseError,
 )
-from student.models import User
+from common.djangoapps.student.models import User
 from edx_django_utils.db.read_replica import read_replica_or_default
 
 logger = logging.getLogger(__name__)
