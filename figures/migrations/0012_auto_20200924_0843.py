@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('figures', '0011_add_mau_to_site_daily_metrics'),
+        ('figures', '0012_alter_pipelineerror_field'),
     ]
 
     operations = [

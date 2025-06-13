@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('figures', '0017_auto_20210608_1353'),
+        ('figures', '0017_add_monthly_active_enrollment_model'),
     ]
 
     operations = [

@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('figures', '0012_auto_20200924_0843'),
+        ('figures', '0013_add_indexes_to_lcgm_date_for_and_course_id'),
     ]
 
     operations = [
