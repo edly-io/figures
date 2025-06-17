@@ -415,8 +415,8 @@ class GeneralSitesMetricsView(CommonAuthMixin, APIView):
         Does not yet support multi-tenancy
         '''
         site = django.contrib.sites.shortcuts.get_current_site(request)
-        sub_org = self.request.GET.get('sub_org', '')
-        sub_org = [site.name.split('.')[0]] if not sub_org else sub_org.split(',')
+        tenent_keys = self.request.GET.get('sub_org', '')
+        tenent_keys = [site.name.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
  
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
@@ -427,14 +427,14 @@ class GeneralSitesMetricsView(CommonAuthMixin, APIView):
             if error_response:
                 return
         
-        total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, end_date, date_format)
-        total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, end_date, date_format)
+        total_stuff_user= self.get_total_staf_user_for_sub_orgs(tenent_keys, end_date, date_format)
+        total_learner_user= self.get_total_learner_for_sub_orgs(tenent_keys, end_date, date_format)
         _, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
             figures.helpers.get_date(start_date, date_format),
             figures.helpers.get_date(end_date, date_format),
         )
-        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
-        prev_total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
+        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(tenent_keys, comparison_end_date.strftime(date_format), date_format)
+        prev_total_learner_user= self.get_total_learner_for_sub_orgs(tenent_keys, comparison_end_date.strftime(date_format), date_format)
 
         data = {
             'total_site_staff_users': {

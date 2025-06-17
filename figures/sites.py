@@ -21,14 +21,12 @@ from django.db.models import Q
 # TODO: Add exception handling
 import organizations
 
-from figures.helpers import as_course_key, is_multisite, import_from_path
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from openedx.features.edly.models import (
-    EdlyMultiSiteAccess,
-    EdlySubOrganization,
+from edly_features_app.models import (
+    EdlyMultiSiteAccess
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key
+from figures.helpers import as_course_key, is_multisite, import_from_path
 import figures.helpers
 from edx_django_utils.db.read_replica import read_replica_or_default
 
@@ -221,7 +219,7 @@ def get_courses_for_site(site):
 def get_user_ids_for_sites(sites):
     if figures.helpers.is_multisite():
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
-            sub_org__slug__in=sites
+            tenant__tenant_config__external_key__in=sites
         ).using(read_replica_or_default()).exclude(
             groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
