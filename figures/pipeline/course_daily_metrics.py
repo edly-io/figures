@@ -37,8 +37,8 @@ from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
 from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from openedx.features.edly.models import EdlyMultiSiteAccess
-from student.models import CourseEnrollment  # pylint: disable=import-error
+from common.djangoapps.student.models  import CourseEnrollment  # pylint: disable=import-error
+from edly_features_app.models import EdlyMultiSiteAccess
 from edx_django_utils.db.read_replica import read_replica_or_default
 import figures.sites
 

@@ -72,6 +72,7 @@ from rest_framework.response import Response
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
+from eox_tenant.edxapp_wrapper.site_configuration_module import get_configuration_helpers
 
 from opaque_keys.edx.keys import CourseKey
 import six
@@ -1007,3 +1008,9 @@ def get_tenant_external_keys(request):
     tenent_keys = request.GET.get('sub_org', '')
     tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
     return tenent_keys
+
+
+def get_edly_course_org():
+    """return the edly course org from the current site configuration"""
+    configuration_helpers = get_configuration_helpers()
+    return configuration_helpers.get_current_site_orgs()
