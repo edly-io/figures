@@ -239,7 +239,7 @@ def get_user_ids_for_sites(sites):
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
-            sub_org__lms_site=site
+            tenant__tenant_config__external_key=settings.EDNX_TENANT_KEY
         ).using(read_replica_or_default()).exclude(
             groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )

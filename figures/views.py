@@ -218,18 +218,6 @@ class CoursesIndexViewSet(CourseOverviewViewSet):
     serializer_class = CourseIndexSerializer
 
 
-class GeneralCourseDataViewSet(CourseOverviewViewSet):
-    """General course data
-    """
-    serializer_class = GeneralCourseDataSerializer
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
-    filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    search_fields = ['display_name', 'id']
-    ordering_fields = ['display_name', 'self_paced', 'date_joined']
-
-
 class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     """Detailed course data
     """
@@ -476,8 +464,8 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
+        tenent_keys = figures.helpers.get_tenant_external_keys(self.request)
+        queryset = figures.sites.get_courses_for_site(tenent_keys)
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
