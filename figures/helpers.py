@@ -62,6 +62,7 @@ import logging
 from importlib import import_module
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
+from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.staticfiles import finders
 from django.utils.timezone import utc
 from django.template.loader import get_template
@@ -996,3 +997,13 @@ def get_course_block_name(course_block_structure, block):
         usage_key=block,
         field_name='type'
     ))
+
+
+def get_tenant_external_keys(request):
+    """
+    Get the external keys for the current tenant from the request.
+    """
+    site = get_current_site(request)
+    tenent_keys = request.GET.get('sub_org', '')
+    tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
+    return tenent_keys

@@ -414,10 +414,7 @@ class GeneralSitesMetricsView(CommonAuthMixin, APIView):
         '''
         Does not yet support multi-tenancy
         '''
-        site = django.contrib.sites.shortcuts.get_current_site(request)
-        tenent_keys = self.request.GET.get('sub_org', '')
-        tenent_keys = [site.name.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
- 
+        tenent_keys = figures.helpers.get_tenant_external_keys(request)
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         date_format = '%d-%m-%Y'
@@ -513,13 +510,9 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     )
 
     def get_queryset(self):
-        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
-        sub_org = self.request.GET.get('sub_org', '')
+        tenent_keys = figures.helpers.get_tenant_external_keys(self.request)
         course_ids=[]
-        if sub_org:
-            course_ids = figures.sites.get_course_keys_for_sites_slugs(sub_org.split(','))
-        else:
-            course_ids = figures.sites.get_course_keys_for_site(site)
+        course_ids = figures.sites.get_course_keys_for_site(tenent_keys)
         
         current_time = datetime.now(timezone.utc)
         queryset = self.model.objects.filter(

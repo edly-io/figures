@@ -29,6 +29,7 @@ from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
 from figures.helpers import as_course_key, is_multisite, import_from_path
 import figures.helpers
 from edx_django_utils.db.read_replica import read_replica_or_default
+from eox_tenant.models import TenantConfig
 
 
 class CrossSiteResourceError(Exception):
@@ -165,7 +166,7 @@ def get_course_keys_for_sites_slugs(site_slugs):
     if figures.helpers.is_multisite():
         edx_orgs = EdlySubOrganization.objects.filter(slug__in=site_slugs).using(read_replica_or_default()).values_list(
             'edx_organizations', flat=True)
-        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__short_name__in=edx_orgs).using(
             read_replica_or_default())
 
         course_ids = org_courses.values_list('course_id', flat=True)
@@ -176,11 +177,14 @@ def get_course_keys_for_sites_slugs(site_slugs):
     return [as_course_key(cid) for cid in course_ids]
 
 
-def get_course_keys_for_site(site):
+def get_course_keys_for_site(external_slugs):
     if figures.helpers.is_multisite():
-        edx_orgs = EdlySubOrganization.objects.filter(lms_site=site).using(read_replica_or_default()).values_list(
-            'edx_organizations', flat=True)
-        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+        site_configs = TenantConfig.objects.filter(external_key__in=external_slugs)
+        course_org = []
+        for cfg in site_configs:
+            course_org.extend(cfg.get_organizations())
+   
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__short_name__in=course_org).using(
             read_replica_or_default())
 
         course_ids = org_courses.values_list('course_id', flat=True)
