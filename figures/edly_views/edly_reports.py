@@ -14,7 +14,7 @@ from edly_panel_app.api.v1.views import (
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
-from openedx.features.edly.models import StudentCourseProgress
+# from openedx.features.edly.models import StudentCourseProgress
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import NotFound
@@ -241,9 +241,9 @@ class InsightLearnersCSV(APIView):
             site=site_obj,
         ))
         
-        site_monthly_metrics = InsightLearnersCSV._get_site_monthly_metrics(site)
+        site_monthly_metrics = InsightLearnersCSV._get_site_monthly_metrics(site_obj)
         site_daily_metrics = InsightLearnersCSV._get_site_daily_metrics(site)
-        all_learners_details = InsightLearnersCSV._get_learners_analytics(site, context, query_params)
+        all_learners_details = InsightLearnersCSV._get_learners_analytics(site_obj, context, query_params)
 
         raw_data = {
             'monthly_course_completions': monthly_course_completions,
@@ -321,8 +321,8 @@ class InsightCoursesCSV(APIView):
         return enrollments
 
     @staticmethod
-    def _get_course_generals(site):
-        queryset = figures.sites.get_courses_for_site(site)
+    def _get_course_generals(tenant_key):
+        queryset = figures.sites.get_courses_for_site(tenant_key)
         serialized_data = GeneralCourseDataSerializer(queryset, many=True)
         return serialized_data.data
 
@@ -344,7 +344,9 @@ class InsightCoursesCSV(APIView):
     @staticmethod
     @shared_task()
     def _prepare_courses_data(site, user_email, username, site_configs):
-        course_generals = InsightCoursesCSV._get_course_generals(site)
+        course_generals = InsightCoursesCSV._get_course_generals(
+            site_configs.get('tenant_keys')
+        )
         figures.helpers.send_insights_courses_report(
             course_generals, user_email,
             username, 'Courses Analytics Report', site_configs
@@ -387,6 +389,7 @@ class InsightCoursesCSV(APIView):
         """
         GET /api/edly/insights-courses
         """
+        tenant_keys = figures.helpers.get_tenant_external_keys(request)
         site = getattr(request, 'site', get_current_site(request))
         current_site_configuration = get_current_site_configuration()
         platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
@@ -394,6 +397,7 @@ class InsightCoursesCSV(APIView):
         site_configs = dict(
             platform_name=platform_name,
             from_address=from_address,
+            tenant_keys=tenant_keys
         )
         course_id = request.GET.get('course_id')
         if course_id:

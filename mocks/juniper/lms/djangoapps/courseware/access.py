@@ -44,8 +44,8 @@ from lms.djangoapps.courseware.masquerade import get_masquerade_role, is_masquer
 from lms.djangoapps.ccx.custom_exception import CCXLocatorValidationException
 from lms.djangoapps.ccx.models import CustomCourseForEdX
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from student import auth
-from student.models import CourseEnrollmentAllowed
+from common.djangoapps.student import auth
+from common.djangoapps.student.models  import CourseEnrollmentAllowed
 from student.roles import (
     CourseBetaTesterRole,
     CourseCcxCoachRole,
