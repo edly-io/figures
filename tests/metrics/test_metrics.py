@@ -47,7 +47,7 @@ import pytest
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
 
-from openedx.features.edly.models import EdlyUserProfile, EdlySubOrganization
+# from openedx.features.edly.models import EdlyUserProfile, EdlySubOrganization
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from student.roles import GlobalCourseCreatorRole
 from figures.metrics import (

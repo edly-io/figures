@@ -19,7 +19,7 @@ from edly_panel_app.api.v1.helpers import get_block_types_and_keys
 from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
 from openedx.core.djangoapps.content.block_structure.api import get_course_in_cache
 from openedx.core.djangoapps.content.block_structure.transformers import BlockStructureTransformers
-from openedx.features.edly.models import EdlySubOrganization, StudentCourseProgress
+# from openedx.features.edly.models import EdlySubOrganization, StudentCourseProgress
 
 from figures.backfill import backfill_enrollment_data_for_site
 from figures.compat import CourseEnrollment, CourseOverview

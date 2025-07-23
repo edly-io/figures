@@ -98,7 +98,7 @@ router.register(
     basename='users-general')
 
 router.register(
-    r'users-detail',
+    r'users/detail',
     views.LearnerDetailsViewSet,
     basename='users-detail')
 
