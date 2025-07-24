@@ -40,12 +40,16 @@ series sets
 from __future__ import absolute_import
 import datetime
 
+from dateutil.relativedelta import relativedelta
 from dateutil.rrule import rrule, DAILY
 import pytest
 
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
 
+from openedx.features.edly.models import EdlyUserProfile, EdlySubOrganization
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
+from student.roles import GlobalCourseCreatorRole
 from figures.metrics import (
     get_active_users_for_time_period,
     get_course_average_days_to_complete_for_time_period,
@@ -57,7 +61,8 @@ from figures.metrics import (
     get_total_enrollments_for_time_period,
     get_total_site_courses_for_time_period,
     get_total_site_users_joined_for_time_period,
-
+    get_total_active_courses_for_time_period,
+    get_total_site_staff_users_for_time_period,
 )
 import figures.helpers
 
@@ -82,8 +87,8 @@ if organizations_support_sites():
 
 
 # Test with a date range where there is at least one month in the middle
-DEFAULT_START_DATE = datetime.datetime(2018, 1, 1, 0, 0, tzinfo=utc)
-DEFAULT_END_DATE = datetime.datetime(2018, 3, 1, 0, 0, tzinfo=utc)
+DEFAULT_START_DATE = datetime.datetime.now()
+DEFAULT_END_DATE = datetime.datetime.now() + datetime.timedelta(weeks=12)
 
 
 def create_student_module_test_data(start_date, end_date):
@@ -130,6 +135,7 @@ def create_site_daily_metrics_data(site, start_date, end_date):
         return dict(
             cumulative_active_user_count=2,
             todays_active_user_count=2,
+            todays_active_learners_count=2,
             total_user_count=5,
             course_count=1,
             total_enrollment_count=3,
@@ -139,6 +145,7 @@ def create_site_daily_metrics_data(site, start_date, end_date):
     data = dict(
         cumulative_active_user_count=50,
         todays_active_user_count=10,
+        todays_active_learners_count=10,
         total_user_count=5,
         course_count=5,
         total_enrollment_count=100,
@@ -167,6 +174,7 @@ def create_course_daily_metrics_data(site, start_date, end_date, course_id=None)
     data = dict(
         enrollment_count=2,
         active_learners_today=1,
+        active_learners_this_month=1,
         average_progress=0.5,
         average_days_to_complete=10,
         num_learners_completed=3
@@ -175,6 +183,7 @@ def create_course_daily_metrics_data(site, start_date, end_date, course_id=None)
     incr_data = dict(
         enrollment_count=3,
         active_learners_today=2,
+        active_learners_this_month=2,
         average_progress=0,
         average_days_to_complete=0,
         num_learners_completed=1
@@ -210,6 +219,30 @@ def create_users_joined_over_time(site, is_multisite, start_date, end_date):
     return users
 
 
+def create_staff_users_joined_over_time(site, start_date, end_date):
+    """
+    Creates staff users on a successive date between the dates passed as arguments
+    """
+    edx_org = OrganizationFactory()
+    edly_sub_org = EdlySubOrganizationFactory(
+        edx_organizations=[edx_org],
+        lms_site=site
+    )
+
+    users = []
+    for dt in rrule(DAILY, dtstart=start_date, until=end_date):
+        user = UserFactory(date_joined=dt)
+
+        edly_user_profile, __ = EdlyUserProfile.objects.get_or_create(user=user)
+        edly_user_profile.edly_sub_organizations.add(edly_sub_org)
+        edly_user_profile.save()
+
+        GlobalCourseCreatorRole(edx_org).add_users(user)
+        users.append(user)
+
+    return users
+
+
 @pytest.mark.django_db
 class TestGetMonthlySiteMetrics(object):
     """
@@ -224,9 +257,13 @@ class TestGetMonthlySiteMetrics(object):
         self.expected_keys = (
             'monthly_active_users',
             'total_site_users',
+            'total_site_learners',
+            'total_site_staff_users',
             'total_site_courses',
             'total_course_enrollments',
-            'total_course_completions',)
+            'total_course_completions',
+            'total_active_courses',
+        )
 
     @pytest.mark.skip(reason='Test not implemented yet')
     # @pytest.mark.paramtrize('date_for', [
@@ -266,6 +303,7 @@ class TestSiteMetricsGettersStandalone(object):
         self.site = Site.objects.first()
         self.data_start_date = DEFAULT_START_DATE
         self.data_end_date = DEFAULT_END_DATE
+        self.edly_sub_org = EdlySubOrganizationFactory(lms_site=self.site)
         self.features = {'FIGURES_IS_MULTISITE': False}
         self.site_daily_metrics = create_site_daily_metrics_data(
             site=self.site,
@@ -286,15 +324,20 @@ class TestSiteMetricsGettersStandalone(object):
         assert count == len(student_module_sets)
 
     def test_get_active_users_for_month(self):
-        date_before = datetime.date(2019, 8, 30)
+        date_today = datetime.date.today()
+        year_today = date_today.year
+        month_today = date_today.month
+        date_before = date_today + relativedelta(months=-2)
+        date_before = datetime.date(year_today, date_before.month, 1)
         dates_in = [
-            datetime.date(2019, 9, 1),
-            datetime.date(2019, 9, 15),
-            datetime.date(2019, 9, 30)
+            datetime.date(year_today, month_today, 1),
+            datetime.date(year_today, month_today, 15),
+            datetime.date(year_today, month_today, 30 if month_today != 2 else 28)
         ]
         start_date = dates_in[0]
         end_date = dates_in[-1]
-        date_after = datetime.date(2019, 10, 1)
+        date_after = date_today + relativedelta(months=+2)
+        date_after = datetime.date(year_today, date_after.month, 1)
         sm_out = [
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_before)),
             StudentModuleFactory(modified=figures.helpers.as_datetime(date_after)),
@@ -357,10 +400,13 @@ class TestSiteMetricsGettersStandalone(object):
         '''
         expected_top_lvl_keys = [
             'total_site_users',
+            'total_site_learners',
+            'total_site_staff_users',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
-            'monthly_active_users'
+            'monthly_active_users',
+            'total_active_courses'
         ]
         expected_2nd_lvl_keys = ['current_month', 'history']
         expected_history_elem_keys = ['period', 'value']
@@ -467,10 +513,13 @@ class TestSiteMetricsGettersMultisite(object):
         '''
         expected_top_lvl_keys = [
             'total_site_users',
+            'total_site_learners',
+            'total_site_staff_users',
             'total_course_completions',
             'total_course_enrollments',
             'total_site_courses',
-            'monthly_active_users'
+            'monthly_active_users',
+            'total_active_courses'
         ]
         expected_2nd_lvl_keys = ['current_month', 'history']
         expected_history_elem_keys = ['period', 'value']
@@ -661,3 +710,34 @@ class TestCourseMetricsGettersMultisite(object):
             end_date=self.data_end_date,
             course_id=self.alpha_course_overview.id)
         assert actual == expected
+
+@pytest.mark.django_db
+class TestStaffUsersMetrics(object):
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db, settings):
+        self.alpha_site = SiteFactory(domain='alpha.site')
+        self.data_start_date = DEFAULT_START_DATE
+        self.data_end_date = DEFAULT_END_DATE
+
+        self.users = create_staff_users_joined_over_time(
+            site=self.alpha_site,
+            start_date=self.data_start_date,
+            end_date=self.data_end_date
+        )
+
+    def test_get_total_site_staff_users_for_time_period(self):
+        """
+        Test get_total_site_staff_users_for_time_period metrics helper
+
+        Add users who joined before and after the time period, and
+        compare the count to the users created within the time period
+        """
+
+        count = get_total_site_staff_users_for_time_period(
+            site=self.alpha_site,
+            start_date=self.data_start_date,
+            end_date=self.data_end_date
+        )
+
+        assert count == len(self.users)

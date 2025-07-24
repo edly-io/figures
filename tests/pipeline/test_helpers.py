@@ -41,14 +41,12 @@ def run_pipeline_date_for_rule_asserts(arg_datetime, expected_date):
     assert pipeline_date_for_rule(str(arg_datetime.date())) == expected_date
 
 
-@pytest.mark.parametrize('day_from_now', [-1, 0])
-def test_pipeline_date_for_rule_get_yesterday(day_from_now):
-    """Ensure function under test returns yesterday as a datetime.date instance
+def test_pipeline_date_for_rule_get_today():
+    """Ensure function under test returns today as a datetime.date instance
     """
     now = datetime.utcnow().replace(tzinfo=utc)
-    arg_datetime = now + timedelta(days=day_from_now)
-    expected_date = (now - timedelta(days=1)).date()
-    run_pipeline_date_for_rule_asserts(arg_datetime, expected_date)
+    expected_date = now.date()
+    run_pipeline_date_for_rule_asserts(now, expected_date)
 
 
 @pytest.mark.parametrize('days_in_past', [1, 2, 3, 10, 999])

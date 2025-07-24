@@ -11,21 +11,26 @@ Document how organization site mapping works
 """
 
 from __future__ import absolute_import
+from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites import shortcuts as sites_shortcuts
 from django.contrib.sites.models import Site
 from django.conf import settings
+from django.db.models import Q
 
 # TODO: Add exception handling
 import organizations
 
-from figures.compat import (
-    CourseEnrollment,
-    CourseOverview,
-    GeneratedCertificate,
-    StudentModule,
-)
 from figures.helpers import as_course_key, is_multisite, import_from_path
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from openedx.features.edly.models import (
+    EdlyMultiSiteAccess,
+    EdlySubOrganization,
+)  # pylint: disable=import-error
+from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
+from figures.helpers import as_course_key
+import figures.helpers
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 class CrossSiteResourceError(Exception):
@@ -88,7 +93,7 @@ def default_site():
     behavior for getting the current site.
     """
     if getattr(settings, 'SITE_ID', ''):
-        return Site.objects.get(pk=settings.SITE_ID)
+        return Site.objects.using(read_replica_or_default()).get(pk=settings.SITE_ID)
 
     return None
 
@@ -114,9 +119,10 @@ def get_site_for_course(course_id):
     For Figures views and serializers, this should only fail when called for
     a specific site that has mulitple orgs
     """
-    if is_multisite():
-        org_courses = organizations.models.OrganizationCourse.objects.filter(
-            course_id=str(course_id))
+    if figures.helpers.is_multisite():
+        org_courses = organizations.models.OrganizationCourse.objects.filter(course_id=str(course_id)).using(
+            read_replica_or_default())
+
         if org_courses:
             # Keep until this assumption analyzed
             msg = 'Multiple orgs found for course: {}'
@@ -126,15 +132,26 @@ def get_site_for_course(course_id):
                 msg = 'Must have one and only one site. Org is "{}"'
                 assert first_org.sites.count() == 1, msg.format(first_org.name)
                 site = first_org.sites.first()
+
             else:
-                site = None
+                try:
+                    edly_sub_org = EdlySubOrganization.objects.filter(edx_organizations__in=[first_org]).using(
+                        read_replica_or_default()).first()
+                    if edly_sub_org:
+                        site = edly_sub_org.lms_site
+                    else:
+                        site = None
+
+                except EdlySubOrganization.DoesNotExist:
+                    site = None
+
         else:
             # We don't want to make assumptions of who our consumers are
             # TODO: handle no organizations found for the course
             site = None
     else:
         # Operating in single site / standalone mode, return the default site
-        site = default_site()
+        site = Site.objects.using(read_replica_or_default()).get(id=settings.SITE_ID)
     return site
 
 
@@ -142,41 +159,50 @@ def get_organizations_for_site(site):
     """
     TODO: Refactor the functions in this module that make this call
     """
-    if is_multisite():
-        return organizations.models.Organization.objects.filter(sites__in=[site])
-    else:
+    return organizations.models.Organization.objects.filter(edlysuborganization__lms_site=site).using(
+        read_replica_or_default())
 
-        return organizations.models.Organization.all()
+def get_course_keys_for_sites_slugs(site_slugs):
+    """This function return a list of courses keys based on the sub_orgainzation slugs"""
+    if figures.helpers.is_multisite():
+        edx_orgs = EdlySubOrganization.objects.filter(slug__in=site_slugs).using(read_replica_or_default()).values_list(
+            'edx_organizations', flat=True)
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+            read_replica_or_default())
+
+        course_ids = org_courses.values_list('course_id', flat=True)
+    else:
+        course_ids = CourseOverview.objects.using(
+            read_replica_or_default()).all().values_list('id', flat=True)
+
+    return [as_course_key(cid) for cid in course_ids]
+
+
+def get_course_keys_for_site(site):
+    if figures.helpers.is_multisite():
+        edx_orgs = EdlySubOrganization.objects.filter(lms_site=site).using(read_replica_or_default()).values_list(
+            'edx_organizations', flat=True)
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+            read_replica_or_default())
+
+        course_ids = org_courses.values_list('course_id', flat=True)
+    else:
+        course_ids = CourseOverview.objects.using(
+            read_replica_or_default()).all().values_list('id', flat=True)
+    return [as_course_key(cid) for cid in course_ids]
 
 
 def site_course_ids(site):
     """Return a list of string course ids for the site
-
-    TODO: Need to fix how this works as multisite gets a queryset and
-    standalone gets a list
     """
-    if is_multisite():
+    if figures.helpers.is_multisite():
         return organizations.models.OrganizationCourse.objects.filter(
-                organization__sites__in=[site]).values_list('course_id', flat=True)
+            organization__edlysuborganization=site.edly_sub_org_for_lms
+        ).values_list('course_id', flat=True)
     else:
         # Needs work. See about returning a queryset
         return [str(key) for key in CourseOverview.objects.all().values_list(
             'id', flat=True)]
-
-
-def get_course_keys_for_site(site):
-    """
-
-    Developer note: We could improve this function with caching
-    Question is which is the most efficient way to know cache expiry
-
-    We may also be able to reduce the queries here to also improve performance
-    """
-    if is_multisite():
-        course_ids = site_course_ids(site)
-    else:
-        course_ids = CourseOverview.objects.all().values_list('id', flat=True)
-    return [as_course_key(cid) for cid in course_ids]
 
 
 def get_courses_for_site(site):
@@ -186,37 +212,92 @@ def get_courses_for_site(site):
     """
     if is_multisite():
         course_keys = get_course_keys_for_site(site)
-        courses = CourseOverview.objects.filter(id__in=course_keys)
+        courses = CourseOverview.objects.filter(id__in=course_keys).using(read_replica_or_default())
     else:
-        courses = CourseOverview.objects.all()
+        courses = CourseOverview.objects.using(read_replica_or_default()).all()
     return courses
 
 
-def get_user_ids_for_site(site):
-    if is_multisite():
-        user_ids = get_users_for_site(site).values_list('id', flat=True)
+def get_user_ids_for_sites(sites):
+    if figures.helpers.is_multisite():
+        edly_access_users = EdlyMultiSiteAccess.objects.filter(
+            sub_org__slug__in=sites
+        ).using(read_replica_or_default()).exclude(
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        )
+
+        user_ids = edly_access_users.values_list('user', flat=True)
     else:
-        user_ids = get_user_model().objects.all().values_list('id', flat=True)
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        ).values_list('id', flat=True)
     return user_ids
 
 
-def get_users_for_site(site):
-    if is_multisite():
-        users = get_user_model().objects.filter(organizations__sites__in=[site])
+def get_user_ids_for_site(site):
+    if figures.helpers.is_multisite():
+        edly_access_users = EdlyMultiSiteAccess.objects.filter(
+            sub_org__lms_site=site
+        ).using(read_replica_or_default()).exclude(
+            groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        )
+
+        user_ids = edly_access_users.values_list('user', flat=True)
     else:
-        users = get_user_model().objects.all()
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().exclude(
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        ).values_list('id', flat=True)
+    return user_ids
+
+
+def get_edly_users_for_site(site):
+    if figures.helpers.is_multisite():
+        user_ids = get_user_model().objects.select_related(
+            'profile',
+        ).prefetch_related('edly_multisite_user').filter(
+            edly_multisite_user__sub_org__lms_site=site,
+        ).exclude(edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP)
+    else:
+        user_ids = get_user_model().objects.using(read_replica_or_default()).all().select_related(
+            'profile',
+        ).prefetch_related('edly_multisite_user').exclude(
+            edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
+        )
+
+    return user_ids
+
+
+def get_users_for_sites(sites):
+    if figures.helpers.is_multisite():
+        user_ids = get_user_ids_for_sites(sites)
+        users = get_user_model().objects.filter(id__in=user_ids).using(
+            read_replica_or_default())
+    else:
+        users = get_user_model().objects.using(read_replica_or_default()).all()
+    return users
+
+
+def get_users_for_site(site):
+    if figures.helpers.is_multisite():
+        user_ids = get_user_ids_for_site(site)
+        users = get_user_model().objects.filter(id__in=user_ids).using(
+            read_replica_or_default())
+    else:
+        users = get_user_model().objects.using(read_replica_or_default()).all()
     return users
 
 
 def get_course_enrollments_for_site(site):
-    if is_multisite():
-        course_enrollments = CourseEnrollment.objects.filter(
-            user__organizations__sites__in=[site],
-            course_id__in=get_course_keys_for_site(site)
-        )
-    else:
-        course_enrollments = CourseEnrollment.objects.all()
-    return course_enrollments
+    course_keys = get_course_keys_for_site(site)
+    return CourseEnrollment.objects.filter(
+        course_id__in=course_keys,
+        is_active=True
+    ).filter(
+        ~Q(user__courseaccessrole__role='course_creator_group'),
+        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        user__is_staff=False,
+        user__is_superuser=False,
+    ).using(read_replica_or_default())
 
 
 def get_student_modules_for_course_in_site(site, course_id):
@@ -226,12 +307,12 @@ def get_student_modules_for_course_in_site(site, course_id):
         if not check_site or site_id != check_site.id:
             CourseNotInSiteError('course "{}"" does not belong to site "{}"'.format(
                 course_id, site_id))
-    return StudentModule.objects.filter(course_id=as_course_key(course_id))
+    return StudentModule.objects.filter(course_id=as_course_key(course_id)).using(read_replica_or_default())
 
 
 def get_student_modules_for_site(site):
-    course_keys = get_course_keys_for_site(site)
-    return StudentModule.objects.filter(course_id__in=course_keys)
+    course_ids = get_course_keys_for_site(site)
+    return StudentModule.objects.filter(course_id__in=course_ids).using(read_replica_or_default())
 
 
 def course_enrollments_for_course(course_id):
@@ -240,60 +321,7 @@ def course_enrollments_for_course(course_id):
     TODO: Update this to require the site
     Relies on the fact that course_ids are globally unique
     """
-    return CourseEnrollment.objects.filter(course_id=as_course_key(course_id))
-
-
-def enrollments_for_course_ids(course_ids):
-    """
-    TODO: Update this to require the site
-    """
-    ckeys = [as_course_key(cid) for cid in course_ids]
-    return CourseEnrollment.objects.filter(course_id__in=ckeys)
-
-
-def users_enrolled_in_courses(course_ids):
-    """
-    TODO: Update this to require the site
-    """
-    enrollments = enrollments_for_course_ids(course_ids)
-    user_ids = enrollments.order_by('user_id').values('user_id').distinct()
-    return get_user_model().objects.filter(id__in=user_ids)
-
-
-def student_modules_for_course_enrollment(site, course_enrollment):
-    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`
-    """
-    qs = StudentModule.objects.filter(student=course_enrollment.user,
-                                      course_id=course_enrollment.course_id)
-    if is_multisite():
-        # We _could eamake this generic if 'StudentModule' didn't go all snowflake
-        # and decided that 'user' had to be 'student'
-        qs = qs.filter(student__organizations__sites__in=[site])
-    return qs
-
-
-def site_certificates(site):
-    """
-    If we want to be clever, we can abstract a function:
-    ```
-    def site_user_related(site, model_class):
-        if is_multisite():
-            return model_class.objects.filter(user__organizations__sites__in=[site])
-        else:
-            return model_class.objects.all()
-
-    def site_certificates(site):
-        return site_user_related(GeneratedCertificate)
-    ```
-    Then:
-    """
-    if is_multisite():
-        return GeneratedCertificate.objects.filter(
-            user__organizations__sites__in=[site],
-            course_id__in=get_course_keys_for_site(site)
-        )
-    else:
-        return GeneratedCertificate.objects.all()
+    return CourseEnrollment.objects.filter(course_id=as_course_key(course_id)).using(read_replica_or_default())
 
 
 def _get_all_sites():
@@ -355,3 +383,48 @@ def get_sites_by_id(site_ids):
     Convenience function to get a QuerySet of Sites by id.
     """
     return Site.objects.filter(id__in=site_ids)
+
+
+def enrollments_for_course_ids(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    ckeys = [as_course_key(cid) for cid in course_ids]
+    return CourseEnrollment.objects.filter(course_id__in=ckeys)
+
+
+def users_enrolled_in_courses(course_ids):
+    """
+    TODO: Update this to require the site
+    """
+    enrollments = enrollments_for_course_ids(course_ids)
+    user_ids = enrollments.order_by('user_id').values('user_id').distinct()
+    return get_user_model().objects.filter(id__in=user_ids)
+
+
+def student_modules_for_course_enrollment(ce):
+    """Return a queryset of all `StudentModule` records for a `CourseEnrollment`
+    """
+    return StudentModule.objects.filter(student=ce.user, course_id=ce.course_id).using(read_replica_or_default())
+
+
+def site_certificates(site):
+    """
+    If we want to be clever, we can abstract a function:
+    ```
+    def site_user_related(site, model_class):
+        if is_multisite():
+            return model_class.objects.filter(user__organizations__sites__in=[site])
+        else:
+            return model_class.objects.all()
+
+    def site_certificates(site):
+        return site_user_related(GeneratedCertificate)
+    ```
+    Then:
+    """
+    if is_multisite():
+        return GeneratedCertificate.objects.filter(
+            user__organizations__sites__in=[site])
+    else:
+        return GeneratedCertificate.objects.all()

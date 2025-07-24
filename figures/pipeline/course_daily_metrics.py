@@ -12,28 +12,35 @@ Future: add a remote mode to pull data via REST API
 # TODO: Move extractors to figures.pipeline.extract module
 """
 from __future__ import absolute_import
+import datetime
+import figures.pipeline.loaders
 import logging
-
-from dateutil.relativedelta import relativedelta
+from decimal import Decimal
+from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Q
 
 from common.djangoapps.student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
-
 from figures.compat import (CourseEnrollment,
                             CourseOverview,
                             GeneratedCertificate,
                             StudentModule)
 from figures.helpers import as_course_key, as_datetime, is_past_date, next_day
 import figures.metrics
-from figures.models import CourseDailyMetrics
+from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
+from figures.pipeline.helpers import pipeline_date_for_rule
 from figures.pipeline.enrollment_metrics_next import (
     calculate_course_progress as calculate_course_progress_next
 )
-
+from figures.pipeline.logger import log_error
 from figures.serializers import CourseIndexSerializer
+from lms.djangoapps.grades.models import PersistentCourseGrade  # pylint: disable=import-error
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
+from openedx.features.edly.models import EdlyMultiSiteAccess
+from student.models import CourseEnrollment  # pylint: disable=import-error
+from edx_django_utils.db.read_replica import read_replica_or_default
 import figures.sites
-from figures.pipeline.helpers import pipeline_date_for_rule
 
 
 logger = logging.getLogger(__name__)
@@ -51,20 +58,23 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
 
     """
     course_locator = as_course_key(course_id)
+    site = figures.sites.get_site_for_course(course_id)
 
     if getattr(course_id, 'ccx', None):
         course_locator = course_id.to_course_locator()
 
-    staff = CourseStaffRole(course_locator).users_with_role()
-    admins = CourseInstructorRole(course_locator).users_with_role()
-    coaches = CourseCcxCoachRole(course_locator).users_with_role()
     filter_args = dict(course_id=course_locator, is_active=1)
 
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
 
-    return CourseEnrollment.objects.filter(**filter_args).exclude(
-        user__in=staff).exclude(user__in=admins).exclude(user__in=coaches)
+    return CourseEnrollment.objects.filter(**filter_args).filter(
+        course_id=as_course_key(course_id)).filter(
+        ~Q(user__courseaccessrole__role='course_creator_group'),
+        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        user__is_staff=False,
+        user__is_superuser=False,
+    ).using(read_replica_or_default())
 
 
 def get_active_learner_ids_today(course_id, date_for):
@@ -77,14 +87,118 @@ def get_active_learner_ids_today(course_id, date_for):
     """
     date_for_as_datetime = as_datetime(date_for)
     return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
         course_id=as_course_key(course_id),
         modified__year=date_for_as_datetime.year,
         modified__month=date_for_as_datetime.month,
         modified__day=date_for_as_datetime.day,
-        ).values_list('student__id', flat=True).distinct()
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
 
 
-def get_days_to_complete(course_id, date_for):
+def get_active_learner_ids_this_month(course_id, date_for):
+    """Get unique user ids for learners who are active in this month for the
+    given course and date
+
+    Note: When Figures no longer has to support Django 1.8, we can simplify
+    this date check:
+        https://docs.djangoproject.com/en/1.9/ref/models/querysets/#date
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        course_id=as_course_key(course_id),
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+
+
+def get_active_learner_ids_this_month(course_id, date_for):
+    """Get unique user ids for learners who are active in this month for the
+    given course and date
+
+    Note: When Figures no longer has to support Django 1.8, we can simplify
+    this date check:
+        https://docs.djangoproject.com/en/1.9/ref/models/querysets/#date
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    return StudentModule.objects.filter(
+        ~Q(student__courseaccessrole__role='course_creator_group'),
+        student__is_staff=False,
+        student__is_superuser=False,
+        course_id=as_course_key(course_id),
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        ).using(read_replica_or_default()).values_list('student__id', flat=True).distinct()
+
+
+def get_average_progress_deprecated(course_id, date_for, course_enrollments):
+    """Collects and aggregates raw course grades data
+    """
+    progress = []
+    for ce in course_enrollments:
+        try:
+            course_progress = figures.metrics.LearnerCourseGrades.course_progress(ce)
+            figures.pipeline.loaders.save_learner_course_grades(
+                site=figures.sites.get_site_for_course(course_id),
+                date_for=date_for,
+                course_enrollment=ce,
+                course_progress_details=course_progress['course_progress_details'],
+                total_progress_percent=course_progress['total_progress_percent'],
+            )
+        # TODO: Use more specific database-related exception
+        except Exception as e:  # pylint: disable=broad-except
+            error_data = dict(
+                msg='Unable to get course blocks',
+                username=ce.user.username,
+                course_id=str(ce.course_id),
+                exception=str(e),
+                )
+            log_error(
+                error_data=error_data,
+                error_type=PipelineError.GRADES_DATA,
+                user=ce.user,
+                course_id=ce.course_id,
+                )
+            course_progress = dict(
+                progress_percent=0.0,
+                course_progress_details=None)
+        if course_progress:
+            progress.append(course_progress)
+
+    if progress:
+        progress_percent = [rec['progress_percent'] for rec in progress]
+        average_progress = float(sum(progress_percent)) / float(len(progress_percent))
+        average_progress = float(Decimal(average_progress).quantize(Decimal('.00')))
+    else:
+        average_progress = 0.0
+
+    return average_progress
+
+
+def update_learners_activity_for_date(date_for, site):
+    """
+    Update Course Activity for respective organization for learners who performed course activity for given date.
+    """
+    date_for_as_datetime = as_datetime(date_for)
+    student_ids = StudentModule.objects.filter(
+        modified__year=date_for_as_datetime.year,
+        modified__month=date_for_as_datetime.month,
+        modified__day=date_for_as_datetime.day
+    ).values_list('student__id', flat=True).distinct()
+
+    for student_id in student_ids:
+        student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
+        EdlyMultiSiteAccess.objects.filter(
+            user__id=student_activity.student_id,
+            sub_org__lms_site=site,
+        ).update(course_activity_date=student_activity.modified)
+
+
+def get_days_to_complete(site, course_id, date_for):
     """Return a dict with a list of days to complete and errors
 
     NOTE: This is a work in progress, as it has issues to resolve:
@@ -105,34 +219,32 @@ def get_days_to_complete(course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
-    certificates = GeneratedCertificate.objects.filter(
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).using(read_replica_or_default()).values_list(
+        'pk',
+        flat=True
+    )
+
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lte=as_datetime(date_for))
+        user_id__in=users_ids,
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
+    ).using(read_replica_or_default()).values('user_id', 'passed_timestamp')
 
     days = []
-    errors = []
-    for cert in certificates:
-        ce = CourseEnrollment.objects.filter(
+    for grade in grades:
+        course_enrollment = CourseEnrollment.objects.filter(
             course_id=as_course_key(course_id),
-            user=cert.user)
-        # How do we want to handle multiples?
-        if ce.count() > 1:
-            errors.append(
-                dict(msg='Multiple CE records',
-                     course_id=course_id,
-                     user_id=cert.user.id,
-                     ))
-        try:
-            days.append((cert.created_date - ce[0].created).days)
-        except IndexError:
-            # sometimes a course enrollment is deleted after the cert is generated.  why, who knows?
-            # in which case just leave out that data
-            errors.append(
-                dict(msg='No CourseEnrollment matching user course certificate',
-                     course_id=course_id,
-                     user_id=cert.user.id,
-                     ))
-    return dict(days=days, errors=errors)
+            user__id=grade.get('user_id')
+        ).using(read_replica_or_default()).first()
+        days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
+
+    return dict(days=days)
 
 
 def calc_average_days_to_complete(days):
@@ -143,9 +255,9 @@ def calc_average_days_to_complete(days):
         return 0.0
 
 
-def get_average_days_to_complete(course_id, date_for):
+def get_average_days_to_complete(site, course_id, date_for):
 
-    days_to_complete = get_days_to_complete(course_id, date_for)
+    days_to_complete = get_days_to_complete(site, course_id, date_for)
     # TODO: Track any errors in getting days to complete
     # This is in days_to_complete['errors']
     average_days_to_complete = calc_average_days_to_complete(
@@ -153,7 +265,7 @@ def get_average_days_to_complete(course_id, date_for):
     return average_days_to_complete
 
 
-def get_num_learners_completed(course_id, date_for):
+def get_num_learners_completed(site, course_id, date_for):
     """
     Get the total number of certificates generated for the course up to the
     'date_for' date
@@ -162,10 +274,24 @@ def get_num_learners_completed(course_id, date_for):
 
     We may want to get the number of certificates granted in the given day
     """
-    certificates = GeneratedCertificate.objects.filter(
+    users_ids = User.objects.filter(
+        ~Q(courseaccessrole__role='course_creator_group'),
+        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        is_staff=False,
+        is_superuser=False,
+    ).exclude(username__icontains='retired__user').using(read_replica_or_default()).values_list(
+        'pk',
+        flat=True
+    )
+
+    grades = PersistentCourseGrade.objects.filter(
         course_id=as_course_key(course_id),
-        created_date__lt=as_datetime(next_day(date_for)))
-    return certificates.count()
+        user_id__in=users_ids,
+        passed_timestamp__isnull=False,
+        passed_timestamp__lte=as_datetime(date_for + datetime.timedelta(days=1)),
+    ).using(read_replica_or_default())
+
+    return grades.count()
 
 # Formal extractor classes
 
@@ -181,7 +307,7 @@ class CourseIndicesExtractor(object):
         """
 
         filter_args = kwargs.get('filters', {})
-        queryset = CourseOverview.objects.filter(**filter_args)
+        queryset = CourseOverview.objects.filter(**filter_args).using(read_replica_or_default())
         return CourseIndexSerializer(queryset, many=True)
 
 
@@ -194,7 +320,7 @@ class CourseDailyMetricsExtractor(object):
     BUT, we will then need to find a transform
     """
 
-    def extract(self, course_id, date_for, ed_next=False, **_kwargs):
+    def extract(self, site, course_id, date_for, ed_next=False, **_kwargs):
         """Extracts (collects) aggregated course level data
 
         Args:
@@ -212,6 +338,7 @@ class CourseDailyMetricsExtractor(object):
             dict(
                 enrollment_count=data['enrollment_count'],
                 active_learners_today=data['active_learners_today'],
+                active_learners_this_month=data['active_learners_this_month'],
                 average_progress=data.get('average_progress', None),
                 average_days_to_complete=data.get('average_days_to_complete, None'),
                 num_learners_completed=data['num_learners_completed'],
@@ -247,56 +374,19 @@ class CourseDailyMetricsExtractor(object):
             active_learners_today = 0
         data['active_learners_today'] = active_learners_today
 
-        # Average progress
-        # Progress data cannot be reliable for backfills or for any date prior to yesterday
-        # without using StudentModuleHistory so we skip getting this data if running
-        # for a day earlier than previous day (i.e., not during daily update of CDMs),
-        #  especially since it is so expensive to calculate.
-        # Note that Avg() applied across null and decimal vals for aggregate average_progress
-        # will correctly ignore nulls
-        # TODO: Reconsider this if we implement either StudentModuleHistory-based queries
-        # (if so, you will need to add any types you want to
-        # StudentModuleHistory.HISTORY_SAVING_TYPES)
-        # TODO: Reconsider this once we switch to using Persistent Grades
-        if is_past_date(date_for + relativedelta(days=1)):  # more than 1 day in past
-            data['average_progress'] = None
-            msg = ('FIGURES:PIPELINE:CDM Declining to calculate average progress for a past date'
-                   ' date_for={date_for}, course_id="{course_id}"')
-            logger.debug(msg.format(date_for=date_for, course_id=course_id))
+        active_learner_ids_this_month = get_active_learner_ids_this_month(
+            course_id, date_for,)
+        if active_learner_ids_this_month:
+            active_learners_this_month = active_learner_ids_this_month.count()
         else:
-            try:
-                # This conditional check is an interim solution until we make
-                # the progress function configurable and able to run Figures
-                # plugins
-                if ed_next:
-                    progress_data = calculate_course_progress_next(course_id=course_id)
-                else:
-                    progress_data = bulk_calculate_course_progress_data(course_id=course_id,
-                                                                        date_for=date_for)
-                data['average_progress'] = progress_data['average_progress']
-            except Exception:  # pylint: disable=broad-except
-                # Broad exception for starters. Refine as we see what gets caught
-                # Make sure we set the average_progres to None so that upstream
-                # does not think things are normal
-                data['average_progress'] = None
+            active_learners_this_month = 0
+        data['active_learners_this_month'] = active_learners_this_month
 
-                if ed_next:
-                    prog_func = 'calculate_course_progress_next'
-                else:
-                    prog_func = 'bulk_calculate_course_progress_data'
-
-                msg = ('FIGURES:FAIL {prog_func}'
-                       ' date_for={date_for}, course_id="{course_id}"')
-                logger.exception(msg.format(prog_func=prog_func,
-                                            date_for=date_for,
-                                            course_id=course_id))
-
-        data['average_days_to_complete'] = get_average_days_to_complete(
-            course_id, date_for,)
-
-        data['num_learners_completed'] = get_num_learners_completed(
-            course_id, date_for,)
-
+        # Average progress
+        progress_data = bulk_calculate_course_progress_data(course_id=course_id, date_for=date_for)
+        data['average_progress'] = progress_data['average_progress']
+        data['average_days_to_complete'] = get_average_days_to_complete(site, course_id, date_for)
+        data['num_learners_completed'] = get_num_learners_completed(site, course_id, date_for)
         return data
 
 
@@ -310,6 +400,7 @@ class CourseDailyMetricsLoader(object):
 
     def get_data(self, date_for, ed_next=False):
         return self.extractor.extract(
+            site=self.site,
             course_id=self.course_id,
             date_for=date_for,
             ed_next=ed_next)
@@ -325,6 +416,7 @@ class CourseDailyMetricsLoader(object):
         defaults = dict(
             enrollment_count=data['enrollment_count'],
             active_learners_today=data['active_learners_today'],
+            active_learners_this_month=data['active_learners_this_month'],
             average_days_to_complete=int(round(data['average_days_to_complete'])),
             num_learners_completed=data['num_learners_completed'],
         )
@@ -334,7 +426,7 @@ class CourseDailyMetricsLoader(object):
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=str(self.course_id),
             site=self.site,
-            date_for=date_for,
+            date_for=as_date(date_for),
             defaults=defaults
         )
         cdm.clean_fields()
@@ -357,7 +449,7 @@ class CourseDailyMetricsLoader(object):
         """
         date_for = pipeline_date_for_rule(date_for)
         try:
-            cdm = CourseDailyMetrics.objects.get(course_id=str(self.course_id),
+            cdm = CourseDailyMetrics.objects.using(read_replica_or_default()).get(course_id=self.course_id,
                                                  date_for=date_for)
             # record found, only update if force update flag is True
             if not force_update:
@@ -366,5 +458,6 @@ class CourseDailyMetricsLoader(object):
             # record not found, move on to creating
             pass
 
-        data = self.get_data(date_for=date_for, ed_next=ed_next)
+        update_learners_activity_for_date(date_for=date_for, site=self.site)
+        data = self.get_data(date_for=date_for)
         return self.save_metrics(date_for=date_for, data=data)

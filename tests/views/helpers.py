@@ -12,7 +12,7 @@ if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
 
 
-def create_test_users():
+def create_test_users(sub_org):
     '''
     Creates four test users to test the combination of permissions
     * regular_user (is_staff=False, is_superuser=False)
@@ -21,12 +21,11 @@ def create_test_users():
     * superstaff_user (is_staff=True, is_superuser=True)
     '''
     return [
-        UserFactory(username='regular_user'),
-        UserFactory(username='staff_user', is_staff=True),
-        UserFactory(username='super_user', is_superuser=True),
-        UserFactory(username='superstaff_user', is_staff=True, is_superuser=True)
+        UserFactory(username='regular_user', edly_multisite_user__sub_org=sub_org),
+        UserFactory(username='staff_user', is_staff=True, edly_multisite_user__sub_org=sub_org),
+        UserFactory(username='super_user', is_superuser=True, edly_multisite_user__sub_org=sub_org),
+        UserFactory(username='superstaff_user', is_staff=True, is_superuser=True, edly_multisite_user__sub_org=sub_org)
     ]
-
 
 def is_response_paginated(response_data):
     """Checks if the response data dict has expected paginated results keys

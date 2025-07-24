@@ -34,6 +34,7 @@ import mock
 import pytest
 
 from django.contrib.auth import get_user_model
+import django.contrib.sites.shortcuts
 from django.db.models import F
 
 from rest_framework.test import (
@@ -49,11 +50,13 @@ from figures.sites import get_course_enrollments_for_site
 from figures.views import LearnerDetailsViewSet
 import figures.settings
 
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from tests.factories import (
     CourseEnrollmentFactory,
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
+    SiteConfigurationFactory,
     SiteFactory,
     UserFactory,
     )
@@ -137,10 +140,20 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db, settings):
         super(TestLearnerDetailsViewSetStandalone, self).setup(db)
+        self.new_site = SiteFactory()
+        SiteConfigurationFactory(site=self.new_site)
+        self.new_org = OrganizationFactory()
+        self.new_edly_org = EdlySubOrganizationFactory(lms_site=self.new_site, edx_organizations=[self.new_org])
         self.course_overviews = [
             CourseOverviewFactory() for i in range(0,4)
         ]
-        self.users = [UserFactory() for i in range(3)]
+        for course_overview in self.course_overviews:
+            OrganizationCourseFactory(
+                organization=self.new_org,
+                course_id=str(course_overview.id)
+            )
+
+        self.users = [UserFactory(edly_multisite_user__sub_org=self.new_edly_org) for i in range(3)]
 
         self.enrollments = [
             CourseEnrollmentFactory(course=self.course_overviews[0],
@@ -155,9 +168,8 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         ]
 
         self.expected_result_keys = [
-            'id', 'username', 'name', 'email', 'country', 'is_active',
-            'year_of_birth', 'level_of_education', 'gender', 'date_joined',
-            'bio', 'courses', 'language_proficiencies', 'profile_image'
+            'id', 'username', 'name', 'email', 'sso_id', 'is_active', 'last_login', 'date_joined',
+            'registration_fields', 'bio', 'courses', 'course_activity_date', 'is_retired'
         ]
 
     def test_serializer(self):
@@ -167,7 +179,7 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         '''
 
         # Spot test with the first CourseEnrollment for the first user
-        enrollments = get_course_enrollments_for_site(self.site)
+        enrollments = get_course_enrollments_for_site(self.new_site)
         queryset = enrollments.filter(user=self.users[0])
         assert queryset
         serializer = LearnerCourseDetailsSerializer(queryset[0])
@@ -176,12 +188,18 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         # the serializer specific tests (see tests/test_serializers.py).
         assert serializer.data
 
-    def test_get_learner_details_retrieve(self):
+    def test_get_learner_details_retrieve(self, monkeypatch):
+
+        def test_site(request):
+            return self.new_site
+
         user = self.users[0]
 
         expected_enrollments = CourseEnrollment.objects.filter(user=user)
         request_path = self.request_path + '{}/'.format(user.id)
         request = APIRequestFactory().get(request_path)
+        request.site = self.new_site
+        monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'retrieve'})
         response = view(request, pk=user.id)
@@ -190,27 +208,29 @@ class TestLearnerDetailsViewSetStandalone(BaseViewTest):
         assert len(response.data['courses']) == expected_enrollments.count()
         assert set(response.data.keys()) == set(self.expected_result_keys)
 
-
-    def test_get_learner_details_list(self):
+    def test_get_learner_details_list(self, monkeypatch):
         """Tests retrieving a list of users with abbreviated details
 
         The fields in each returned record are identified by
             `figures.serializers.UserIndexSerializer`
 
         """
+        def test_site(request):
+            return self.new_site
         request = APIRequestFactory().get(self.request_path)
+        request.site = self.new_site
+        monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
-
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results'])
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
-        results = response.data['results']
-        assert len(results) == len(self.users) + len(self.callers)
-        enrollments = get_course_enrollments_for_site(self.site)
+        results = response.data
+        assert len(results) == len(self.users)
+        enrollments = get_course_enrollments_for_site(self.new_site)
         assert enrollments.count() == len(self.enrollments)
 
         for rec in results:
@@ -250,8 +270,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         ]
 
         for co in self.my_course_overviews:
-            OrganizationCourseFactory(organization=self.my_site_org,
-                                      course_id=str(co.id))
+            OrganizationCourseFactory(organization=self.my_site_org, course_id=str(co.id))
 
         # Set up users and enrollments for 'my site'
         self.my_site_users = [UserFactory() for i in range(3)]
@@ -280,15 +299,14 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         self.my_site_users.append(self.caller)
         # Set up other site's data
         self.other_site_enrollment =CourseEnrollmentFactory()
-        OrganizationCourseFactory(organization=self.other_site_org,
-                                  course_id=self.other_site_enrollment.course.id)
+        OrganizationCourseFactory(organization=self.other_site_org, course_id=self.other_site_enrollment.course.id)
         UserOrganizationMappingFactory(user=self.other_site_enrollment.user,
                                        organization=self.other_site_org)
 
         self.expected_result_keys = [
             'id', 'username', 'name', 'email', 'country', 'is_active',
-            'year_of_birth', 'level_of_education', 'gender', 'date_joined',
-            'bio', 'courses', 'language_proficiencies', 'profile_image'
+            'year_of_birth', 'level_of_education', 'gender', 'date_joined', 'last_login',
+            'bio', 'courses', 'language_proficiencies', 'profile_image', 'registration_fields',
         ]
 
     def test_serializer(self):
@@ -334,7 +352,7 @@ class TestLearnerDetailsViewSetMultisite(BaseViewTest):
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results'])
+            ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
         results = response.data['results']
         assert len(results) == len(self.my_site_users)

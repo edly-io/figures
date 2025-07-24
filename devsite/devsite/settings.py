@@ -14,7 +14,6 @@ import environ
 from figures.settings.lms_production import (
     update_webpack_loader,
     update_celerybeat_schedule,
-    update_celery_routes,
 )
 
 DEVSITE_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,7 +22,7 @@ PROJECT_ROOT_DIR = os.path.dirname(DEVSITE_BASE_DIR)
 env = environ.Env(
     DEBUG=(bool, True),
     ALLOWED_HOSTS=(list, []),
-    OPENEDX_RELEASE=(str, 'JUNIPER'),
+    OPENEDX_RELEASE=(str, 'HAWTHORN'),
     FIGURES_IS_MULTISITE=(bool, False),
     ENABLE_DEVSITE_CELERY=(bool, True),
     ENABLE_OPENAPI_DOCS=(bool, False),
@@ -34,11 +33,10 @@ env = environ.Env(
 environ.Env.read_env(os.path.join(DEVSITE_BASE_DIR, '.env'))
 
 OPENEDX_RELEASE = env('OPENEDX_RELEASE').upper()
+ENABLE_DEVSITE_CELERY = env('ENABLE_DEVSITE_CELERY')
 
 if OPENEDX_RELEASE == 'GINKGO':
     ENABLE_DEVSITE_CELERY = False
-else:
-    ENABLE_DEVSITE_CELERY = env('ENABLE_DEVSITE_CELERY')
 
 MOCKS_DIR = 'mocks/{}'.format(OPENEDX_RELEASE.lower())
 
@@ -54,6 +52,8 @@ ALLOWED_HOSTS = env('ALLOWED_HOSTS')
 # Set the default Site (django.contrib.sites.models.Site)
 SITE_ID = 1
 
+# TODO: Update this to allow environment variable override
+ENABLE_DEVSITE_CELERY = env('ENABLE_DEVSITE_CELERY')
 
 # Adds the mock edx-platform modules to the Python module search path
 sys.path.append(os.path.normpath(os.path.join(PROJECT_ROOT_DIR, MOCKS_DIR)))
@@ -85,12 +85,13 @@ INSTALLED_APPS = [
     'openedx.core.djangoapps.content.course_overviews',
     'openedx.core.djangoapps.course_groups',
     'student',
+    'completion',
 ]
 
 if ENABLE_DEVSITE_CELERY:
     INSTALLED_APPS.append('djcelery')
 
-
+# certificates app
 if OPENEDX_RELEASE == 'GINKGO':
     # certificates and courseware do NOT use the `lms.djangoapps.` namespace
     # prefix on Ginkgo. See here: https://github.com/appsembler/figures/issues/433
@@ -239,6 +240,7 @@ CELERYBEAT_SCHEDULE = {}
 FEATURES = {
     'FIGURES_IS_MULTISITE': env('FIGURES_IS_MULTISITE')
 }
+
 
 # The LMS defines ``ENV_TOKENS`` to load settings declared in `lms.env.json`
 # We have an (mostly) empty dict here to replicate behavior in the LMS

@@ -1,10 +1,12 @@
-"""Helpers to generate model instances for testing.
+'''Helpers to generate model instances for testing.
 
 Defines model factories for Figures, edX platform, and other models that we
 need to create for our tests.
 
 Uses Factory Boy: https://factoryboy.readthedocs.io/en/latest/
-"""
+
+'''
+
 from __future__ import absolute_import
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -25,13 +27,15 @@ from openedx.core.djangoapps.course_groups.models import (
     CohortMembership,
 )
 
-from figures.compat import StudentModule, CourseKeyField, GeneratedCertificate
+from figures.compat import StudentModule, GeneratedCertificate
 
-from student.models import CourseAccessRole, CourseEnrollment, UserProfile
+from common.djangoapps.student.models  import CourseAccessRole, CourseEnrollment
+from student.tests.factories import UserProfileFactory
 from lms.djangoapps.teams.models import CourseTeam, CourseTeamMembership
 
 import organizations
 
+from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from figures.helpers import as_course_key
 from figures.models import (
     CourseDailyMetrics,
@@ -58,24 +62,24 @@ COURSE_ID_STR_TEMPLATE = 'course-v1:StarFleetAcademy+SFA{}+2161'
 class SiteFactory(DjangoModelFactory):
     class Meta:
         model = Site
+        django_get_or_create = ('domain', )
     domain = factory.Sequence(lambda n: 'site-{}.example.com'.format(n))
     name = factory.Sequence(lambda n: 'Site {}'.format(n))
 
 
-class UserProfileFactory(DjangoModelFactory):
-    class Meta:
-        model = UserProfile
+class SiteConfigurationFactory(DjangoModelFactory):
+    """
+    Factory class for SiteConfiguration model
+    """
+    class Meta(object):
+        model = SiteConfiguration
 
-    # User full name
-    name = factory.Sequence(lambda n: 'User Name{}'.format(n))
-    country = 'US'
-    gender = 'o'
-    year_of_birth = fuzzy.FuzzyInteger(1950,2000)
-    level_of_education = fuzzy.FuzzyChoice(
-        ['p','m','b','a','hs','jh','el','none', 'other',]
-        )
-    profile_image_uploaded_at = fuzzy.FuzzyDateTime(datetime.datetime(
-        2018,0o4,0o1, tzinfo=factory.compat.UTC))
+    enabled = True
+    site = factory.SubFactory(SiteFactory)
+
+    @factory.lazy_attribute
+    def site_values(self):
+        return {}
 
 
 class UserFactory(DjangoModelFactory):
@@ -102,6 +106,18 @@ class UserFactory(DjangoModelFactory):
         if extracted:
             for team in extracted:
                 self.teams.add(team)
+
+    @factory.post_generation
+    def edly_multisite_user(obj, create, extracted, **kwargs):  # pylint: disable=unused-argument, missing-function-docstring
+        if create:
+            from openedx.features.edly.tests.factories import EdlyMultiSiteAccessFactory
+
+            obj.save()
+            return EdlyMultiSiteAccessFactory.create(user=obj, **kwargs)
+        elif kwargs:
+            raise Exception('Cannot build a user profile without saving the user')
+        else:
+            return None
 
 
 if organizations_support_sites():
@@ -180,6 +196,10 @@ class CourseOverviewFactory(factory.DjangoModelFactory):
         2018, 6, 1, tzinfo=factory.compat.UTC))
     self_paced = False
 
+    @factory.lazy_attribute
+    def _location(self):
+        return as_course_key(self.id).make_usage_key('course', 'course')
+
 
 class CourseTeamFactory(DjangoModelFactory):
     class Meta:
@@ -208,6 +228,7 @@ class GeneratedCertificateFactory(DjangoModelFactory):
 class StudentModuleFactory(DjangoModelFactory):
     class Meta:
         model = StudentModule
+        django_get_or_create = ('student', 'course_id')
 
     student = factory.SubFactory(
         UserFactory,
@@ -215,9 +236,9 @@ class StudentModuleFactory(DjangoModelFactory):
     course_id = factory.Sequence(lambda n: as_course_key(
         COURSE_ID_STR_TEMPLATE.format(n)))
     created = fuzzy.FuzzyDateTime(datetime.datetime(
-        2018,2,2, tzinfo=factory.compat.UTC))
+        2021,2,2, tzinfo=factory.compat.UTC))
     modified = fuzzy.FuzzyDateTime(datetime.datetime(
-        2018,2,2, tzinfo=factory.compat.UTC))
+        2021,2,2, tzinfo=factory.compat.UTC))
 
 
     @classmethod
@@ -312,7 +333,8 @@ class CourseDailyMetricsFactory(DjangoModelFactory):
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
     enrollment_count = factory.Sequence(lambda n: n)
     active_learners_today = factory.Sequence(lambda n: n)
-    average_progress = 0.50
+    active_learners_this_month = factory.Sequence(lambda n: n)
+    average_progress = 0.0
     average_days_to_complete = 10
     num_learners_completed = 5
 
@@ -333,7 +355,7 @@ class EnrollmentDataFactory(DjangoModelFactory):
             days=n)).replace(tzinfo=utc).date())
     is_enrolled = True
     is_completed = False
-    progress_percent = 0.50
+    progress_percent = 0.0
     points_possible = 30.0
     points_earned = 15.0
     sections_worked = 5
@@ -366,6 +388,9 @@ class LearnerCourseGradeMetricsFactory(DjangoModelFactory):
     points_earned = 15.0
     sections_worked = 5
     sections_possible = 10
+    letter_grade = ''
+    percent_grade = 0
+    passed_timestamp = None
 
 
 class MonthlyActiveEnrollmentFactory(DjangoModelFactory):

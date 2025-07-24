@@ -12,6 +12,7 @@ from dateutil.relativedelta import relativedelta
 from figures.compat import RELEASE_LINE
 from figures.models import SiteMonthlyMetrics
 from figures.sites import get_student_modules_for_site
+from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 def _get_fill_month_raw_sql_for_month(site_ids, month_for):
@@ -33,30 +34,10 @@ def fill_month(site, month_for, student_modules=None, overwrite=False, use_raw=F
         student_modules = get_student_modules_for_site(site)
 
     if student_modules:
-        if not use_raw:
-            month_sm = student_modules.filter(modified__year=month_for.year,
-                                              modified__month=month_for.month)
-            mau_count = month_sm.values_list('student_id',
-                                             flat=True).distinct().count()
-        else:
-            if RELEASE_LINE == 'ginkgo':
-                site_ids = tuple(
-                    [int(sid) for sid in student_modules.values_list('id', flat=True).distinct()]
-                )
-            else:
-                # make sure we get integers and not longints from db
-                from django.db.models.functions import Cast
-                site_ids = tuple(
-                    student_modules.annotate(
-                        id_as_int=Cast('id', IntegerField())
-                    ).values_list('id_as_int', flat=True).distinct()
-                )
-
-            statement = _get_fill_month_raw_sql_for_month(site_ids, month_for)
-            with connection.cursor() as cursor:
-                cursor.execute(statement)
-                row = cursor.fetchone()
-                mau_count = row[0]
+        month_sm = student_modules.filter(modified__year=month_for.year,
+                                          modified__month=month_for.month).using(read_replica_or_default())
+        mau_count = month_sm.values_list('student_id',
+                                         flat=True).distinct().count()
     else:
         mau_count = 0
 

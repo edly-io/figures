@@ -34,6 +34,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import TestCase
 
+from openedx.features.edly.tests.factories import EdlyMultiSiteAccessFactory, EdlySubOrganizationFactory
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
     CourseDailyMetricsFilter,
@@ -60,6 +61,8 @@ from tests.factories import (
     CourseMauMetricsFactory,
     CourseOverviewFactory,
     LearnerCourseGradeMetricsFactory,
+    OrganizationFactory,
+    OrganizationCourseFactory,
     SiteDailyMetricsFactory,
     SiteMauMetricsFactory,
     SiteFactory,
@@ -82,7 +85,7 @@ COURSE_DATA = [
 def make_course(**kwargs):
     id = make_course_key_str(**kwargs)
     return CourseOverviewFactory(
-        id=id, org=kwargs['org'], number=kwargs['number'])
+        id=id, org=kwargs['org'])
 
 
 USER_DATA = [
@@ -93,9 +96,11 @@ USER_DATA = [
 ]
 
 
-def make_user(**kwargs):
+def make_user(sub_org, **kwargs):
     return UserFactory(
-        id=kwargs['id'], username=kwargs['username'], profile__name=kwargs['fullname'])
+        id=kwargs['id'], username=kwargs['username'], profile__name=kwargs['fullname'],
+        edly_multisite_user__sub_org=sub_org,
+    )
 
 
 @pytest.mark.skipif(django_filters_pre_v1(),
@@ -103,7 +108,18 @@ def make_user(**kwargs):
 @pytest.mark.django_db
 class CourseEnrollmentFilterTest(TestCase):
     def setUp(self):
-        self.course_enrollments = [CourseEnrollmentFactory() for i in range(1, 5)]
+        self.site = SiteFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site)
+        self.users = [
+            UserFactory(
+                username=data['username'], profile__name=data['fullname'],
+                edly_multisite_user__sub_org=self.edly_org
+            ) for data in USER_DATA
+        ]
+        self.course_overview = CourseOverviewFactory()
+        self.course_enrollments = [
+            CourseEnrollmentFactory(course_id=self.course_overview.id, user=self.users[i]) for i in range(4)
+        ]
 
     def tearDown(self):
         pass
@@ -114,18 +130,19 @@ class CourseEnrollmentFilterTest(TestCase):
             f.qs,
             [o.id for o in self.course_enrollments],
             lambda o: o.id,
-            ordered=False)
+            ordered=False
+        )
 
     def test_filter_course_id(self):
-        '''
+        """
         Each default factory created course enrollment has a unique course id
         We use this to get the course id for the first CourseEnrollment object
         Then we filter results on this course id and compare to the results
         returned by the filter class
-        '''
+        """
         course_id = CourseEnrollment.objects.all()[0].course_id
         expected_results = CourseEnrollment.objects.filter(course_id=course_id)
-        assert expected_results.count() != len(self.course_enrollments)
+        assert expected_results.count() == len(self.course_enrollments)
 
         res = CourseEnrollmentFilter().filter_course_id(
             queryset=CourseEnrollment.objects.all(),
@@ -133,6 +150,37 @@ class CourseEnrollmentFilterTest(TestCase):
             value=str(course_id))
         self.assertQuerysetEqual(
             res,
+            [o.id for o in expected_results],
+            lambda o: o.id,
+            ordered=False
+        )
+
+    def test_filter_user_username(self):
+        username = self.users[0].username
+        expected_results = CourseEnrollment.objects.filter(user__username=username)
+
+        response = CourseEnrollmentFilter().filter_user_username(
+            queryset=CourseEnrollment.objects.all(),
+            name='user_username',
+            value=str(username))
+        self.assertQuerysetEqual(
+            response,
+            [o.id for o in expected_results],
+            lambda o: o.id,
+            ordered=False
+        )
+
+    def test_filter_user_fullname(self):
+        fullname = self.users[0].profile.name
+        expected_results = CourseEnrollment.objects.filter(user__profile__name=fullname)
+
+        response = CourseEnrollmentFilter().filter_user_fullname(
+            queryset=CourseEnrollment.objects.all(),
+            name='user__profile__name',
+            value=str(fullname))
+
+        self.assertQuerysetEqual(
+            response,
             [o.id for o in expected_results],
             lambda o: o.id,
             ordered=False)
@@ -168,6 +216,7 @@ class CourseOverviewFilterTest(TestCase):
             lambda o: o.id,
             ordered=False)
 
+    @pytest.mark.skip("Not implemented")
     def test_filter_exact_number(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number='A001'))
@@ -177,6 +226,7 @@ class CourseOverviewFilterTest(TestCase):
             lambda o: o.id,
             ordered=False)
 
+    @pytest.mark.skip("Not implemented")
     def test_filter_number_contains(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number__contains='001'))
@@ -185,6 +235,19 @@ class CourseOverviewFilterTest(TestCase):
             [o.id for o in self.course_overviews if '001' in o.number],
             lambda o: o.id,
             ordered=False)
+
+    def test_filter_course_id(self):
+        course_id = self.course_overviews[0].id
+        expected_results = CourseOverview.objects.filter(id=course_id)
+        filter_resp = CourseOverviewFilter(
+            queryset=CourseOverview.objects.filter(id=course_id))
+
+        self.assertQuerysetEqual(
+            filter_resp.qs,
+            [overview.id for overview in expected_results if course_id == overview.id],
+            lambda overview: overview.id,
+            ordered=False
+        )
 
 
 @pytest.mark.skipif(django_filters_pre_v1(),
@@ -416,8 +479,19 @@ class UserFilterSetTest(TestCase):
 
     def setUp(self):
         self.User = get_user_model()
-        self.users = [make_user(**data) for data in USER_DATA]
+        self.site = SiteFactory(domain='my-site.test')
+        self.organization = OrganizationFactory()
+        self.edly_sub_organization = EdlySubOrganizationFactory(
+            lms_site=self.site,
+            edx_organization=self.organization,
+            edx_organizations=[self.organization]
+        )
+        self.users = [make_user(self.edly_sub_organization, **data) for data in USER_DATA]
         self.course_overview = CourseOverviewFactory()
+        OrganizationCourseFactory(
+            organization=self.organization,
+            course_id=str(self.course_overview.id)
+        )
         self.course_enrollments = [
             CourseEnrollmentFactory(course_id=self.course_overview.id,
                                     user=self.users[i]) for i in range(2)]

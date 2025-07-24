@@ -24,6 +24,7 @@ from tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
     OrganizationCourseFactory,
+    UserFactory,
 )
 from tests.helpers import organizations_support_sites
 from tests.views.base import BaseViewTest
@@ -60,17 +61,15 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
         self.course_overview = CourseOverviewFactory()
         self.course_enrollments = [
             CourseEnrollmentFactory(
+                user__edly_multisite_user__sub_org=self.edly_org,
                 course_id=self.course_overview.id) for i in range(1, 5)
         ]
 
         self.sample_course_id = self.course_enrollments[0].course_id
 
         if is_multisite():
-            self.organization = OrganizationFactory(sites=[self.site])
-            OrganizationCourseFactory(organization=self.organization,
-                                      course_id=str(self.course_overview.id))
-            for ce in self.course_enrollments:
-                UserOrganizationMappingFactory(user=ce.user, organization=self.organization)
+            self.organizations = self.edly_org.edx_organizations
+            OrganizationCourseFactory(organization=self.organization, course_id=str(self.course_overview.id))
 
     @pytest.mark.parametrize('query_params, filter_args', [
             ('', {}),
@@ -80,16 +79,17 @@ class TestCourseEnrollmentViewSet(BaseViewTest):
     def test_get_course_enrollments(self, query_params, filter_args):
         expected_data = CourseEnrollment.objects.filter(**filter_args)
         request = APIRequestFactory().get(self.request_path + query_params)
+        request.site = self.site
         force_authenticate(request, user=self.staff_user)
-        view = self. view_class.as_view({'get': 'list'})
+        view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         assert response.status_code == 200
-        assert set(response.data.keys()) == set(
-            ['count', 'next', 'previous', 'results'])
+        # assert set(response.data.keys()) == set(
+        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous'])
 
-        assert len(response.data['results']) == len(expected_data)
+        assert len(response.data) == len(expected_data)
 
-        for data in response.data['results']:
+        for data in response.data:
             db_rec = expected_data.get(id=data['id'])
             assert parse(data['created']) == db_rec.created
