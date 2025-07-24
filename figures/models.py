@@ -12,7 +12,6 @@ from django.contrib.sites.models import Site
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F
-from django.utils.encoding import python_2_unicode_compatible
 
 from jsonfield import JSONField
 
@@ -32,7 +31,6 @@ def default_site():
     return settings.SITE_ID
 
 
-@python_2_unicode_compatible
 class CourseDailyMetrics(TimeStampedModel):
     """Metrics data specific to an individual course
 
@@ -95,7 +93,6 @@ class CourseDailyMetrics(TimeStampedModel):
         return cls.objects.filter(**filter_args).order_by('-date_for').first()
 
 
-@python_2_unicode_compatible
 class SiteDailyMetrics(TimeStampedModel):
     """
     Stores metrics for a given site and day
@@ -158,7 +155,6 @@ class SiteDailyMetrics(TimeStampedModel):
         return recs[0] if recs else None
 
 
-@python_2_unicode_compatible
 class SiteMonthlyMetrics(TimeStampedModel):
     """
     Stores metrics for a given site and month
@@ -341,7 +337,6 @@ class EnrollmentDataManager(models.Manager):
             return ed_recs[0], False
 
 
-@python_2_unicode_compatible
 class EnrollmentData(TimeStampedModel):
     """Tracks most recent enrollment data for an enrollment
 
@@ -489,7 +484,6 @@ class LearnerCourseGradeMetricsManager(models.Manager):
         return self.raw(statement.format(site=site))
 
 
-@python_2_unicode_compatible
 class LearnerCourseGradeMetrics(TimeStampedModel):
     """This model stores metrics for a learner and course on a given date
 
@@ -624,7 +618,6 @@ class MonthlyActiveEnrollmentManager(models.Manager):
             month_for=month_for)
 
 
-@python_2_unicode_compatible
 class MonthlyActiveEnrollment(TimeStampedModel):
     """Capture enrollment activity for a given month
 
@@ -647,7 +640,6 @@ class MonthlyActiveEnrollment(TimeStampedModel):
             self.id, self.site.domain, self.course_id, self.user.username, self.month_for)
 
 
-@python_2_unicode_compatible
 class PipelineError(TimeStampedModel):
     """
     Captures errors when running Figures pipeline.
@@ -717,7 +709,6 @@ class SiteMauMetricsManager(models.Manager):
         return queryset.order_by('-modified').first()
 
 
-@python_2_unicode_compatible
 class SiteMauMetrics(BaseDateMetricsModel):
 
     mau = models.IntegerField()
@@ -767,7 +758,6 @@ class CourseMauMetricsManager(models.Manager):
         return queryset.order_by('-modified').first()
 
 
-@python_2_unicode_compatible
 class CourseMauMetrics(BaseDateMetricsModel):
     course_id = models.CharField(max_length=255)
     mau = models.IntegerField()
