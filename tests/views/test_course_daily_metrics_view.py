@@ -35,7 +35,7 @@ class TestCourseDailyMetricsView(BaseViewTest):
     '''Tests the viewset for CourseDailyMetrics
 
     Notes:
-    * This test class duplicates some of the code in 
+    * This test class duplicates some of the code in
         test_serializers.TestCourseDailyMetricsSerializer
     * This test class shares duplicate code with TestSiteDailyMetricsView. So
       we probably want to create a common test class for the common code
@@ -43,7 +43,7 @@ class TestCourseDailyMetricsView(BaseViewTest):
     We might want to do the date handling/comparing code as a mix-in
 
     TODO: After we finish and commit the view test for this, set the serialization
-    type for the dates. This should simplify this a lot 
+    type for the dates. This should simplify this a lot
     # http://www.django-rest-framework.org/api-guide/fields/#date-and-time-fields
     '''
 
@@ -138,6 +138,7 @@ class TestCourseDailyMetricsView(BaseViewTest):
             course_id='course-v1:SomeOrg+ABC01+2121',
             enrollment_count=11,
             active_learners_today=1,
+            active_learners_this_month=1,
             average_progress=0.5,
             average_days_to_complete=5,
             num_learners_completed=10

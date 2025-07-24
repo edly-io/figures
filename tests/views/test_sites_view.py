@@ -25,7 +25,7 @@ class TestSiteViewSet(BaseViewTest):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         super(TestSiteViewSet, self).setup(db)
-        assert Site.objects.count() == 1
+        assert Site.objects.count() == 2
         self.sites = [
             Site.objects.first(),
             SiteFactory(domain=u'alpha.test.site', name=u'Alpha Group'),
@@ -76,9 +76,11 @@ class TestSiteViewSet(BaseViewTest):
 
         def test_site(request):
             return foo_site
+
         request = APIRequestFactory().get(self.request_path)
         request.META['HTTP_HOST'] = foo_site.domain
         request.user = self.staff_user
+        request.site = foo_site
         monkeypatch.setattr(django.contrib.sites.shortcuts, 'get_current_site', test_site)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)

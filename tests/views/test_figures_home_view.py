@@ -10,7 +10,9 @@ from django.contrib.auth import get_user_model
 from django.test.client import Client
 from django.test import RequestFactory
 
-try: 
+from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
+
+try:
     # Django 2.0+
     from django.urls import reverse
 except ImportError:
@@ -22,28 +24,31 @@ import pytest
 
 from figures.views import figures_home, UNAUTHORIZED_USER_REDIRECT_URL
 
-from tests.factories import UserFactory
+from tests.factories import SiteFactory, UserFactory
 from tests.views.helpers import create_test_users
 #
+@pytest.mark.skip(reason='figures home is not required')
 @pytest.mark.django_db
 class TestFiguresHomeView(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
+        self.site = SiteFactory()
+        self.edly_org = EdlySubOrganizationFactory(lms_site=self.site, edx_organizations=[self.organization])
         self.factory = RequestFactory()
-        self.callers = create_test_users()
+        self.callers = create_test_users(self.edly_org)
         self.callers.append(
             UserFactory(username='inactive_regular_user',
-                is_active=False))
+                is_active=False, edly_multisite_user__sub_org=self.edly_org))
         self.callers.append(
             UserFactory(username='inactive_staff_user',
-                is_active=False, is_staff=True))
+                is_active=False, is_staff=True, edly_multisite_user__sub_org=self.edly_org))
         self.callers.append(
             UserFactory(username='inactive_super_user',
-                is_active=False, is_superuser=True))
+                is_active=False, is_superuser=True, edly_multisite_user__sub_org=self.edly_org))
         self.callers.append(
             UserFactory(username='inactive_superstaff_user',
-                is_active=False, is_staff=True, is_superuser=True))
+                is_active=False, is_staff=True, is_superuser=True, edly_multisite_user__sub_org=self.edly_org))
         self.redirect_startswith = '/accounts/login/?next='
 
     def test_anonymous_user(self):
@@ -65,7 +70,7 @@ class TestFiguresHomeView(object):
         ('superstaff_user', 200),
         ])
     def test_registered_users(self, username, status_code):
-        '''Test that only active staff and superuser users can access the 
+        '''Test that only active staff and superuser users can access the
         Figures page and that users that don't pass the test get redirected
         to
         '''

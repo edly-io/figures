@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from django.contrib.auth.models import User
 
 from openedx.core.djangoapps.xmodule_django.models import CourseKeyField
-from student.models import CourseAccessRole
+from common.djangoapps.student.models  import CourseAccessRole
 
 class MockCourseRole(object):
     '''
