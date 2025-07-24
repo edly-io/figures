@@ -12,7 +12,6 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from figures.views import CourseMonthlyMetricsViewSet
 
-from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 from tests.factories import (
     CourseOverviewFactory,
     CourseEnrollmentFactory,
@@ -67,7 +66,6 @@ def course_test_data():
     else:
         org = OrganizationFactory()
 
-    EdlySubOrganizationFactory(edx_organizations=[org], lms_site=site)
     OrganizationCourseFactory(organization=org,
                               course_id=str(course_overview.id))
 
@@ -107,7 +105,6 @@ def sog_data():
         organization = OrganizationFactory(sites=[site])
     else:
         organization = OrganizationFactory()
-    EdlySubOrganizationFactory(edx_organizations=[organization], lms_site=site)
     OrganizationCourseFactory(organization=organization,
                               course_id=str(course_overview.id))
     return dict(

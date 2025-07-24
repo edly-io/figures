@@ -59,7 +59,6 @@ class TestCourseDailyMetrics(object):
             defaults=dict(
                 enrollment_count=11,
                 active_learners_today=1,
-                active_learners_this_month=1,
                 average_progress=0.5,
                 average_days_to_complete=5,
                 num_learners_completed=10
@@ -81,8 +80,7 @@ class TestCourseDailyMetrics(object):
             'average_days_to_complete': 0.0,
             'course_id': CourseLocator(u'certs-appsembler', u'001', u'2019', None, None),
             'date_for': date_for,
-            'active_learners_today': 0,
-            'active_learners_this_month': 0}
+            'active_learners_today': 0}
 
         cdm, created = CourseDailyMetrics.objects.update_or_create(
             course_id=course_id,
@@ -91,7 +89,6 @@ class TestCourseDailyMetrics(object):
             defaults=dict(
                 enrollment_count=data['enrollment_count'],
                 active_learners_today=data['active_learners_today'],
-                active_learners_this_month=data['active_learners_this_month'],
                 average_progress=data['average_progress'],
                 average_days_to_complete=1,  # int(round(data['average_days_to_complete'])),
                 num_learners_completed=0,  # data['num_learners_completed'],
@@ -110,7 +107,6 @@ class TestCourseDailyMetrics(object):
             course_id='course-v1:SomeOrg+ABC01+2121',
             enrollment_count=11,
             active_learners_today=1,
-            active_learners_this_month=1,
             average_progress=average_progress,
             average_days_to_complete=5,
             num_learners_completed=10
@@ -135,7 +131,6 @@ class TestCourseDailyMetrics(object):
             course_id='course-v1:SomeOrg+ABC01+2121',
             enrollment_count=11,
             active_learners_today=1,
-            active_learners_this_month=1,
             average_progress=str(average_progress),
             average_days_to_complete=5,
             num_learners_completed=10
@@ -158,7 +153,6 @@ class TestCourseDailyMetrics(object):
             defaults=dict(
                 enrollment_count=11,
                 active_learners_today=1,
-                active_learners_this_month=1,
                 average_progress=str(average_progress),
                 average_days_to_complete=5,
                 num_learners_completed=10,
@@ -181,7 +175,6 @@ class TestCourseDailyMetrics(object):
             date_for=datetime.date(2018, 2, 2),
             enrollment_count=11,
             active_learners_today=1,
-            active_learners_this_month=1,
             average_progress=0.5,
             average_days_to_complete=5,
             num_learners_completed=10
@@ -216,7 +209,6 @@ class TestCourseDailyMetrics(object):
             course_id='course-v1:SomeOrg+ABC01+2121',
             enrollment_count=11,
             active_learners_today=1,
-            active_learners_this_month=1,
             average_progress=0.5,
             average_days_to_complete=5,
             num_learners_completed=10

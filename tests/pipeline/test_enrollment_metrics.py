@@ -69,7 +69,7 @@ def test_bulk_calculate_course_progress_data_happy_path(db, monkeypatch):
     # monkeypatch.setattr('figures.pipeline.enrollment_metrics.student_modules_for_course_enrollment',
     #                     mock_get_student_modules)
     monkeypatch.setattr('figures.pipeline.enrollment_metrics.student_modules_for_course_enrollment',
-                        lambda *args, **_kwargs: StudentModule.objects.all())
+                        lambda **_kwargs: StudentModule.objects.all())
     data = bulk_calculate_course_progress_data(course_overview.id)
     assert data['average_progress'] == 0.5
 
@@ -156,8 +156,7 @@ class TestCollectMetricsForEnrollment(object):
         else:
             self.org = OrganizationFactory()
 
-        previous_month = self.today + relativedelta(months=-1)
-        self.datetime_1 = datetime(previous_month.year, previous_month.month, previous_month.day, tzinfo=utc)
+        self.datetime_1 = datetime(2020, 2, 2, tzinfo=utc)
         self.datetime_2 = self.datetime_1 + relativedelta(months=1)  # future of date_1
         self.course_overview = CourseOverviewFactory()
         self.course_enrollment = CourseEnrollmentFactory(course_id=self.course_overview.id)
@@ -252,6 +251,7 @@ class TestCollectMetricsForEnrollment(object):
                             lambda val: self.progress_data)
 
         # assert isinstance(lcgm.date_for, date)
+        # import pdb; pdb.set_trace()
         assert _enrollment_metrics_needs_update(lcgm, self.learner_sm[0])
         metrics = collect_metrics_for_enrollment(site=self.site,
                                                  course_enrollment=self.course_enrollment,
@@ -320,7 +320,7 @@ class TestCollectMetricsForEnrollment(object):
         if organizations_support_sites():
             UserOrganizationMappingFactory(organization=self.org, user=ce.user)
         lcgm = LearnerCourseGradeMetricsFactory(course_id=ce.course_id, user=ce.user)
-
+        
         ce_sm = StudentModule.objects.filter(course_id=ce.course_id, student_id=ce.user.id)
         assert not ce_sm
         metrics = collect_metrics_for_enrollment(site=self.site,
@@ -368,6 +368,7 @@ class TestEnrollmentMetricsUpdateCheck(object):
         assert not _enrollment_metrics_needs_update(lcgm, None)
         last_log = caplog.records[-1]
         assert last_log.message.startswith('FIGURES:PIPELINE:LCGM')
+        # import pdb; pdb.set_trace()
         assert lcgm.course_id in last_log.message
         assert str(lcgm.id) in last_log.message
         assert str(lcgm.user.id) in last_log.message
@@ -376,7 +377,7 @@ class TestEnrollmentMetricsUpdateCheck(object):
     def test_dates_lcgm_is_current_is_false(self):
         lcgm = LearnerCourseGradeMetricsFactory(
             date_for=self.student_module.modified.date())
-        assert _enrollment_metrics_needs_update(lcgm, self.student_module)
+        assert not _enrollment_metrics_needs_update(lcgm, self.student_module)
 
     def test_dates_lcgm_is_future_is_false(self):
         """
@@ -410,12 +411,7 @@ class TestAddEnrollmentMetricsRecord(object):
             points_possible=10,
             points_earned=5,
             count=22,  # sections possible
-            sections_worked=11,
-            grade=dict(
-                percent_grade=1.0,
-                letter_grade='PASS',
-                passed_timestamp=datetime.now(),
-            ),
+            sections_worked=11
         )
         obj = _new_enrollment_metrics_record(site=self.site,
                                              course_enrollment=self.course_enrollment,
@@ -424,7 +420,6 @@ class TestAddEnrollmentMetricsRecord(object):
         assert obj
 
 
-@pytest.mark.skip()
 @pytest.mark.django_db
 def test_collect_progress_data(db, monkeypatch):
     """Tests the `_collect_progress_data` function
@@ -440,10 +435,6 @@ def test_collect_progress_data(db, monkeypatch):
 
     # Simply checking the keys
     assert set(progress_data.keys()) == set(['count',
-                                             'grade',
-                                             'passed_timestamp',
-                                             'passed_timestamp',
                                              'sections_worked',
                                              'points_possible',
-                                             'points_earned',
-                                             'total_progress_percent'])
+                                             'points_earned'])

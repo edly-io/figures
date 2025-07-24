@@ -50,32 +50,15 @@ from __future__ import absolute_import
 from datetime import datetime
 from decimal import Decimal
 import logging
-import time
 
 from django.utils.timezone import utc
-from django.db.models.functions import Coalesce
-from django.db.models import Sum, Case, When, IntegerField
-
-from completion.models import BlockCompletion
-from opaque_keys.edx.keys import CourseKey
-from openedx.core.djangoapps.content.block_structure.api import get_course_in_cache
-
-from edly_panel_app.api.v1.helpers import (
-    accumulate_total_block_counts,
-    serialize_course_block_structure,
-)
 
 from figures.metrics import LearnerCourseGrades
-from figures.models import LearnerCourseGradeMetrics, PipelineError
-from figures.pipeline.logger import log_error
-from figures.sites import (
-    get_site_for_course,
-    student_modules_for_course_enrollment,
-    course_enrollments_for_course,
-    UnlinkedCourseError,
-)
-from common.djangoapps.student.models import User
-from edx_django_utils.db.read_replica import read_replica_or_default
+from figures.models import LearnerCourseGradeMetrics
+from figures.sites import (get_site_for_course,
+                           course_enrollments_for_course,
+                           student_modules_for_course_enrollment,
+                           UnlinkedCourseError)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +90,9 @@ def bulk_calculate_course_progress_data(course_id, date_for=None):
     # enrollment (CE) records as we can ignore any learners without SM records
     # since that means they don't have any course progress
     for ce in course_enrollments_for_course(course_id):
-        sm = student_modules_for_course_enrollment(ce).order_by('-modified')
+        sm = student_modules_for_course_enrollment(
+            site=site,
+            course_enrollment=ce).order_by('-modified')
         if sm:
             metrics = collect_metrics_for_enrollment(site=site,
                                                      course_enrollment=ce,
@@ -177,12 +162,11 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
     # The following are two different ways to avoide the dreaded error
     #     "Instance of 'list' has no 'order_by' member (no-member)"
     # See: https://github.com/PyCQA/pylint-django/issues/165
-    student_modules = student_modules.filter(
-        student_id=course_enrollment.user.id).using(read_replica_or_default()).order_by('-modified')
-    if student_modules:
-        most_recent_sm = student_modules[0]
-    else:
-        most_recent_sm = None
+
+    if not student_modules:
+        student_modules = student_modules_for_course_enrollment(
+            site=site,
+            course_enrollment=course_enrollment).order_by('-modified')
 
     # check if there are any StudentModule records for the enrollment
     # if not, no progress to report
@@ -193,10 +177,9 @@ def collect_metrics_for_enrollment(site, course_enrollment, date_for, student_mo
         return None
 
     most_recent_sm = student_modules[0]
-    lcgm = LearnerCourseGradeMetrics.objects.filter(
+    most_recent_lcgm = LearnerCourseGradeMetrics.objects.latest_lcgm(
         user=course_enrollment.user,
-        course_id=str(course_enrollment.course_id)).using(read_replica_or_default())
-    most_recent_lcgm = lcgm.order_by('date_for').last()  # pylint: disable=E1101
+        course_id=course_enrollment.course_id)
 
     if _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
         progress_data = _collect_progress_data(most_recent_sm)
@@ -254,7 +237,7 @@ def _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
         needs_update = False
     elif most_recent_lcgm and most_recent_sm:
         # Learner has past course activity
-        needs_update = most_recent_lcgm.date_for <= most_recent_sm.modified.date()
+        needs_update = most_recent_lcgm.date_for < most_recent_sm.modified.date()
     elif not most_recent_lcgm and most_recent_sm:
         # No LCGM recs, so Learner started on course after last collection
         # This could also happen
@@ -284,23 +267,16 @@ def _enrollment_metrics_needs_update(most_recent_lcgm, most_recent_sm):
 def _new_enrollment_metrics_record(site, course_enrollment, progress_data, date_for):
     """Convenience function to save progress metrics to Figures
     """
-    enrollment_metrics = LearnerCourseGradeMetrics.objects.update_or_create(
-        defaults={
-            'points_possible': progress_data['points_possible'],
-            'points_earned': progress_data['points_earned'],
-            'sections_worked': progress_data['sections_worked'],
-            'sections_possible': progress_data['count'],
-            'percent_grade': progress_data.get('grade', {}).get('percent_grade', 0.0),
-            'letter_grade': progress_data.get('grade', {}).get('letter_grade', ''),
-            'passed_timestamp': progress_data.get('passed_timestamp', None),
-            'total_progress_percent': progress_data.get('total_progress_percent', 0.0),
-        },
+    return LearnerCourseGradeMetrics.objects.create(
         site=site,
         user=course_enrollment.user,
         course_id=str(course_enrollment.course_id),
         date_for=date_for,
-    )
-    return enrollment_metrics[0]
+        points_possible=progress_data['points_possible'],
+        points_earned=progress_data['points_earned'],
+        sections_worked=progress_data['sections_worked'],
+        sections_possible=progress_data['count']
+        )
 
 
 def _collect_progress_data(student_module):
@@ -309,52 +285,7 @@ def _collect_progress_data(student_module):
     Uses `figures.metrics.LearnerCourseGrades` to retrieve progress data via
     `CourseGradeFactory().read(...)` and calculate progress percentage
     """
-    logger.info('collect_progress_data. Start. course id = "{}", user = {}'.format(
-    student_module.course_id, student_module.student_id))
-    start_time = time.time()
     lcg = LearnerCourseGrades(user_id=student_module.student_id,
                               course_id=student_module.course_id)
     course_progress_details = lcg.progress()
-    course_progress_details['total_progress_percent'] = _collect_total_progress_data(
-        user_id=student_module.student_id,
-        course_id=str(student_module.course_id)
-    )
-
-    elapsed_time = time.time() - start_time
-    logger.info('collect_progress_data. Done. Elapsed time (seconds)={}.'.format(
-        elapsed_time))
     return course_progress_details
-
-
-def _collect_total_progress_data(user_id, course_id):
-    """
-    Get total course progress data for the learner
-    """
-    user = User.objects.get(id=user_id)
-    course_key = CourseKey.from_string(course_id)
-    completed_percentage = 0.0
-
-    if not course_key:
-        return completed_percentage
-
-    course_block_structure = get_course_in_cache(course_key)
-    serialized_course_block_structure, course_blocks_keys = serialize_course_block_structure(
-        request={},
-        course_block_structure=course_block_structure
-    )
-
-    total_block_types = accumulate_total_block_counts(
-        list(serialized_course_block_structure.get('blocks').values())[0].get('block_counts')
-    )
-    total_blocks = sum(total_block_types.values())
-
-    completions = BlockCompletion.user_learning_context_completion_queryset(user, course_key)
-    valid_completions = [completion for completion in completions if completion.block_key in course_blocks_keys]
-    total_completed_blocks = len(valid_completions)
-
-    if not total_blocks == 0:
-        completed_percentage = float(total_completed_blocks) / float(total_blocks)
-    else:
-        completed_percentage = 0.0
-
-    return completed_percentage

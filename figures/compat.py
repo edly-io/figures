@@ -46,6 +46,7 @@ except ImportError:
         'Unidentified Open edX release: '
         'figures.compat could not import openedx.core.release.RELEASE_LINE')
 
+
 if RELEASE_LINE == 'ginkgo':
     from lms.djangoapps.grades.new.course_grade_factory import CourseGradeFactory  # noqa pylint: disable=unused-import,import-error
 else:  # Assume Hawthorn or greater
@@ -71,14 +72,12 @@ if RELEASE_LINE == 'ginkgo':
 else:  # Assume Hawthorn or greater
     from opaque_keys.edx.django.models import CourseKeyField  # noqa pylint: disable=unused-import,import-error
 
+
 # preemptive addition. Added it here to avoid adding to figures.models
 # In fact, we should probably do a refactoring that makes all Figures import it
 # from here
 from common.djangoapps.student.models import CourseAccessRole, CourseEnrollment  # noqa pylint: disable=unused-import,import-error
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=unused-import,import-error
-
-from lms.djangoapps.grades.models import PersistentCourseGrade
-from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 def course_grade(learner, course):
@@ -88,33 +87,9 @@ def course_grade(learner, course):
     Returns the course grade for the specified learner and course
     """
     if RELEASE_LINE == 'ginkgo':
-        course_grade = CourseGradeFactory().create(learner, course)
+        return CourseGradeFactory().create(learner, course)
     else:  # Assume Hawthorn or greater
         return CourseGradeFactory().read(learner, course)
-    
-
-def course_grade_from_course_id(learner, course_id):
-    """Get the edx-platform's course grade for this enrollment
-
-    IMPORTANT: Do not use in API calls as this is an expensive operation.
-    Only use in async or pipeline.
-
-    We handle the exception so that we return a specific `CourseNotFound`
-    instead of the non-specific `Http404`
-    edx-platform `get_course_by_id` function raises a generic `Http404` if it
-    cannot find a course in modulestore. We trap this and raise our own
-    `CourseNotFound` exception as it is more specific.
-
-    TODO: Consider optional kwarg param or Figures setting to log performance.
-          Bonus points: Make id a decorator
-    """
-    try:
-        course = get_course_by_id(course_key=as_course_key(course_id))
-    except Http404:
-        raise CourseNotFound('{}'.format(str(course_id)))
-    course._field_data_cache = {}  # pylint: disable=protected-access
-    course.set_grading_policy(course.grading_policy)
-    return course_grade(learner, course)
 
 
 def course_grade_from_course_id(learner, course_id):

@@ -21,8 +21,7 @@ TODO: Rename classes so they eiher all end with "Filter" or "FilterSet" then
 from __future__ import absolute_import
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.db.models import F, Q, Value
-from django.db.models.functions import NullIf
+from django.db.models import F
 
 import django_filters
 
@@ -37,9 +36,6 @@ from figures.models import (
     LearnerCourseGradeMetrics,
     SiteMauMetrics,
 )
-from edx_django_utils.db.read_replica import read_replica_or_default
-from rest_framework import filters
-from django.conf import settings
 
 
 def hack_get_version(version_string):
@@ -54,54 +50,6 @@ def hack_get_version(version_string):
     requiring the extra step of installing `packaging`
     """
     return [int(val) for val in version_string.split('.')]
-
-
-DJANGO_FILTERS_VERSION = hack_get_version(django_filters.__version__)
-
-
-def char_filter(field_name, lookup_expr, **_kwargs):
-    """For backwards compatibility.
-
-    We require both `field_name` and `lookup_expr` to minimize the work this
-    function needs to do by not needing to conditionally check for the
-    `field_name` parameter.
-
-    Adapted from this PR:
-    https://github.com/appsembler/figures/pull/264/files#diff-ccfc20c64a04dae3fe94285d727a3aa2R79
-
-    And we'll need to replace the code in PR 264 with this function
-    """
-    if DJANGO_FILTERS_VERSION[0] < 1:
-        return django_filters.CharFilter(name=field_name,
-                                         lookup_type=lookup_expr, **_kwargs)
-    elif DJANGO_FILTERS_VERSION[0] < 2:
-        return django_filters.CharFilter(name=field_name, lookup_expr=lookup_expr, **_kwargs)
-    else:
-        return django_filters.CharFilter(field_name=field_name, lookup_expr=lookup_expr, **_kwargs)
-
-
-DJANGO_FILTERS_VERSION = hack_get_version(django_filters.__version__)
-
-
-def char_filter(field_name, lookup_expr, **_kwargs):
-    """For backwards compatibility.
-
-    We require both `field_name` and `lookup_expr` to minimize the work this
-    function needs to do by not needing to conditionally check for the
-    `field_name` parameter.
-
-    Adapted from this PR:
-    https://github.com/appsembler/figures/pull/264/files#diff-ccfc20c64a04dae3fe94285d727a3aa2R79
-
-    And we'll need to replace the code in PR 264 with this function
-    """
-    if DJANGO_FILTERS_VERSION[0] < 1:
-        return django_filters.CharFilter(name=field_name,
-                                         lookup_type=lookup_expr, **_kwargs)
-    elif DJANGO_FILTERS_VERSION[0] < 2:
-        return django_filters.CharFilter(name=field_name, lookup_expr=lookup_expr, **_kwargs)
-    else:
-        return django_filters.CharFilter(field_name=field_name, lookup_expr=lookup_expr, **_kwargs)
 
 
 DJANGO_FILTERS_VERSION = hack_get_version(django_filters.__version__)
@@ -256,17 +204,14 @@ class CourseOverviewFilter(django_filters.FilterSet):
 
 
 class CourseEnrollmentFilter(django_filters.FilterSet):
-    """
-    Provides filtering for the CourseEnrollment model objects
-    """
+    '''Provides filtering for the CourseEnrollment model objects
 
+    '''
     course_id = char_method_filter(method='filter_course_id')
-    username = char_method_filter(method='filter_user_username')
-    fullname = char_method_filter(method='filter_user_fullname')
-    is_active = boolean_filter(field_name='is_active', )
+    is_active = boolean_filter(field_name='is_active')
 
     def filter_course_id(self, queryset, name, value):  # pylint: disable=unused-argument
-        """
+        '''
 
         This method converts the course id string to a CourseLocator object
         and returns the filtered queryset. This is required because
@@ -275,25 +220,13 @@ class CourseEnrollmentFilter(django_filters.FilterSet):
         Query parameters with plus signs '+' in the string are automatically
         replaced with spaces, so we need to put the '+' back in for CourseKey
         to be able to create a course key object from the string
-        """
+        '''
         course_key = CourseKey.from_string(value.replace(' ', '+'))
-        return queryset.filter(course_id=course_key).using(read_replica_or_default())
-
-    def filter_user_username(self, queryset, name, value):  # pylint: disable=unused-argument
-        """
-        Filter by User's username
-        """
-        return queryset.filter(user__username__iexact=value)
-
-    def filter_user_fullname(self, queryset, name, value):  # pylint: disable=unused-argument
-        """
-        Filter by User's full name
-        """
-        return queryset.filter(user__profile__name=value).using(read_replica_or_default())
+        return queryset.filter(course_id=course_key)
 
     class Meta:
         model = CourseEnrollment
-        fields = ['course_id', 'user_id', 'username', 'fullname', 'is_active']
+        fields = ['course_id', 'user_id', 'is_active', ]
 
 
 class EnrollmentMetricsFilter(CourseEnrollmentFilter):
@@ -337,7 +270,7 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
 
     def filter_course_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         course_ids = [cid.replace(' ', '+') for cid in value.split(',')]
-        return queryset.filter(course_id__in=course_ids).using(read_replica_or_default())
+        return queryset.filter(course_id__in=course_ids)
 
     def filter_user_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         """
@@ -350,10 +283,8 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
         The "value" parameter is either `True` or `False`
         """
         if value is True:
-            return queryset.filter(
-                sections_possible__gt=0,
-                sections_worked=F('sections_possible')
-            ).using(read_replica_or_default())
+            return queryset.filter(sections_possible__gt=0,
+                                   sections_worked=F('sections_possible'))
         else:
             return queryset
 
@@ -363,9 +294,7 @@ class EnrollmentMetricsFilter(CourseEnrollmentFilter):
         """
         if value is True:
             # This is a hack until we add `completed` field to LCGM
-            return queryset.filter(
-                sections_worked__lt=F('sections_possible')
-            ).using(read_replica_or_default())
+            return queryset.filter(sections_worked__lt=F('sections_possible'))
         else:
             return queryset
 
@@ -382,10 +311,10 @@ class UserFilterSet(django_filters.FilterSet):
     is_staff = boolean_filter(field_name='is_staff')
     is_superuser = boolean_filter(field_name='is_superuser')
     username = char_filter(field_name='username',
-                           lookup_expr='iexact',
+                           lookup_expr='icontains',
                            distinct=True)
     email = char_filter(field_name='email',
-                        lookup_expr='iexact',
+                        lookup_expr='icontains',
                         distinct=True)
     name = char_filter(field_name='profile__name',
                        lookup_expr='icontains',
@@ -402,7 +331,7 @@ class UserFilterSet(django_filters.FilterSet):
 
     def filter_user_ids(self, queryset, name, value):  # pylint: disable=unused-argument
         user_ids = [user_id for user_id in value.split(',') if user_id.isdigit()]
-        return queryset.filter(id__in=user_ids).using(read_replica_or_default())
+        return queryset.filter(id__in=user_ids)
 
     def filter_enrolled_in_course_id(self, queryset,
                                      name, value):  # pylint: disable=unused-argument
@@ -419,72 +348,8 @@ class UserFilterSet(django_filters.FilterSet):
         course_key = CourseKey.from_string(value.replace(' ', '+'))
         enrollments = get_enrolled_in_exclude_admins(course_id=course_key)
         user_ids = enrollments.values_list('user__id', flat=True)
-        return queryset.filter(id__in=user_ids).using(read_replica_or_default())
+        return queryset.filter(id__in=user_ids)
 
-
-class CustomLearnerSearchFilter(filters.SearchFilter):
-    def filter_queryset(self, request, queryset, view):
-
-        search_terms = self.get_search_terms(request)
-
-        if not search_terms:
-            return queryset
-
-        search_queries = Q()
-        for term in search_terms:
-            search_queries |= (
-                Q(original_username__icontains=term) | 
-                Q(original_email__icontains=term)
-            )
-
-        retired_users = queryset.filter(email__startswith=settings.RETIRED_EMAIL_PREFIX)
-
-        from openedx.core.djangoapps.user_api.models import UserRetirementStatus
-        retirement_statuses = UserRetirementStatus.objects.filter(
-            user__in=retired_users
-        ).filter(search_queries)
-
-        return super().filter_queryset(request, queryset, view) | queryset.filter(
-            id__in=retirement_statuses.values_list('user_id', flat=True)
-            )
-
-class NullsLastOrderingFilter(filters.OrderingFilter):
-
-    def filter_queryset(self, request, queryset, view):
-        ordering = self.get_ordering(request, queryset, view)
-        if not ordering:
-            return queryset
-        
-        annotations = {}
-        ordering_expressions = []
-        
-        for field in ordering:
-            clean_field = field.lstrip("-")
-            field_parts = clean_field.split('__')
-            
-            if len(field_parts) > 1:
-                annotation_name = f"{field_parts[0]}_{field_parts[1]}_non_empty"
-                annotations[annotation_name] = NullIf(F(clean_field), Value(''))
-        
-        if annotations:
-            queryset = queryset.annotate(**annotations)
-        
-        for field in ordering:
-            clean_field = field.lstrip("-")
-            is_desc = field.startswith("-")
-            field_parts = clean_field.split('__')
-            
-            if len(field_parts) > 1:
-                order_field = f"{field_parts[0]}_{field_parts[1]}_non_empty"
-            else:
-                order_field = clean_field
-                
-            order_exp = (F(order_field).desc(nulls_last=True) 
-                        if is_desc 
-                        else F(order_field).asc(nulls_last=True))
-            ordering_expressions.append(order_exp)
-        
-        return queryset.order_by(*ordering_expressions)
 
 class CourseDailyMetricsFilter(django_filters.FilterSet):
     '''Provides filtering for the courseDailyMetrics model objects

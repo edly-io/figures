@@ -17,22 +17,22 @@ from tests.factories import (
     GeneratedCertificateFactory,
     )
 
-from tests.helpers import OPENEDX_RELEASE, GINKGO, JUNIPER, HAWTHORN
+from tests.helpers import OPENEDX_RELEASE, GINKGO
 
 # Mock objects to test course and course section grade metrics
 if OPENEDX_RELEASE == GINKGO:
     from lms.djangoapps.grades.new.course_grade import (
         MockAggregatedScore,
         MockSubsectionGrade,
-    )
+        )
 
-elif OPENEDX_RELEASE == HAWTHORN:
+else:
     from lms.djangoapps.grades.course_grade import (
         MockAggregatedScore,
         MockSubsectionGrade,
-    )
+        )
 
-@pytest.mark.skipif(OPENEDX_RELEASE == JUNIPER, reason='Mock functions for course grade no longer exist')
+
 @pytest.mark.django_db
 class TestLearnerCourseGrades(object):
 
@@ -50,9 +50,9 @@ class TestLearnerCourseGrades(object):
         # set up our sections
         # This is a quick job. We can do it cleaner
         # We do want to label each subsection grade
-        # to make it easier to identify them in the
+        # to make it easier to identify them in the 
         # tests
-
+        
         self.msg1 = MockSubsectionGrade(tw_earned=0.0,tw_possible=0.0),
         self.msg2 = MockSubsectionGrade(tw_earned=0.0,tw_possible=0.5)
         self.msg3 = MockSubsectionGrade(tw_earned=0.5,tw_possible=1.0)
@@ -72,10 +72,6 @@ class TestLearnerCourseGrades(object):
                     display_name=u'Module 2 - First Principles',
                     )
             )
-
-        self.lcg.course_grade.letter_grade = 'PASS'
-        self.lcg.course_grade.percent = 1
-        self.lcg.course_grade.passed_timestamp = datetime.datetime.now()
 
     def test_str_rep(self):
         '''Test the string representation, __str__
@@ -167,12 +163,7 @@ class TestLearnerCourseGrades(object):
             points_earned=sum(rec.all_total.earned
                 for rec in self.graded_sections),
             sections_worked=len([rec for rec in self.graded_sections
-                if rec.all_total.earned > 0]),
-            grade=dict(
-                percent_grade=self.lcg.course_grade.percent,
-                letter_grade=self.lcg.course_grade.letter_grade,
-            ),
-            passed_timestamp=self.lcg.course_grade.passed_timestamp
+                if rec.all_total.earned > 0])
         )
         assert progress == expected
 
@@ -201,7 +192,7 @@ class TestLearnerCourseGrades(object):
 # Test LearnerCourseGrades static methods
 #
 
-@pytest.mark.skipif(OPENEDX_RELEASE == JUNIPER, reason='Mock functions for course grade no longer exist')
+
 @pytest.mark.django_db
 def test_lcg_course_progress():
     '''
@@ -214,19 +205,12 @@ def test_lcg_course_progress():
     '''
     expected = dict(
         progress_percent=0.5,
-        total_progress_percent=0.5,
         course_progress_details=dict(
             count=2,
             sections_worked=1,
             points_possible=1.5,
             points_earned=0.5,
-            grade=dict(
-                percent_grade=0.0,
-                letter_grade='',
-            ),
-            passed_timestamp=None
             ))
-
     course_enrollment = CourseEnrollmentFactory()
     course_progress = LearnerCourseGrades.course_progress(course_enrollment)
     assert course_progress == expected

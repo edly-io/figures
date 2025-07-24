@@ -49,7 +49,6 @@ def generate_cdm_data_for_course(course_id):
             date_for=dt.strftime('%Y-%m-%d'),
             enrollment_count=enrollment_count,
             active_learners_today=randint(0, enrollment_count // 2),
-            active_learners_this_month=randint(0, enrollment_count // 2) * 30,
             average_progress=average_progress,
             average_days_to_complete=average_days_to_complete,
             num_learners_completed=num_learners_completed,

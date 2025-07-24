@@ -45,10 +45,10 @@ USER_DATA = [
 ]
 
 COURSE_DATA = [
-    { 'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg'},
-    { 'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg'},
-    { 'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg'},
-    { 'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg'},
+    { 'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg', 'number': u'A001' },
+    { 'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg', 'number': u'A002' },
+    { 'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg', 'number': u'B001' },
+    { 'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg', 'number': u'B002' },
 ]
 
 SEARCH_TERMS = [
@@ -79,7 +79,8 @@ def make_course(**kwargs):
     return CourseOverviewFactory(
         id=kwargs['id'],
         display_name=kwargs['name'],
-        org=kwargs['org']
+        org=kwargs['org'],
+        number=kwargs['number']
     )
 
 def make_course_enrollments(user, courses, **kwargs):
@@ -113,9 +114,10 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
             'end_date', 'self_paced', 'staff', 'metrics',
         ]
         if is_multisite():
-            self.organizations = self.edly_org.edx_organizations
+            self.organization = OrganizationFactory(sites=[self.site])
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization,
+                                          course_id=str(co.id))
 
     def test_get_list(self):
         '''Tests retrieving a list of users with abbreviated details
@@ -124,18 +126,17 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
             `figures.serializers.UserIndexSerializer`
         '''
         request = APIRequestFactory().get(self.request_path)
-        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         # Later, we'll elaborate on the tests. For now, some basic checks
         assert response.status_code == 200
-        # assert set(response.data.keys()) == set(
-        #     ['count', 'current_page', 'total_pages', 'results', 'next', 'previous',])
-        assert len(response.data) == len(self.course_overviews)
+        assert set(response.data.keys()) == set(
+            ['count', 'next', 'previous', 'results',])
+        assert len(response.data['results']) == len(self.course_overviews)
 
-        for rec in response.data:
+        for rec in response.data['results']:
             course_overview = CourseOverview.objects.get(id=as_course_key(rec['course_id']))
 
             # Test top level vars
@@ -243,12 +244,11 @@ class TestGeneralCourseDataViewSet(BaseViewTest):
         """
         request_path = self.request_path + '?search=' + search_term['term']
         request = APIRequestFactory().get(request_path)
-        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
 
         assert response.status_code == 200
-        # assert response.data['count'] == search_term['expected_result']
-        assert len(response.data) == \
+        assert response.data['count'] == search_term['expected_result']
+        assert len(response.data['results']) == \
             search_term['expected_result']

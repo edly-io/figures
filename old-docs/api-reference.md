@@ -162,7 +162,6 @@ This provides a list of all course daily metrics. Example:
 		"course_id":"course-v1:Appsembler+EdX101+2015_Spring",
 		"enrollment_count":25,
 		"active_learners_today":5,
-		"active_learners_this_month":150,
 		"average_days_to_complete":10,
 		"num_learners_completed":5
 	},
@@ -175,7 +174,6 @@ This provides a list of all course daily metrics. Example:
 		"course_id":"course-v1:Appsembler+EdX101+2015_Spring",
 		"enrollment_count":25,
 		"active_learners_today":5,
-		"active_learners_this_month":150,
 		"average_days_to_complete":9,
 		"num_learners_completed":6
 	}

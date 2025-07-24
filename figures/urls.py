@@ -8,7 +8,6 @@ from django.urls import include, re_path as url
 from rest_framework import routers
 
 from figures import views
-from figures.edly_views import edly_reports
 
 app_name = 'figures'
 
@@ -83,11 +82,6 @@ router.register(
     basename='courses-general')
 
 router.register(
-    r'courses/stats',
-    views.CourseTopStatsViewSet,
-    basename='courses-top-stats')
-
-router.register(
     r'courses-detail',
     views.CourseDetailsViewSet,
     basename='courses-detail')
@@ -110,6 +104,7 @@ router.register(
     views.UserIndexViewSet,
     basename='user-index')
 
+
 # New endpoints in development (unstable)
 # Unstable here means the code is subject to change without notice
 
@@ -118,7 +113,6 @@ router.register(
     views.EnrollmentMetricsViewSet,
     basename='enrollment-metrics')
 
-
 router.register(
     r'learner-metrics-v1',
     views.LearnerMetricsViewSetV1,
@@ -128,30 +122,6 @@ router.register(
     r'learner-metrics',
     views.LearnerMetricsViewSetV2,
     basename='learner-metrics')
-
-router.register(
-    r'learner-metrics-v1',
-    views.LearnerMetricsViewSetV1,
-    basename='learner-metrics-v1')
-
-router.register(
-    r'learner-metrics',
-    views.LearnerMetricsViewSetV2,
-    basename='learner-metrics')
-
-router.register(
-    r'learner-metrics-v1',
-    views.LearnerMetricsViewSetV1,
-    basename='learner-metrics-v1')
-
-router.register(
-    r'learner-metrics',
-    views.LearnerMetricsViewSetV2,
-    basename='learner-metrics')
-
-users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
-
-users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
 
 urlpatterns = [
 
@@ -161,13 +131,6 @@ urlpatterns = [
     # Non-router API endpoints
     url(r'api/general-site-metrics', views.GeneralSiteMetricsView.as_view(),
         name='general-site-metrics'),
-    url(r'^api/general-sites-metrics', views.GeneralSitesMetricsView.as_view(),
-        name='general-sites-metrics'),
-    url(r'^api/edly/insights-summary/$', edly_reports.InsightSummaryCSV.as_view(), name='edly-insights-summary'),
-    url(r'^api/edly/insights-learner/$', edly_reports.InsightLearnersCSV.as_view(), name='edly-insights-learners'),
-    url(r'^api/edly/insights-courses/$', edly_reports.InsightCoursesCSV.as_view(), name='edly-insights-courses'),
-    url(r'^api/edly/learner-report/$', edly_reports.LearnersCSV.as_view(), name='edly-insights-learner-report'),
-    url(r'api/users/pdf', users_detail_pdf, name='users-detail-pdf'),
 ]
 
 # Include router endpoints

@@ -23,7 +23,6 @@ from figures.helpers import as_datetime, prev_day, days_from, is_multisite
 from figures.models import SiteDailyMetrics
 from figures.pipeline import site_daily_metrics as pipeline_sdm
 import figures.sites
-from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
 
 from tests.factories import (
     CourseDailyMetricsFactory,
@@ -52,21 +51,18 @@ CDM_INPUT_TEST_DATA = [
     dict(
         enrollment_count=0,
         active_learners_today=0,
-        active_learners_this_month=0,
         average_progress=None,
         average_days_to_complete=None,
         num_learners_completed=0),
     dict(
         enrollment_count=50,
         active_learners_today=5,
-        active_learners_this_month=5,
         average_progress=0.25,
         average_days_to_complete=24,
         num_learners_completed=0),
     dict(
         enrollment_count=100,
         active_learners_today=10,
-        active_learners_this_month=10,
         average_progress=0.75,
         average_days_to_complete=12,
         num_learners_completed=5),
@@ -78,7 +74,6 @@ SDM_DATA = [
     dict(
         cumulative_active_user_count=50,
         todays_active_user_count=10,
-        todays_active_learners_count=10,
         total_user_count=200,
         course_count=len(CDM_INPUT_TEST_DATA),
         total_enrollment_count=100,
@@ -90,7 +85,6 @@ SDM_DATA = [
 SDM_EXPECTED_RESULTS = dict(
     cumulative_active_user_count=65,
     todays_active_user_count=15,
-    todays_active_learners_count=15,
     total_user_count=200,
     course_count=len(CDM_INPUT_TEST_DATA),
     total_enrollment_count=150,
@@ -111,13 +105,10 @@ class TestCourseDailyMetricsMissingCdm(object):
         self.course_overviews = [CourseOverviewFactory(
             created=self.date_for) for i in range(self.course_count)]
         if is_multisite():
-            self.organization = OrganizationFactory()
-            EdlySubOrganizationFactory(
-                lms_site=self.site,
-                edx_organizations=[self.organization]
-            )
+            self.organization = OrganizationFactory(sites=[self.site])
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization,
+                                          course_id=str(co.id))
 
     def test_no_missing(self):
         [CourseDailyMetricsFactory(
@@ -154,7 +145,7 @@ class TestSiteDailyMetricsPipelineFunctions(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.date_for = datetime.date.today()
+        self.date_for = datetime.date(2018, 6, 1)
         self.site = Site.objects.first()
         self.cdm_recs = [CourseDailyMetricsFactory(
             site=self.site,
@@ -220,7 +211,7 @@ class TestSiteDailyMetricsExtractor(object):
     '''
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.date_for = datetime.date.today()
+        self.date_for = datetime.date(2018, 10, 1)
         self.site = Site.objects.first()
         self.users = [UserFactory(
             date_joined=as_datetime(self.date_for - datetime.timedelta(days=60))
@@ -239,23 +230,14 @@ class TestSiteDailyMetricsExtractor(object):
             **SDM_DATA[1])
 
         if is_multisite():
-            self.organization = OrganizationFactory()
-            edly_sub_org = EdlySubOrganizationFactory(
-                lms_site=self.site,
-                edx_organizations=[self.organization]
-            )
-            self.users = [UserFactory(
-                    date_joined=as_datetime(self.date_for - datetime.timedelta(days=60)),
-                    edly_multisite_user__sub_org=edly_sub_org
-                ) for i in range(0, 3)
-            ]
-
+            self.organization = OrganizationFactory(sites=[self.site])
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization, course_id=str(co.id))
-
+                OrganizationCourseFactory(organization=self.organization,
+                                          course_id=str(co.id))
             if organizations_support_sites():
                 for user in self.users:
-                    UserOrganizationMappingFactory(user=user, organization=self.organization)
+                    UserOrganizationMappingFactory(user=user,
+                                                   organization=self.organization)
 
     def test_extract(self, monkeypatch):
         previous_cumulative_active_user_count = 50
@@ -263,7 +245,6 @@ class TestSiteDailyMetricsExtractor(object):
         expected_results = dict(
             cumulative_active_user_count=52,  # previous cumulative is 50
             todays_active_user_count=2,
-            todays_active_learners_count=2,
             total_user_count=len(self.users),
             course_count=len(CDM_INPUT_TEST_DATA),
             total_enrollment_count=150,
@@ -321,7 +302,6 @@ class TestSiteDailyMetricsLoader(object):
     """
     FIELD_VALUES = dict(
                 todays_active_user_count=1,
-                todays_active_learners_count=1,
                 cumulative_active_user_count=2,
                 total_user_count=3,
                 course_count=4,

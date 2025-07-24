@@ -119,33 +119,6 @@ class TestCourseMauLiveMetricsViewSet(BaseViewTest):
         assert response.status_code == status.HTTP_200_OK
         # TODO: Assert data are correct
 
-    def test_list_with_custom_date_range(self, monkeypatch, sm_test_data):
-        monkeypatch.setattr(django.contrib.sites.shortcuts,
-                            'get_current_site',
-                            lambda req: site)
-        site = sm_test_data['site']
-        org = sm_test_data['organization']
-        co = sm_test_data['course_overviews'][0]
-
-        if organizations_support_sites():
-            caller = UserFactory()
-            UserOrganizationMappingFactory(user=caller,
-                                           organization=org,
-                                           is_amc_admin=True)
-        else:
-            caller = UserFactory(is_staff=True)
-
-        request_path = self.request_path
-        request = APIRequestFactory().get(
-            request_path,
-            {'start_date': '1-12-2021', 'end_date': '10-12-2021'},
-        )
-        request.META['HTTP_HOST'] = site.domain
-        force_authenticate(request, user=caller)
-        view = self.view_class.as_view({'get': 'list'})
-        response = view(request)
-        assert response.status_code == status.HTTP_200_OK
-
 
 @pytest.mark.django_db
 class TestSiteMauMetricsViewSet(BaseViewTest):

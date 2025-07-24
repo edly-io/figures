@@ -4,7 +4,6 @@
 
 
 from __future__ import absolute_import
-from functools import total_ordering
 import pytest
 
 from rest_framework.test import (
@@ -19,50 +18,11 @@ from tests.views.base import BaseViewTest
 
 def mock_get_monthly_site_metrics(date_for=None, **kwargs):
     return dict(
-        total_site_learners = {
-            'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},],
-            'percentage_change': '50.0',
-            'total_count': 1,
-            },
-        total_site_staff_users = {
-            'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},],
-            'percentage_change': '133.33',
-            'total_count': 4,
-            },
-        total_site_courses = {
-            'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},],
-            'percentage_change': '83.33',
-            'total_count': 5,
-            },
-        total_active_courses = {
-            'history': [{'period': '1-12-2021', 'value' : 9}, {'period': '2-12-2021', 'value': 2},],
-            'percentage_change': '22.22',
-            'total_count': 2,
-            },
-    )
-
-def mock_get_monthly_site_metrics_custom_date(date_for=None, **kwargs):
-    return dict(
-        total_site_learners = {
-            'history': [{'period': '1-12-2021', 'value' : 2}, {'period': '2-12-2021', 'value': 1},],
-            'percentage_change': '50.0',
-            'total_count': 1,
-            },
-        total_site_staff_users = {
-            'history': [{'period': '1-12-2021', 'value' : 3}, {'period': '2-12-2021', 'value': 4},],
-            'percentage_change': '133.33',
-            'total_count': 4,
-            },
-        total_site_courses = {
-            'history': [{'period': '1-12-2021', 'value' : 6}, {'period': '2-12-2021', 'value': 5},],
-            'percentage_change': '83.33',
-            'total_count': 5,
-            },
-        total_active_courses = {
-            'history': [{'period': '1-12-2021', 'value' : 9}, {'period': '2-12-2021', 'value': 2},],
-            'percentage_change': '22.22',
-            'total_count': 2,
-            },
+        monthly_active_users=1,
+        total_site_users=2,
+        total_site_coures=3,
+        total_course_enrollments=4,
+        total_course_completions=5,
     )
 
 @pytest.mark.django_db
@@ -71,7 +31,6 @@ class TestGeneralSiteMetricsView(BaseViewTest):
     '''
     request_path = 'api/general-site-metrics'
     view_class = GeneralSiteMetricsView
-    view_class_with_custom_date = GeneralSiteMetricsView
 
     # Because we are testing an APIView and not a ViewSetMixin,
     # we set the 'get' action to None because the view 'as_view'
@@ -84,7 +43,6 @@ class TestGeneralSiteMetricsView(BaseViewTest):
         self.view_class.metrics_method = property(
             lambda self: mock_get_monthly_site_metrics)
 
-
     def test_get(self):
         request = APIRequestFactory().get(self.request_path)
         force_authenticate(request, user=self.staff_user)
@@ -94,18 +52,3 @@ class TestGeneralSiteMetricsView(BaseViewTest):
 
         assert response.data == mock_get_monthly_site_metrics()
 
-
-    def test_get_with_custom_date_range(self):
-        self.view_class_with_custom_date.metrics_method = property(
-            lambda self: mock_get_monthly_site_metrics_custom_date)
-
-        request = APIRequestFactory().get(
-            self.request_path,
-            dict(start_date='1-12-2021', end_date='10-12-2021')
-        )
-        force_authenticate(request, user=self.staff_user)
-        view = self.view_class_with_custom_date.as_view()
-        response = view(request)
-        assert response.status_code == 200
-
-        assert response.data == mock_get_monthly_site_metrics_custom_date()

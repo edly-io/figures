@@ -38,7 +38,7 @@ class CourseDailyMetricsAdmin(admin.ModelAdmin):
     """
     list_display = ('id', 'date_for', 'site', 'course_id', 'enrollment_count',
                     'average_progress', 'average_days_to_complete',
-                    'num_learners_completed', 'active_learners_this_month')
+                    'num_learners_completed')
     list_filter = (
         ('site', RelatedOnlyDropdownFilter),
         ('course_id', AllValuesDropdownFilter),
@@ -111,7 +111,7 @@ class LearnerCourseGradeMetricsAdmin(UserRelatedMixin, admin.ModelAdmin):
     """Defines the admin interface for the LearnerCourseGradeMetrics model
     """
     list_display = ('id', 'date_for', 'site', 'user_link', 'course_id',
-                    'progress_percent', 'total_progress_percent', 'points_possible', 'points_earned',
+                    'progress_percent', 'points_possible', 'points_earned',
                     'sections_worked', 'sections_possible')
     list_filter = (
         ('site', RelatedOnlyDropdownFilter),

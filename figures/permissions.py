@@ -4,19 +4,15 @@
 from __future__ import absolute_import
 from rest_framework.permissions import BasePermission
 
-from django.conf import settings
 import django.contrib.sites.shortcuts
-from django.conf import settings
+
+from organizations.models import Organization
 
 try:
     from organizations.models import UserOrganizationMapping
 except ImportError:
     pass
 
-from openedx.features.edly.utils import (
-    edly_panel_user_has_edly_org_access, get_edly_sub_org_from_request,
-    user_has_edly_organization_access
-)
 import figures.helpers
 import figures.sites
 
@@ -27,19 +23,6 @@ def is_active_staff_or_superuser(request):
     """
     return request.user and request.user.is_active and (
         request.user.is_staff or request.user.is_superuser)
-
-
-def has_insights_access(request):
-    """
-    Validate request User has Insights access.
-    """
-    return request.user.is_active and request.user.edly_multisite_user.filter(
-        sub_org__lms_site=request.site,
-        groups__name__in=[
-            settings.EDLY_INSIGHTS_GROUP,
-            settings.EDLY_PANEL_ADMIN_USERS_GROUP
-        ]
-    ).exists()
 
 
 def is_site_admin_user(request):
@@ -59,13 +42,23 @@ def is_site_admin_user(request):
     3. Get the user org mappings for the orgs and user in the request
     4. Check the uom record if user is admin and active
     """
-    if figures.helpers.is_multisite():
-        if request.user.is_active:
-            has_permission = is_active_staff_or_superuser(request) or edly_panel_user_has_edly_org_access(request)
+    has_permission = is_active_staff_or_superuser(request)
+    if not has_permission:
+        if figures.helpers.is_multisite():
+            if request.user.is_active:
+                current_site = django.contrib.sites.shortcuts.get_current_site(request)
+                org_ids = Organization.objects.filter(
+                    sites__in=[current_site]).values_list('id',
+                                                          flat=True)
+                return UserOrganizationMapping.objects.filter(
+                    organization_id__in=org_ids,
+                    user=request.user,
+                    is_active=True,
+                    is_amc_admin=True).exists()
+            else:
+                return False
         else:
-            has_permission = False
-    else:
-        has_permission = is_active_staff_or_superuser(request)
+            has_permission = is_active_staff_or_superuser(request)
     return has_permission
 
 
@@ -88,7 +81,7 @@ class IsSiteAdminUser(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return is_site_admin_user(request) or has_insights_access(request)
+        return is_site_admin_user(request)
 
 
 class IsStaffUserOnDefaultSite(BasePermission):
@@ -96,19 +89,4 @@ class IsStaffUserOnDefaultSite(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return is_staff_user_on_default_site(request) or has_insights_access(request)
-
-
-class CanAccessEdlyInsights(BasePermission):
-    """
-    Allow access to edly panel admin or insights users.
-    """
-
-    def has_permission(self, request, view):
-        sub_org = get_edly_sub_org_from_request(request)
-        is_edly_access_user = request.user.edly_multisite_user.filter(
-            sub_org=sub_org,
-            groups__name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
-        ).exists()
-        has_edly_user_access = user_has_edly_organization_access(request) and (is_edly_access_user)
-        return has_edly_user_access
+        return is_staff_user_on_default_site(request)

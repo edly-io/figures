@@ -2,22 +2,18 @@
 """
 
 from __future__ import absolute_import
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 import logging
-from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-import django.contrib.sites.shortcuts
 from django.contrib.sites.models import Site
-from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from rest_framework import viewsets
 from rest_framework.authentication import (
-    BasicAuthentication,
     SessionAuthentication,
     TokenAuthentication,
 )
@@ -40,7 +36,6 @@ except ImportError:
 
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
-from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.filters import (
@@ -53,8 +48,6 @@ from figures.filters import (
     SiteFilterSet,
     SiteMauMetricsFilter,
     UserFilterSet,
-    CustomLearnerSearchFilter,
-    NullsLastOrderingFilter,
 )
 from figures.models import (
     CourseDailyMetrics,
@@ -73,7 +66,6 @@ from figures.serializers import (
     CourseMauMetricsSerializer,
     CourseMauLiveMetricsSerializer,
     CourseOverviewSerializer,
-    CourseTopStatsSerializer,
     EnrollmentMetricsSerializer,
     GeneralCourseDataSerializer,
     LearnerDetailsSerializer,
@@ -91,16 +83,14 @@ from figures import metrics
 from figures.pagination import (
     FiguresLimitOffsetPagination,
     FiguresKiloPagination,
-    FiguresPageLevelPagination,
 )
 import figures.permissions
 import figures.helpers
 import figures.sites
 from figures.mau import (
-    retrieve_live_course_learners_mau_data,
+    retrieve_live_course_mau_data,
     retrieve_live_site_mau_data,
 )
-from edx_django_utils.db.read_replica import read_replica_or_default
 
 
 UNAUTHORIZED_USER_REDIRECT_URL = '/'
@@ -203,7 +193,7 @@ class CourseOverviewViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         course_key = self.get_course_key(
             kwargs.get('pk', ''))
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(self.request)
         if figures.helpers.is_multisite():
             if site != figures.sites.get_site_for_course(course_key):
                 # Raising NotFound instead of PermissionDenied
@@ -227,7 +217,7 @@ class GeneralCourseDataViewSet(CourseOverviewViewSet):
     pagination_class = FiguresKiloPagination
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
     search_fields = ['display_name', 'id']
-    ordering_fields = ['display_name', 'self_paced', 'date_joined']
+    ordering_fields = ['display_name', 'self_paced', 'start_date']
 
 
 class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
@@ -259,24 +249,13 @@ class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
 class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = CourseEnrollment
-    pagination_class = FiguresPageLevelPagination
+    pagination_class = FiguresLimitOffsetPagination
     serializer_class = CourseEnrollmentSerializer
-    filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter, )
+    filter_backends = (DjangoFilterBackend, )
     filter_class = CourseEnrollmentFilter
-    search_fields = ['user__profile__name', 'user__username', 'user__email']
-    ordering_fields = ['user__profile__name', 'user__username', 'user__email', 'user__date_joined', 'user__last_login']
-
-    def paginate_queryset(self, queryset, view=None):
-        """
-        Return a single page of results, or `None` if no_page parameter passed.
-        """
-        if 'no_page' in self.request.query_params:
-            return None
-        else:
-            return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
-        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
+        site = figures.sites.get_requested_site(self.request)
         queryset = figures.sites.get_course_enrollments_for_site(site)
         return queryset
 
@@ -290,8 +269,8 @@ class CourseDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     filter_class = CourseDailyMetricsFilter
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = CourseDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
+        site = figures.sites.get_requested_site(self.request)
+        queryset = CourseDailyMetrics.objects.filter(site=site)
         return queryset
 
 
@@ -304,8 +283,8 @@ class SiteDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     filter_class = SiteDailyMetricsFilter
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = SiteDailyMetrics.objects.filter(site=site).using(read_replica_or_default())
+        site = figures.sites.get_requested_site(self.request)
+        queryset = SiteDailyMetrics.objects.filter(site=site)
         return queryset
 
 
@@ -321,7 +300,7 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
     and list the most recent data for all sites (or filtered sites)
     """
 
-    pagination_class = FiguresPageLevelPagination
+    pagination_class = FiguresLimitOffsetPagination
 
     @property
     def metrics_method(self):
@@ -330,261 +309,21 @@ class GeneralSiteMetricsView(CommonAuthMixin, APIView):
             This lets us override this functionality, in particular to simplify
             testing
         '''
-        return metrics.get_edly_monthly_site_metrics
+        return metrics.get_monthly_site_metrics
 
     def get(self, request, format=None):  # pylint: disable=redefined-builtin
         '''
         Does not yet support multi-tenancy
         '''
-        site = django.contrib.sites.shortcuts.get_current_site(request)
-        date_for = request.query_params.get('date_for') if request.query_params.get('date_for') else datetime.utcnow().date()
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        date_format = '%d-%m-%Y'
-        is_custom_date_range = start_date or end_date
-        if is_custom_date_range:
-            error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
-            if error_response:
-                return
-
-        data = self.metrics_method(
-            site=site,
-            date_for=date_for,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-        if is_custom_date_range and not date_for:
-            comparison_start_date, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
-                                                        figures.helpers.get_date(start_date, date_format),
-                                                        figures.helpers.get_date(end_date, date_format),
-                                                        )
-            comparison_data = self.metrics_method(
-                site=site,
-                date_for=date_for,
-                start_date=comparison_start_date,
-                end_date=comparison_end_date,
-            )
-            data = metrics.get_total_site_metric_counts_and_percentage_change_for_custom_dates(data, comparison_data)
-
-        elif date_for:
-            data = metrics.get_total_site_metric_counts_and_percentage_change(data)
+        site = figures.sites.get_requested_site(request)
+        date_for = request.query_params.get('date_for')
+        data = self.metrics_method(site=site, date_for=date_for)
 
         if not data:
             data = {
                 'error': 'no metrics data available',
             }
         return Response(data)
-
-class GeneralSitesMetricsView(CommonAuthMixin, APIView):
-    """Viewset intended for Edly Super Admin Dashboard Insights
-
-    TODO: Determine when we remove this class
-
-    Assuming that the user have multiple sites, and showing learners and stuff user statictics
-    """
-
-    pagination_class = FiguresPageLevelPagination
-
-    def get_total_staf_user_for_sub_orgs(self, sub_org, end_date, date_format):
-        """calculate total number of stuff user for given user sites from sub_organization"""
-        filter_args = dict(
-          date_joined__date__lte=datetime.strptime(end_date, date_format),
-        )
-        stuff_users = figures.sites.get_users_for_sites(sub_org).filter(
-            courseaccessrole__role='global_course_creator',
-            is_staff=False,
-            is_superuser=False
-        ).using(read_replica_or_default())
-        return stuff_users.filter(**filter_args).values('id').distinct().count()
-    
-    def get_total_learner_for_sub_orgs(self, sub_org, end_date, date_format):
-        """calculate total learner of stuff user for given user sites from sub_organization"""
-        filter_args = dict(
-          date_joined__date__lte=datetime.strptime(end_date, date_format),
-        )
-        learner_users = figures.sites.get_users_for_sites(sub_org).filter(
-            ~Q(courseaccessrole__role='course_creator_group'),
-            is_staff=False,
-            is_superuser=False
-        ).using(read_replica_or_default())
-        return learner_users.filter(**filter_args).values('id').distinct().count()
-
-    def get(self, request, format=None):  # pylint: disable=redefined-builtin
-        '''
-        Does not yet support multi-tenancy
-        '''
-        site = django.contrib.sites.shortcuts.get_current_site(request)
-        sub_org = self.request.GET.get('sub_org', '')
-        sub_org = [site.name.split('.')[0]] if not sub_org else sub_org.split(',')
- 
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        date_format = '%d-%m-%Y'
-        is_custom_date_range = start_date or end_date
-        if is_custom_date_range:
-            error_response = figures.helpers.return_invalid_date_range_response(start_date, end_date, date_format)
-            if error_response:
-                return
-        
-        total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, end_date, date_format)
-        total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, end_date, date_format)
-        _, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
-            figures.helpers.get_date(start_date, date_format),
-            figures.helpers.get_date(end_date, date_format),
-        )
-        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
-        prev_total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
-
-        data = {
-            'total_site_staff_users': {
-                'current_month':total_stuff_user, 
-                'prev_month':prev_total_stuff_user,
-                'total_count':total_stuff_user, 
-                'percentage_change':  figures.helpers.calculate_percentage_change(
-                    prev_total_stuff_user, total_stuff_user
-                )
-            },
-            'total_site_learners': {
-                'current_month':total_learner_user,
-                'prev_month':prev_total_learner_user,
-                'total_count':total_learner_user, 
-                'percentage_change':  figures.helpers.calculate_percentage_change(
-                    prev_total_learner_user, total_learner_user
-                )   
-            }
-        }
-
-        return Response(data)
-
-class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    """Viewset intended for Figures Web UI
-    """
-    model = CourseOverview
-
-    pagination_class = FiguresPageLevelPagination
-    serializer_class = GeneralCourseDataSerializer
-    filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    filter_class = CourseOverviewFilter
-    search_fields = ['display_name', 'id']
-    ordering_fields = ['display_name', 'self_paced', 'date_joined']
-
-    def paginate_queryset(self, queryset, view=None):
-        """
-        Return a single page of results, or `None` if no_page parameter passed.
-        """
-        if 'no_page' in self.request.query_params:
-            return None
-        else:
-            return self.paginator.paginate_queryset(queryset, self.request, view=self)
-
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
-        return queryset
-
-    def retrieve(self, request, *args, **kwargs):
-        course_id_str = kwargs.get('pk', '')
-        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
-        site = getattr(request, 'site', django.contrib.sites.shortcuts.get_current_site(request))
-        if figures.helpers.is_multisite():
-            if site != figures.sites.get_site_for_course(course_key):
-                # Raising NotFound instead of PermissionDenied
-                raise NotFound()
-        course_overview = get_object_or_404(CourseOverview, pk=course_key)
-        return Response(GeneralCourseDataSerializer(course_overview).data)
-
-
-class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    """
-    Viewset to get top courses by enrollments/completions.
-    """
-    model = CourseDailyMetrics
-    pagination_class = FiguresPageLevelPagination
-    serializer_class = CourseTopStatsSerializer
-    authentication_classes = (
-        BasicAuthentication,
-        SessionAuthentication,
-        TokenAuthentication,
-    )
-    permission_classes = (
-        IsAuthenticated,
-        figures.permissions.IsSiteAdminUser
-    )
-
-    def get_queryset(self):
-        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
-        sub_org = self.request.GET.get('sub_org', '')
-        course_ids=[]
-        if sub_org:
-            course_ids = figures.sites.get_course_keys_for_sites_slugs(sub_org.split(','))
-        else:
-            course_ids = figures.sites.get_course_keys_for_site(site)
-        
-        current_time = datetime.now(timezone.utc)
-        queryset = self.model.objects.filter(
-            course_id__in=course_ids, date_for=current_time
-        ).using(read_replica_or_default())
-
-        if not queryset.exists():
-            queryset = self.model.objects.filter(
-                course_id__in=course_ids,
-                date_for=current_time - timedelta(days=1)
-            ).using(read_replica_or_default())
-
-        order_by = self.request.query_params.get('order_by', '')
-        if order_by:
-            order_by_name = order_by.split(',')[0]
-            order_by_sign = order_by.split(',')[1]
-            order_by_sign = '' if order_by_sign == 'asc' else '-'
-            queryset = queryset.order_by(order_by_sign + order_by_name)
-
-        return queryset
-
-
-class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    '''
-
-    '''
-    model = CourseOverview
-
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
-    serializer_class = CourseDetailsSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseOverviewFilter
-
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
-        return queryset
-
-    def retrieve(self, request, *args, **kwargs):
-        # NOTE: Duplicating code in GeneralCourseDataViewSet. Candidate to dry up
-        # Make it a decorator
-        course_id_str = kwargs.get('pk', '')
-        course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
-        site = django.contrib.sites.shortcuts.get_current_site(request)
-        if figures.helpers.is_multisite():
-            if site != figures.sites.get_site_for_course(course_key):
-                # Raising NotFound instead of PermissionDenied
-                raise NotFound()
-        course_overview = get_object_or_404(CourseOverview, pk=course_key)
-        return Response(CourseDetailsSerializer(course_overview).data)
-
-    def get_serializer_context(self):
-        context = super(CourseDetailsViewSet, self).get_serializer_context()
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
-        context.update({
-            "request": self.request,
-            "site": self.request.site,
-            "start_date": start_date,
-            "end_date": end_date
-            })
-
-        return context
 
 
 class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
@@ -608,112 +347,26 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['username', 'email', 'profile__name', 'is_active', 'date_joined']
 
     def get_queryset(self):
-        site = getattr(self.request, 'sites', django.contrib.sites.shortcuts.get_current_site(self.request))
+        site = figures.sites.get_requested_site(self.request)
         queryset = figures.sites.get_users_for_site(site)
         return queryset
-
-
-class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    model = get_user_model()
-    serializer_class = LearnerDetailsSerializer
-    ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined']
-    filter_class = UserFilterSet
-
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_users_for_site(site)
-        queryset = queryset.filter(
-            ~Q(courseaccessrole__role='course_creator_group'),
-            is_staff=False,
-            is_superuser=False,
-            is_active=True
-        ).using(read_replica_or_default())
-        return queryset
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset().values_list('email', flat=True)
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        current_site_configuration = get_current_site_configuration()
-        platform_name = current_site_configuration.get_value('PLATFORM_NAME', settings.PLATFORM_NAME)
-        from_address =  current_site_configuration.get_value('email_from_address', settings.DEFAULT_FROM_EMAIL)
-        logo_url = current_site_configuration.get_value('BRANDING', {}).get('logo', '')
-        self.send_learners_data_pdf.delay(
-            users=list(queryset),
-            email=request.user.email,
-            site_id=site.id,
-            logo_url=logo_url,
-            platform_name=platform_name,
-            from_address=from_address,
-        )
-        return Response('Learners overview email sent successfully')
-
-    @shared_task()
-    def send_learners_data_pdf(users, email, site_id, logo_url, platform_name, from_address):
-        context = dict()
-        request_user = get_user_model().objects.get(email=email)
-        username = request_user.profile.name if request_user.profile else request_user.username
-        site = Site.objects.get(id=site_id)
-        context['site'] = site
-        context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
-            request_user,
-            site,
-        )
-        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(site)
-        queryset = get_user_model().objects.filter(email__in=users)
-        serializer = LearnerDetailsSerializer(queryset, context=context, many=True)
-        pdf_file = figures.helpers.get_prepared_pdf(serializer.data, logo_url)
-        figures.helpers.send_email_with_attachment(email, username, platform_name, from_address, pdf_file)
 
 
 class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
-    pagination_class = FiguresPageLevelPagination
+    pagination_class = FiguresLimitOffsetPagination
     serializer_class = LearnerDetailsSerializer
-    filter_backends = (DjangoFilterBackend, CustomLearnerSearchFilter, NullsLastOrderingFilter, )
-    search_fields = ['profile__name', 'username', 'email']
-    ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined', 'last_login', ]
+    filter_backends = (DjangoFilterBackend, )
     filter_class = UserFilterSet
 
-    def paginate_queryset(self, queryset, view=None):
-        """
-        Return a single page of results, or `None` if no_page parameter passed.
-        """
-        if 'no_page' in self.request.query_params:
-            return None
-        else:
-            return self.paginator.paginate_queryset(queryset, self.request, view=self)
-
     def get_queryset(self):
-        learners_only = self.request.GET.get('learners_only', None)
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_edly_users_for_site(site)
-        if learners_only and learners_only.lower() == "true":
-            queryset = queryset.filter(
-                ~Q(courseaccessrole__role='course_creator_group'),
-                is_staff=False,
-                is_superuser=False
-            ).using(read_replica_or_default())
-
+        site = figures.sites.get_requested_site(self.request)
+        queryset = figures.sites.get_users_for_site(site)
         return queryset
 
     def get_serializer_context(self):
         context = super(LearnerDetailsViewSet, self).get_serializer_context()
-        current_site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        context['site'] = current_site
-        context['required_fields'] = figures.helpers.get_required_registration_fields_for_user(
-            self.request.user,
-            context['site'],
-        )
-        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
-            current_site
-        )
-        is_detail_view = self.request.query_params.get('username')
-        if not is_detail_view:
-            context['completed_courses'] = set(
-                LearnerCourseGradeMetrics.objects.passed_ids_for_site(
-                    site=current_site,
-            ))
-
+        context['site'] = figures.sites.get_requested_site(self.request)
         return context
 
 
@@ -772,7 +425,7 @@ class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         * If no valid course keys are found, then an empty list is returned from
           this view
         """
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        site = figures.sites.get_requested_site(self.request)
         course_keys = figures.sites.get_course_keys_for_site(site)
         try:
             param_course_keys = self.query_param_course_keys()
@@ -783,12 +436,11 @@ class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 raise NotFound()
             else:
                 course_keys = param_course_keys
-
         return self.get_enrolled_users(site=site, course_keys=course_keys)
 
     def get_serializer_context(self):
         context = super(LearnerMetricsViewSetV1, self).get_serializer_context()
-        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['site'] = figures.sites.get_requested_site(self.request)
         context['course_keys'] = self.query_param_course_keys()
         return context
 
@@ -840,13 +492,13 @@ class LearnerMetricsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         * If no valid course keys are found, then an empty list is returned from
           this view
         """
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        site = figures.sites.get_requested_site(self.request)
         course_ids = self.query_param_course_ids()
         return site_users_enrollment_data(site=site, course_ids=course_ids)
 
     def get_serializer_context(self):
         context = super(LearnerMetricsViewSetV2, self).get_serializer_context()
-        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['site'] = figures.sites.get_requested_site(self.request)
         context['course_ids'] = self.query_param_course_ids()
         return context
 
@@ -868,9 +520,8 @@ class EnrollmentMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_class = EnrollmentMetricsFilter
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = LearnerCourseGradeMetrics.objects.filter(
-            site=site).using(read_replica_or_default())
+        site = figures.sites.get_requested_site(self.request)
+        queryset = LearnerCourseGradeMetrics.objects.filter(site=site)
         return queryset
 
     @action(detail=False)
@@ -882,7 +533,7 @@ class EnrollmentMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         The default router does not support hyphen in the custom action, so
         we need to use the underscore until we implement a custom router
         """
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         qs = self.model.objects.completed_ids_for_site(site=site)
         page = self.paginate_queryset(qs)
         if page is not None:
@@ -900,7 +551,7 @@ class EnrollmentMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         Return matching LearnerCourseGradeMetric rows that have completed
         enrollments
         """
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         qs = self.model.objects.completed_for_site(site=site)
         page = self.paginate_queryset(qs)
         if page is not None:
@@ -957,7 +608,7 @@ class CourseMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
         TODO: NEXT Add query params to get data from previous months
         TODO: Add paginagation
         """
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         course_keys = figures.sites.get_course_keys_for_site(site)
         date_for = datetime.utcnow().date()
         month_for = '{}/{}'.format(date_for.month, date_for.year)
@@ -1059,17 +710,13 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
         Returns site metrics data for current month
         """
 
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        data = {
-            'current_month': metrics.get_current_month_site_metrics(site),
-            'last_month': metrics.get_last_month_site_metrics(site)
-        }
-
+        site = figures.sites.get_requested_site(request)
+        data = metrics.get_current_month_site_metrics(site)
         return Response(data)
 
     @action(detail=False)
     def registered_users(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         date_for = datetime.utcnow().date()
         months_back = 6
 
@@ -1087,7 +734,7 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
         """
         TODO: Rename the metrics module function to "new_users" to match this
         """
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         date_for = datetime.utcnow().date()
         months_back = 6
 
@@ -1102,7 +749,7 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
 
     @action(detail=False)
     def course_completions(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         date_for = datetime.utcnow().date()
         months_back = 6
 
@@ -1117,7 +764,7 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
 
     @action(detail=False)
     def course_enrollments(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         date_for = datetime.utcnow().date()
         months_back = 6
 
@@ -1132,7 +779,7 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
 
     @action(detail=False)
     def site_courses(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         date_for = datetime.utcnow().date()
         months_back = 6
 
@@ -1147,7 +794,7 @@ class SiteMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
 
     @action(detail=False)
     def active_users(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         months_back = 6
         active_users = metrics.get_site_mau_history_metrics(site=site,
                                                             months_back=months_back)
@@ -1168,41 +815,22 @@ class CourseMauLiveMetricsViewSet(CommonAuthMixin, viewsets.GenericViewSet):
     def retrieve(self, request, **kwargs):
         course_id_str = kwargs.get('pk', '')
         course_key = CourseKey.from_string(course_id_str.replace(' ', '+'))
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
 
         if figures.helpers.is_multisite():
             if site != figures.sites.get_site_for_course(course_key):
                 # Raising NotFound instead of PermissionDenied
                 raise NotFound()
-        data = retrieve_live_course_learners_mau_data(site, course_key)
+        data = retrieve_live_course_mau_data(site, course_key)
         serializer = self.serializer_class(data)
         return Response(serializer.data)
 
     def list(self, request):
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         course_overviews = figures.sites.get_courses_for_site(site)
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
-        date_format = '%d-%m-%Y'
-        is_custom_date_range = start_date or end_date
-        if is_custom_date_range:
-            error_response = figures.helpers.return_invalid_date_range_response(
-                start_date,
-                end_date,
-                date_format
-            )
-            if error_response:
-                return error_response
-
-            start_date = figures.helpers.get_date(start_date, date_format)
-            end_date = figures.helpers.get_date(end_date, date_format)
-            if not figures.helpers.dates_within_month(start_date, end_date):
-                start_date = None
-                end_date = None
-
         data = []
         for co in course_overviews:
-            data.append(retrieve_live_course_learners_mau_data(site, co.id, start_date, end_date))
+            data.append(retrieve_live_course_mau_data(site, co.id))
         serializer = self.serializer_class(data, many=True)
         return Response(serializer.data)
 
@@ -1229,7 +857,7 @@ class SiteMauLiveMetricsViewSet(CommonAuthMixin, viewsets.GenericViewSet):
         We use list instead of retrieve because retrieve requires a resource
         identifier, like a PK
         """
-        site = django.contrib.sites.shortcuts.get_current_site(request)
+        site = figures.sites.get_requested_site(request)
         data = retrieve_live_site_mau_data(site)
         serializer = self.serializer_class(data)
         return Response(serializer.data)
@@ -1243,8 +871,8 @@ class CourseMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     lookup_value_regex = settings.COURSE_ID_PATTERN
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = CourseMauMetrics.objects.filter(site=site).using(read_replica_or_default())
+        site = figures.sites.get_requested_site(self.request)
+        queryset = CourseMauMetrics.objects.filter(site=site)
         return queryset
 
 
@@ -1256,8 +884,8 @@ class SiteMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_class = SiteMauMetricsFilter
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = SiteMauMetrics.objects.filter(site=site).using(read_replica_or_default())
+        site = figures.sites.get_requested_site(self.request)
+        queryset = SiteMauMetrics.objects.filter(site=site)
         return queryset
 
 

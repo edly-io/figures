@@ -14,8 +14,6 @@ from rest_framework.test import (
 from figures.helpers import is_multisite
 from figures.views import CoursesIndexViewSet
 
-from collections import OrderedDict
-
 from tests.factories import (
     CourseOverviewFactory,
     OrganizationFactory,
@@ -26,10 +24,10 @@ from tests.views.base import BaseViewTest
 
 # Course data and generate method are duplicates course data in test_filters.py
 COURSE_DATA = [
-    {'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg'},
-    {'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg'},
-    {'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg'},
-    {'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg'},
+    {'id': u'course-v1:AlphaOrg+A001+RUN', 'name': u'Alpha Course 1', 'org': u'AlphaOrg', 'number': u'A001'},
+    {'id': u'course-v1:AlphaOrg+A002+RUN', 'name': u'Alpha Course 2', 'org': u'AlphaOrg', 'number': u'A002'},
+    {'id': u'course-v1:BravoOrg+A001+RUN', 'name': u'Bravo Course 1', 'org': u'BravoOrg', 'number': u'B001'},
+    {'id': u'course-v1:BravoOrg+B002+RUN', 'name': u'Bravo Course 2', 'org': u'BravoOrg', 'number': u'B002'},
 ]
 
 
@@ -37,7 +35,7 @@ COURSE_DATA = [
 
 def make_course(**kwargs):
     return CourseOverviewFactory(
-        id=kwargs['id'], display_name=kwargs['name'], org=kwargs['org'])
+        id=kwargs['id'], display_name=kwargs['name'], org=kwargs['org'], number=kwargs['number'])
 
 
 @pytest.mark.django_db
@@ -52,21 +50,21 @@ class TestCoursesIndexViewSet(BaseViewTest):
         super(TestCoursesIndexViewSet, self).setup(db)
         self.course_overviews = [make_course(**data) for data in COURSE_DATA]
         if is_multisite():
-            self.organizations = self.edly_org.edx_organizations
+            self.organization = OrganizationFactory(sites=[self.site])
             for co in self.course_overviews:
-                OrganizationCourseFactory(organization=self.organization,course_id=str(co.id))
+                OrganizationCourseFactory(organization=self.organization,
+                                          course_id=str(co.id))
 
     def test_get_all(self):
         expected_data = COURSE_DATA
         request = APIRequestFactory().get(self.request_path)
-        request.site = self.site
         force_authenticate(request, user=self.staff_user)
         view = self.view_class.as_view({'get': 'list'})
         response = view(request)
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
             ['count', 'next', 'previous', 'results', ])
-        assert [dict(data) for data in response.data['results']] == expected_data
+        assert response.data['results'] == expected_data
 
     @pytest.mark.parametrize('query_params, filter_args', [
         ('?org=AlphaOrg', 'AlphaOrg'),
@@ -80,4 +78,4 @@ class TestCoursesIndexViewSet(BaseViewTest):
         assert response.status_code == 200
         assert set(response.data.keys()) == set(
             ['count', 'next', 'previous', 'results', ])
-        assert [dict(data) for data in response.data['results']] == expected_data
+        assert response.data['results'] == expected_data

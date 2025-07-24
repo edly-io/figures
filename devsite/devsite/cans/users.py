@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import random
 import faker
 
-from common.djangoapps.student.models  import UserProfile
+from student.models import UserProfile
 
 
 class UserGenerator(object):

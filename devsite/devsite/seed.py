@@ -21,11 +21,11 @@ from django.utils.timezone import utc
 from figures.compat import StudentModule
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from common.djangoapps.student.models import CourseAccessRole, CourseEnrollment, UserProfile
+from student.models import CourseAccessRole, CourseEnrollment, UserProfile
 
 from organizations.models import Organization, OrganizationCourse
 
-from figures.backfill import backfill_enrollment_data_for_site
+from figures.pipeline.backfill import backfill_enrollment_data_for_site
 from figures.compat import RELEASE_LINE, GeneratedCertificate
 from figures.models import (
     CourseDailyMetrics,
@@ -43,7 +43,7 @@ from figures.helpers import (
 )
 from figures.pipeline import course_daily_metrics as pipeline_cdm
 from figures.pipeline import site_daily_metrics as pipeline_sdm
-from figures.sites import get_organizations_for_site
+from figures.sites import get_organizations_for_site, get_sites
 
 from devsite import cans
 from six.moves import range
@@ -166,7 +166,8 @@ def seed_users(data=None):
                     country=profile_rec.get('country', None),
                 )
         except IntegrityError as e:
-            print(('skipping duplicate user email {}'.format(e)))
+            print(('skipping duplicate user email {} for email: {}'.format(
+                e, rec['emailX'])))
     return created_users
 
 
@@ -301,7 +302,6 @@ def seed_course_daily_metrics_fixed(data=None):
             defaults=dict(
                 enrollment_count=rec['enrollment_count'],
                 active_learners_today=rec['active_learners_today'],
-                active_learners_this_month=rec['active_learners_this_month'],
                 average_progress=rec['average_progress'],
                 average_days_to_complete=rec['average_days_to_complete'],
                 num_learners_completed=rec['num_learners_completed'],
@@ -413,7 +413,7 @@ def hotwire_multisite():
 
 def backfill_figures_ed():
     results = dict()
-    for site in Site.objects.all():
+    for site in get_sites():
         print('Backfilling enrollment data for site "{}"'.format(site.domain))
         site_ed = backfill_enrollment_data_for_site(site)
         results[site.id] = site_ed
