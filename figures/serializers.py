@@ -844,8 +844,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
                 return None
             site = self.context['site']
 
+        external_key = site.domain.split('.')[0]
         edly_access_user = user.edly_multisite_user.get(
-            sub_org__lms_site=site,
+            tenant__tenant_config__external_key=external_key 
         )
         return edly_access_user.course_activity_date
     

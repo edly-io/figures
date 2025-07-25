@@ -218,18 +218,6 @@ class CoursesIndexViewSet(CourseOverviewViewSet):
     serializer_class = CourseIndexSerializer
 
 
-class GeneralCourseDataViewSet(CourseOverviewViewSet):
-    """General course data
-    """
-    serializer_class = GeneralCourseDataSerializer
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
-    filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    search_fields = ['display_name', 'id']
-    ordering_fields = ['display_name', 'self_paced', 'date_joined']
-
-
 class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     """Detailed course data
     """
@@ -414,10 +402,7 @@ class GeneralSitesMetricsView(CommonAuthMixin, APIView):
         '''
         Does not yet support multi-tenancy
         '''
-        site = django.contrib.sites.shortcuts.get_current_site(request)
-        sub_org = self.request.GET.get('sub_org', '')
-        sub_org = [site.name.split('.')[0]] if not sub_org else sub_org.split(',')
- 
+        tenent_keys = figures.helpers.get_tenant_external_keys(request)
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         date_format = '%d-%m-%Y'
@@ -427,14 +412,14 @@ class GeneralSitesMetricsView(CommonAuthMixin, APIView):
             if error_response:
                 return
         
-        total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, end_date, date_format)
-        total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, end_date, date_format)
+        total_stuff_user= self.get_total_staf_user_for_sub_orgs(tenent_keys, end_date, date_format)
+        total_learner_user= self.get_total_learner_for_sub_orgs(tenent_keys, end_date, date_format)
         _, comparison_end_date = figures.helpers.get_previous_comparison_time_period(
             figures.helpers.get_date(start_date, date_format),
             figures.helpers.get_date(end_date, date_format),
         )
-        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
-        prev_total_learner_user= self.get_total_learner_for_sub_orgs(sub_org, comparison_end_date.strftime(date_format), date_format)
+        prev_total_stuff_user= self.get_total_staf_user_for_sub_orgs(tenent_keys, comparison_end_date.strftime(date_format), date_format)
+        prev_total_learner_user= self.get_total_learner_for_sub_orgs(tenent_keys, comparison_end_date.strftime(date_format), date_format)
 
         data = {
             'total_site_staff_users': {
@@ -479,8 +464,8 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
             return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
+        tenent_keys = figures.helpers.get_tenant_external_keys(self.request)
+        queryset = figures.sites.get_courses_for_site(tenent_keys)
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
@@ -513,13 +498,9 @@ class CourseTopStatsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     )
 
     def get_queryset(self):
-        site = getattr(self.request, 'site', django.contrib.sites.shortcuts.get_current_site(self.request))
-        sub_org = self.request.GET.get('sub_org', '')
+        tenent_keys = figures.helpers.get_tenant_external_keys(self.request)
         course_ids=[]
-        if sub_org:
-            course_ids = figures.sites.get_course_keys_for_sites_slugs(sub_org.split(','))
-        else:
-            course_ids = figures.sites.get_course_keys_for_site(site)
+        course_ids = figures.sites.get_course_keys_for_site(tenent_keys)
         
         current_time = datetime.now(timezone.utc)
         queryset = self.model.objects.filter(

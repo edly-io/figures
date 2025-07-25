@@ -21,16 +21,15 @@ from django.db.models import Q
 # TODO: Add exception handling
 import organizations
 
-from figures.helpers import as_course_key, is_multisite, import_from_path
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
-from openedx.features.edly.models import (
-    EdlyMultiSiteAccess,
-    EdlySubOrganization,
+from edly_features_app.models import (
+    EdlyMultiSiteAccess
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key
+from figures.helpers import as_course_key, is_multisite, import_from_path
 import figures.helpers
 from edx_django_utils.db.read_replica import read_replica_or_default
+from eox_tenant.models import TenantConfig
 
 
 class CrossSiteResourceError(Exception):
@@ -167,7 +166,7 @@ def get_course_keys_for_sites_slugs(site_slugs):
     if figures.helpers.is_multisite():
         edx_orgs = EdlySubOrganization.objects.filter(slug__in=site_slugs).using(read_replica_or_default()).values_list(
             'edx_organizations', flat=True)
-        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__short_name__in=edx_orgs).using(
             read_replica_or_default())
 
         course_ids = org_courses.values_list('course_id', flat=True)
@@ -178,11 +177,14 @@ def get_course_keys_for_sites_slugs(site_slugs):
     return [as_course_key(cid) for cid in course_ids]
 
 
-def get_course_keys_for_site(site):
+def get_course_keys_for_site(external_slugs):
     if figures.helpers.is_multisite():
-        edx_orgs = EdlySubOrganization.objects.filter(lms_site=site).using(read_replica_or_default()).values_list(
-            'edx_organizations', flat=True)
-        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__in=edx_orgs).using(
+        site_configs = TenantConfig.objects.filter(external_key__in=external_slugs)
+        course_org = []
+        for cfg in site_configs:
+            course_org.extend(cfg.get_organizations())
+   
+        org_courses = organizations.models.OrganizationCourse.objects.filter(organization__short_name__in=course_org).using(
             read_replica_or_default())
 
         course_ids = org_courses.values_list('course_id', flat=True)
@@ -205,23 +207,23 @@ def site_course_ids(site):
             'id', flat=True)]
 
 
-def get_courses_for_site(site):
+def get_courses_for_site(tenant_external_keys):
     """Returns the courses accessible by the user on the site
 
     This function relies on Appsembler's fork of edx-organizations
     """
     if is_multisite():
-        course_keys = get_course_keys_for_site(site)
+        course_keys = get_course_keys_for_site(tenant_external_keys)
         courses = CourseOverview.objects.filter(id__in=course_keys).using(read_replica_or_default())
     else:
         courses = CourseOverview.objects.using(read_replica_or_default()).all()
     return courses
 
 
-def get_user_ids_for_sites(sites):
+def get_user_ids_for_sites(tenant_external_keys):
     if figures.helpers.is_multisite():
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
-            sub_org__slug__in=sites
+            tenant__tenant_config__external_key__in=tenant_external_keys
         ).using(read_replica_or_default()).exclude(
             groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
@@ -236,8 +238,9 @@ def get_user_ids_for_sites(sites):
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
+        tenant_external_key = site.domain.split('.')[0]
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
-            sub_org__lms_site=site
+            tenant__tenant_config__external_key=tenant_external_key
         ).using(read_replica_or_default()).exclude(
             groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP
         )
@@ -251,11 +254,12 @@ def get_user_ids_for_site(site):
 
 
 def get_edly_users_for_site(site):
+    tenant_external_key = site.domain.split('.')[0]
     if figures.helpers.is_multisite():
         user_ids = get_user_model().objects.select_related(
             'profile',
         ).prefetch_related('edly_multisite_user').filter(
-            edly_multisite_user__sub_org__lms_site=site,
+            edly_multisite_user__tenant__tenant_config__external_key=tenant_external_key
         ).exclude(edly_multisite_user__groups__name=settings.ADMIN_CONFIGURATION_USERS_GROUP)
     else:
         user_ids = get_user_model().objects.using(read_replica_or_default()).all().select_related(
@@ -288,13 +292,14 @@ def get_users_for_site(site):
 
 
 def get_course_enrollments_for_site(site):
-    course_keys = get_course_keys_for_site(site)
+    tenent_keys = [site.domain.split('.')[0]]
+    course_keys = get_course_keys_for_site(tenent_keys)
     return CourseEnrollment.objects.filter(
         course_id__in=course_keys,
         is_active=True
     ).filter(
         ~Q(user__courseaccessrole__role='course_creator_group'),
-        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        user__edly_multisite_user__tenant__tenant_config__external_key__in=tenent_keys,
         user__is_staff=False,
         user__is_superuser=False,
     ).using(read_replica_or_default())

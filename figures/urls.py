@@ -78,7 +78,7 @@ router.register(
     basename='courses-index')
 
 router.register(
-    r'courses-general',
+    r'courses/general',
     views.GeneralCourseDataViewSet,
     basename='courses-general')
 
@@ -98,7 +98,7 @@ router.register(
     basename='users-general')
 
 router.register(
-    r'users-detail',
+    r'users/detail',
     views.LearnerDetailsViewSet,
     basename='users-detail')
 

@@ -125,6 +125,7 @@ def plugin_settings(settings):
 
     """
     settings.ENV_TOKENS.setdefault('FIGURES', {})
+    settings.FEATURES['FIGURES_IS_MULTISITE'] = True
     figures_tasks_default_queue = settings.ENV_TOKENS['FIGURES'].get(
         'FIGURES_PIPELINE_TASKS_ROUTING_KEY',
         settings.CELERY_DEFAULT_ROUTING_KEY

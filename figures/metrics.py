@@ -30,10 +30,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Avg, Max, Sum, Q
 
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from courseware.courses import get_course_by_id  # pylint: disable=import-error
-from courseware.models import StudentModule  # pylint: disable=import-error
-
-from openedx.features.edly.models import EdlySubOrganization
+from lms.djangoapps.courseware.models import StudentModule  # pylint: disable=import-error
 
 from figures.compat import (
     GeneratedCertificate,
@@ -59,6 +56,7 @@ from figures.helpers import (
     prev_day,
     previous_months_iterator,
     calculate_percentage_change,
+    get_edly_course_org
 )
 from figures.mau import get_mau_from_site_course
 from figures.models import (
@@ -383,7 +381,7 @@ def get_total_site_users_for_time_period(site, start_date, end_date, **kwargs):
         else:
             return 0
 
-    if _kwargs.get('calc_from_sdm'):
+    if kwargs.get('calc_from_sdm'):
         return calc_from_site_daily_metrics()
     else:
         return calc_from_user_model()
@@ -593,10 +591,7 @@ def get_total_active_courses_for_time_period(site, start_date, end_date):
     """
 
     def calc_from_courses_overview():
-        edx_organizations = EdlySubOrganization.objects.filter(
-            lms_site=site,
-        ).using(read_replica_or_default()).first().get_edx_organizations
-
+        edx_organizations = get_edly_course_org()
         if edx_organizations:
             return CourseOverview.objects.filter(
                 org__in=edx_organizations

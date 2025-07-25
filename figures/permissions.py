@@ -13,10 +13,7 @@ try:
 except ImportError:
     pass
 
-from openedx.features.edly.utils import (
-    edly_panel_user_has_edly_org_access, get_edly_sub_org_from_request,
-    user_has_edly_organization_access
-)
+from eox_tenant.auth import TenantAwareAuthBackend
 import figures.helpers
 import figures.sites
 
@@ -105,10 +102,9 @@ class CanAccessEdlyInsights(BasePermission):
     """
 
     def has_permission(self, request, view):
-        sub_org = get_edly_sub_org_from_request(request)
+        tenant_key = figures.helpers.get_tenant_external_keys(request)[0]
         is_edly_access_user = request.user.edly_multisite_user.filter(
-            sub_org=sub_org,
+            tenant__tenant_config__external_key=tenant_key,
             groups__name__in=[settings.EDLY_INSIGHTS_GROUP, settings.EDLY_PANEL_ADMIN_USERS_GROUP]
         ).exists()
-        has_edly_user_access = user_has_edly_organization_access(request) and (is_edly_access_user)
-        return has_edly_user_access
+        return is_edly_access_user and TenantAwareAuthBackend().user_can_authenticate_on_tenant(request.user) 

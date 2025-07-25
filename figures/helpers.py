@@ -62,6 +62,7 @@ import logging
 from importlib import import_module
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
+from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.staticfiles import finders
 from django.utils.timezone import utc
 from django.template.loader import get_template
@@ -71,6 +72,7 @@ from rest_framework.response import Response
 
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
+from eox_tenant.edxapp_wrapper.site_configuration_module import get_configuration_helpers
 
 from opaque_keys.edx.keys import CourseKey
 import six
@@ -996,3 +998,29 @@ def get_course_block_name(course_block_structure, block):
         usage_key=block,
         field_name='type'
     ))
+
+
+def get_tenant_external_key(request):
+    """
+    Get the external keys for the current tenant from the request.
+    """
+    site = get_current_site(request)
+    tenent_keys = request.GET.get('sub_org', '')
+    tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
+    return tenent_keys
+
+
+def get_tenant_external_keys(request):
+    """
+    Get the external keys for the current tenant from the request.
+    """
+    site = get_current_site(request)
+    tenent_keys = request.GET.get('sub_org', '')
+    tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
+    return tenent_keys
+
+
+def get_edly_course_org():
+    """return the edly course org from the current site configuration"""
+    configuration_helpers = get_configuration_helpers()
+    return configuration_helpers.get_current_site_orgs()
