@@ -105,7 +105,7 @@ router.register(
 router.register(
     r'v2/users/detail',
     views.LearnerDetailsViewSetV2,
-    base_name='users-detail-v2')
+    basename='users-detail-v2')
 
 # TODO: Consider changing this path to be 'users' or 'users/summary'
 # So that all user data fall under the same root path
