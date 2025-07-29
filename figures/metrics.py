@@ -207,7 +207,7 @@ class LearnerCourseGrades(object):
                 percent_grade=self.course_grade.percent if self.course_grade.percent else 0.0,
                 letter_grade=self.course_grade.letter_grade if self.course_grade.letter_grade else '',
             ),
-            passed_timestamp=self.course_grade.passed_timestamp if self.course_grade else None
+            passed_timestamp=getattr(self.course_grade, 'passed_timestamp', None)
         )
 
     def progress_percent(self, progress_details=None):

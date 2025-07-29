@@ -11,12 +11,12 @@ from __future__ import absolute_import
 from django.db.models import Sum, Q
 
 from figures.course import Course
-from figures.helpers import as_course_key, as_datetime, next_day, prev_day
+from figures.helpers import as_course_key, as_datetime, next_day, as_date
 from figures.mau import site_mau_1g_for_month_as_of_day
 from figures.models import CourseDailyMetrics, SiteDailyMetrics
 from figures.sites import (
     site_course_ids,
-    get_courses_for_site,
+    get_courses_for_currrent_site,
     get_users_for_site,
     get_student_modules_for_site,
 )
@@ -47,7 +47,7 @@ def missing_course_daily_metrics(site, date_for):
             site=site, date_for=date_for).using(read_replica_or_default())
     ]
 
-    site_course_overviews = get_courses_for_site(site)
+    site_course_overviews = get_courses_for_currrent_site(site)
     course_overviews = site_course_overviews.filter(
         created__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).exclude(id__in=cdm_course_keys)
 
@@ -174,7 +174,7 @@ class SiteDailyMetricsExtractor(object):
         site_users = get_users_for_site(site)
         user_count = site_users.filter(
             date_joined__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).count()
-        site_courses = get_courses_for_site(site)
+        site_courses = get_courses_for_currrent_site(site)
         course_count = site_courses.filter(
             created__lt=as_datetime(next_day(date_for))).using(read_replica_or_default()).count()
 

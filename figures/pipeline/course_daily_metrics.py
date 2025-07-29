@@ -20,12 +20,14 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q
 
+from eox_tenant.constants import LMS_CONFIG_COLUMN
+from eox_tenant.receivers_helpers import get_tenant_config_by_domain
 from common.djangoapps.student.roles import CourseCcxCoachRole, CourseInstructorRole, CourseStaffRole  # noqa pylint: disable=import-error
 from figures.compat import (CourseEnrollment,
                             CourseOverview,
                             GeneratedCertificate,
                             StudentModule)
-from figures.helpers import as_course_key, as_datetime, is_past_date, next_day
+from figures.helpers import as_course_key, as_datetime, is_past_date, next_day, as_date
 import figures.metrics
 from figures.models import CourseDailyMetrics, PipelineError
 from figures.pipeline.enrollment_metrics import bulk_calculate_course_progress_data
@@ -68,10 +70,11 @@ def get_enrolled_in_exclude_admins(course_id, date_for=None):
     if date_for:
         filter_args.update(dict(created__lt=as_datetime(next_day(date_for))))
 
+    _, external_key = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)   
     return CourseEnrollment.objects.filter(**filter_args).filter(
         course_id=as_course_key(course_id)).filter(
         ~Q(user__courseaccessrole__role='course_creator_group'),
-        user__edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        user__edly_multisite_user__tenant__tenant_config__external_key=external_key,
         user__is_staff=False,
         user__is_superuser=False,
     ).using(read_replica_or_default())
@@ -219,9 +222,10 @@ def get_days_to_complete(site, course_id, date_for):
     When we have to support scale, we can look into optimization
     techinques.
     """
+    _, external_key = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)
     users_ids = User.objects.filter(
         ~Q(courseaccessrole__role='course_creator_group'),
-        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        edly_multisite_user__tenant__tenant_config__external_key=external_key,
         is_staff=False,
         is_superuser=False,
     ).using(read_replica_or_default()).values_list(
@@ -274,9 +278,10 @@ def get_num_learners_completed(site, course_id, date_for):
 
     We may want to get the number of certificates granted in the given day
     """
+    _, external_key = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)
     users_ids = User.objects.filter(
         ~Q(courseaccessrole__role='course_creator_group'),
-        edly_multisite_user__sub_org=site.edly_sub_org_for_lms,
+        edly_multisite_user__tenant__tenant_config__external_key=external_key,
         is_staff=False,
         is_superuser=False,
     ).exclude(username__icontains='retired__user').using(read_replica_or_default()).values_list(
