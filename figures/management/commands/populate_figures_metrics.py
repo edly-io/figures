@@ -45,6 +45,9 @@ class Command(BaseCommand):
                             action='store_true',
                             default=False,
                             help='Run just the MAU pipeline')
+        parser.add_argument('--site',
+                            type=str,
+                            help='Site domain or id (required when not using --mau option)')
 
     def handle(self, *args, **options):
         '''
@@ -65,13 +68,26 @@ class Command(BaseCommand):
         if options['mau']:
             call_command('run_figures_mau_metrics', no_delay=options['no_delay'])
         else:
+            # Validate that site is provided when not using --mau option
+            if not options['site']:
+                self.stderr.write(
+                    self.style.ERROR(
+                        'Error: --site argument is required when not using --mau option.\n'
+                        'Please provide a site domain or id using --site <site_domain_or_id>'
+                    )
+                )
+                return
+
             call_command(
                 'backfill_figures_daily_metrics',
-                no_delay=options['no_delay'],
-                date_start=options['date'],
-                date_end=options['date'],
-                overwrite=options['force_update'],
-                experimental=options['experimental']
+                # no_delay=options['no_delay'],
+                # date_start=options['date'],
+                # date_end=options['date'],
+                # overwrite=options['force_update'],
+                options['site'], 
+                date=options['date'],
+                force_update=options['force_update'],
+                # experimental=options['experimental']
             )
 
         # TODO: improve this message to say 'today' when options['date'] is None

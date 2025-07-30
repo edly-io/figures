@@ -4,9 +4,9 @@ Initially developed to support API performance improvements
 """
 
 from __future__ import absolute_import
-import os
 from time import time
 from datetime import datetime
+import logging
 from dateutil.rrule import rrule, MONTHLY
 from dateutil.relativedelta import relativedelta
 
@@ -19,7 +19,7 @@ from figures.helpers import as_date
 from figures.models import EnrollmentData
 from figures.sites import (
     get_course_enrollments_for_site,
-    get_course_keys_for_site,
+    get_course_keys_for_current_site,
     get_student_modules_for_site
 )
 from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
@@ -34,7 +34,9 @@ from figures.pipeline.site_monthly_metrics import fill_month
 # `/edx/var/log/figures`. However, the `/edx/var/log` directory does not have
 # write permission for the `edxapp` or `www-data` users, while `/edx/app/edxapp`
 # does. Therefore we initally declar the following to write backfill logs
-DEFAULT_FIGURES_BACKFILL_LOG_DIR = '/edx/app/edxapp/figures/logs/'
+DEFAULT_FIGURES_BACKFILL_LOG_DIR = '/edx/app/edxapp/figures/'
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidDataError(Exception):
@@ -136,7 +138,7 @@ def get_courses_first_enrollment_timestamps(site, as_strings=False):
     file
     """
     data = dict()
-    for course_key in get_course_keys_for_site(site):
+    for course_key in get_course_keys_for_current_site(site):
         created = Course(course_key).first_enrollment_timestamp()
         if as_strings:
             data[str(course_key)] = created.isoformat()
@@ -153,7 +155,7 @@ def courses_enrolled_on_or_before(site, date_for, data=None):
     that we can fail before updating Figures course daily metrics records in
     the event that a set of data contain courses that do not belong to the site
     """
-    check_course_ids = get_course_keys_for_site(site)
+    check_course_ids = get_course_keys_for_current_site(site)
     if data is None:
         data = get_courses_first_enrollment_timestamps(site)
     date_for = as_date(date_for)
@@ -202,14 +204,6 @@ def backfill_daily_metrics_for_site_and_date(site,
     """
     date_for = as_date(date_for)
     date_for_str = date_for.isoformat()
-
-    if logdir is None:
-        logdir = figures_backfill_log_dir()
-
-    filename = 'backfill-for-site-{site_id}-date-{date_for}.log'.format(
-        site_id=site.id, date_for=date_for_str)
-    filepath = os.path.join(logdir, filename)
-
     course_ids = courses_enrolled_on_or_before(site, date_for)
     course_id_count = len(course_ids)
 
@@ -219,43 +213,43 @@ def backfill_daily_metrics_for_site_and_date(site,
     # when restarting the backfill for the same site and date
     # if we find doing the log file in append more some kind of pain point, we
     # can improve the engineering then
-    with open(filepath, 'a', encoding='utf-8') as logfile:
+    
+    start_time = time()
+    logger.info('START: backfill {} courses, date_for: {}\n'.format(
+        course_id_count, date_for_str))
+
+    for i, course_id in enumerate(course_ids):
+        logger.info('[{} of {}] date_for: {}, {}\n'.format(
+            i+1, course_id_count, date_for_str, str(course_id)))
+
+        cdm_obj, _created = CourseDailyMetricsLoader(
+            str(course_id)).load(date_for=date_for, force_update=force_update)
+        logger.info('-- wrote CDM id: {}\n'.format(cdm_obj.id))
+
+
+    cdms_elapsed = time() - start_time
+    logger.info('\nEND: backfill courses. date_for:{}, elapsed: {}\n'.format(
+        date_for_str, cdms_elapsed))
+
+    if process_sdm:
+        # TODO: if the SDM already exists, report it. This means the admin
+        # can decide to manually force update, which is usually what we
+        # want, however, we don't want surprise modifications of existing
+        # data, so we're leaving it up to the caller to explicitly say
+        # "destroy and rewrite"
+        logger.info('START: backfill site {} for date {}: \n'.format(
+            site.domain, date_for_str))
         start_time = time()
-        logfile.write('START: backfill {} courses, date_for: {}\n'.format(
-            course_id_count, date_for_str))
-        for i, course_id in enumerate(course_ids):
-            logfile.write('[{} of {}] date_for: {}, {}\n'.format(
-                i+1, course_id_count, date_for_str, str(course_id)))
-
-            cdm_obj, _created = CourseDailyMetricsLoader(
-                str(course_id)).load(date_for=date_for, force_update=force_update)
-            logfile.write('-- wrote CDM id: {}\n'.format(cdm_obj.id))
-
-            # We flush so we can tail the log file for progress
-            logfile.flush()
-        cdms_elapsed = time() - start_time
-        logfile.write('\nEND: backfill courses. date_for:{}, elapsed: {}\n'.format(
-            date_for_str, cdms_elapsed))
-        if process_sdm:
-            # TODO: if the SDM already exists, report it. This means the admin
-            # can decide to manually force update, which is usually what we
-            # want, however, we don't want surprise modifications of existing
-            # data, so we're leaving it up to the caller to explicitly say
-            # "destroy and rewrite"
-            logfile.write('START: backfill site {} for date {}: \n'.format(
-                site.domain, date_for_str))
-            start_time = time()
-            sdm_obj, _created = SiteDailyMetricsLoader().load(site=site,
-                                                              date_for=date_for,
-                                                              force_update=force_update)
-            logfile.write('-- wrote SDM id: {}\n'.format(sdm_obj.id))
-            sdm_elapsed = time() - start_time
-            logfile.write('\nEND: backfill site. date_for: {}, elapsed: {}\n'.format(
-                date_for_str, sdm_elapsed))
+        sdm_obj, _created = SiteDailyMetricsLoader().load(site=site,
+                                                            date_for=date_for,
+                                                            force_update=force_update)
+        logger.info('-- wrote SDM id: {}\n'.format(sdm_obj.id))
+        sdm_elapsed = time() - start_time
+        logger.info('\nEND: backfill site. date_for: {}, elapsed: {}\n'.format(
+            date_for_str, sdm_elapsed))
 
     # return location of logfile and some instrumentation data
     return dict(
-        logfile=filepath,
         courses_processed=course_id_count,
         cdms_elapsed=cdms_elapsed,
         sdm_elapsed=sdm_elapsed)

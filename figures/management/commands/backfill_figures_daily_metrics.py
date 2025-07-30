@@ -103,6 +103,5 @@ class Command(BaseCommand):
                                        **extra_args)
             print('Finished date {}. Processed {} courses'.format(
                 date_for.isoformat(), results['courses_processed']))
-            print('Wrote log file: "{}"'.format(results['logfile']))
             print('CDM processing time: {}, SDM processing time: {}'.format(
                 results['cdms_elapsed'], results['sdm_elapsed']))

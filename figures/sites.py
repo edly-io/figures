@@ -17,6 +17,8 @@ from django.contrib.sites import shortcuts as sites_shortcuts
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.db.models import Q
+from eox_tenant.constants import LMS_CONFIG_COLUMN
+from eox_tenant.receivers_helpers import get_tenant_config_by_domain
 
 # TODO: Add exception handling
 import organizations
@@ -134,14 +136,15 @@ def get_site_for_course(course_id):
 
             else:
                 try:
-                    edly_sub_org = EdlySubOrganization.objects.filter(edx_organizations__in=[first_org]).using(
-                        read_replica_or_default()).first()
-                    if edly_sub_org:
-                        site = edly_sub_org.lms_site
+                    site_configs = TenantConfig.objects.filter(organizations__name__in=[first_org.name]).first()
+                    if site_configs:
+                        site = Site.objects.filter(
+                            domain=site_configs.lms_configs.get('LMS_BASE')
+                        ).first()
                     else:
                         site = None
 
-                except EdlySubOrganization.DoesNotExist:
+                except TenantConfig.DoesNotExist:
                     site = None
 
         else:
@@ -194,13 +197,34 @@ def get_course_keys_for_site(external_slugs):
     return [as_course_key(cid) for cid in course_ids]
 
 
+def get_course_keys_for_current_site(site):
+    """
+
+    Developer note: We could improve this function with caching
+    Question is which is the most efficient way to know cache expiry
+
+    We may also be able to reduce the queries here to also improve performance
+    """
+    if is_multisite():
+        course_ids = site_course_ids(site)
+    else:
+        course_ids = CourseOverview.objects.all().values_list('id', flat=True)
+    return [as_course_key(cid) for cid in course_ids]
+
+
+
 def site_course_ids(site):
     """Return a list of string course ids for the site
     """
     if figures.helpers.is_multisite():
-        return organizations.models.OrganizationCourse.objects.filter(
-            organization__edlysuborganization=site.edly_sub_org_for_lms
-        ).values_list('course_id', flat=True)
+        
+        site_config, _ = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)   
+        if site_config:
+            return organizations.models.OrganizationCourse.objects.filter(
+                organization__short_name__in=site_config.get('course_org_filter', [])
+            ).using(read_replica_or_default()).values_list('course_id', flat=True)
+
+        return []
     else:
         # Needs work. See about returning a queryset
         return [str(key) for key in CourseOverview.objects.all().values_list(
@@ -217,6 +241,19 @@ def get_courses_for_site(tenant_external_keys):
         courses = CourseOverview.objects.filter(id__in=course_keys).using(read_replica_or_default())
     else:
         courses = CourseOverview.objects.using(read_replica_or_default()).all()
+    return courses
+
+
+def get_courses_for_currrent_site(site):
+    """Returns the courses accessible by the user on the site
+
+    This function relies on Appsembler's fork of edx-organizations
+    """
+    if is_multisite():
+        course_keys = get_course_keys_for_current_site(site)
+        courses = CourseOverview.objects.filter(id__in=course_keys)
+    else:
+        courses = CourseOverview.objects.all()
     return courses
 
 
@@ -316,7 +353,7 @@ def get_student_modules_for_course_in_site(site, course_id):
 
 
 def get_student_modules_for_site(site):
-    course_ids = get_course_keys_for_site(site)
+    course_ids = get_courses_for_currrent_site(site)
     return StudentModule.objects.filter(course_id__in=course_ids).using(read_replica_or_default())
 
 
