@@ -88,7 +88,7 @@ router.register(
     basename='courses-top-stats')
 
 router.register(
-    r'courses-detail',
+    r'courses/detail',
     views.CourseDetailsViewSet,
     basename='courses-detail')
 

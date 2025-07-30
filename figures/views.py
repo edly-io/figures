@@ -219,16 +219,6 @@ class CoursesIndexViewSet(CourseOverviewViewSet):
     serializer_class = CourseIndexSerializer
 
 
-class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    """Detailed course data
-    """
-    serializer_class = CourseDetailsSerializer
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
-    filter_backends = (DjangoFilterBackend, )
-
-
 class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     '''Provides a list of users with abbreviated details
 
@@ -539,7 +529,7 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
+        queryset = figures.sites.get_courses_for_currrent_site(site)
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
