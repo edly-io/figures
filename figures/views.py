@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 import django.contrib.sites.shortcuts
 from django.contrib.sites.models import Site
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -77,6 +77,7 @@ from figures.serializers import (
     EnrollmentMetricsSerializer,
     GeneralCourseDataSerializer,
     LearnerDetailsSerializer,
+    LearnerDetailsSerializerV2,
     LearnerMetricsSerializer,
     LearnerMetricsSerializerV2,
     SiteDailyMetricsSerializer,
@@ -216,16 +217,6 @@ class CoursesIndexViewSet(CourseOverviewViewSet):
     """Provides a list of courses with abbreviated details
     """
     serializer_class = CourseIndexSerializer
-
-
-class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    """Detailed course data
-    """
-    serializer_class = CourseDetailsSerializer
-    # The "kilo paginator"  is a tempoarary hack to return all course to not
-    # have to change the front end until Figures "Level 2"
-    pagination_class = FiguresKiloPagination
-    filter_backends = (DjangoFilterBackend, )
 
 
 class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
@@ -538,7 +529,7 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_courses_for_site(site)
+        queryset = figures.sites.get_courses_for_currrent_site(site)
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
@@ -694,6 +685,52 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
                 LearnerCourseGradeMetrics.objects.passed_ids_for_site(
                     site=current_site,
             ))
+
+        return context
+
+
+class LearnerDetailsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    model = get_user_model()
+    pagination_class = FiguresPageLevelPagination
+    serializer_class = LearnerDetailsSerializerV2
+    filter_backends = (DjangoFilterBackend, CustomLearnerSearchFilter, NullsLastOrderingFilter, )
+    search_fields = ['profile__name', 'username', 'email']
+    ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined', 'last_login', ]
+    filter_class = UserFilterSet
+
+    def paginate_queryset(self, queryset, view=None):
+        """
+        Return a single page of results, or `None` if no_page parameter passed.
+        """
+        if 'no_page' in self.request.query_params:
+            return None
+        else:
+            return self.paginator.paginate_queryset(
+                queryset, self.request, view=self
+            )
+
+    def get_queryset(self):
+        learners_only = self.request.GET.get('learners_only')
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_edly_users_for_site(site)
+        if learners_only and learners_only.lower() == "true":
+            queryset = queryset.filter(
+                ~Q(courseaccessrole__role='course_creator_group'),
+                is_staff=False,
+                is_superuser=False
+            )
+
+        return queryset
+
+    def get_serializer_context(self):
+        context = super(LearnerDetailsViewSetV2, self).get_serializer_context()
+        current_site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
+            current_site
+        )
+        context['completed_courses'] = LearnerCourseGradeMetrics.objects.passed_ids_for_site(
+            site=current_site
+        )
 
         return context
 

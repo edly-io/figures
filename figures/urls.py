@@ -88,7 +88,7 @@ router.register(
     basename='courses-top-stats')
 
 router.register(
-    r'courses-detail',
+    r'courses/detail',
     views.CourseDetailsViewSet,
     basename='courses-detail')
 
@@ -101,6 +101,11 @@ router.register(
     r'users/detail',
     views.LearnerDetailsViewSet,
     basename='users-detail')
+
+router.register(
+    r'v2/users/detail',
+    views.LearnerDetailsViewSetV2,
+    basename='users-detail-v2')
 
 # TODO: Consider changing this path to be 'users' or 'users/summary'
 # So that all user data fall under the same root path
