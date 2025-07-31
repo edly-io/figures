@@ -193,11 +193,12 @@ def update_learners_activity_for_date(date_for, site):
         modified__day=date_for_as_datetime.day
     ).values_list('student__id', flat=True).distinct()
 
+    _, external_key = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)   
     for student_id in student_ids:
         student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
-            sub_org__lms_site=site,
+            tenant__tenant_config__external_key=external_key,
         ).update(course_activity_date=student_activity.modified)
 
 
