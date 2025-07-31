@@ -31,10 +31,23 @@ def has_insights_access(request):
     Validate request User has Insights access.
     """
     return request.user.is_active and request.user.edly_multisite_user.filter(
-        sub_org__lms_site=request.site,
+        tenant__tenant_config__external_key=settings.EDNX_TENANT_KEY,
         groups__name__in=[
             settings.EDLY_INSIGHTS_GROUP,
             settings.EDLY_PANEL_ADMIN_USERS_GROUP
+        ]
+    ).exists()
+
+
+def edly_panel_user_has_edly_org_access(request):
+    """
+    Check if requesting user is an Edly panel user.
+    """
+    return request.user.edly_multisite_user.filter(
+        tenant__tenant_config__external_key=settings.EDNX_TENANT_KEY,
+        groups__name__in=[
+            settings.EDLY_PANEL_ADMIN_USERS_GROUP,
+            settings.EDLY_PANEL_USERS_GROUP,
         ]
     ).exists()
 
