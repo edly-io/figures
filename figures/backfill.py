@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 from django.utils.timezone import utc
 
 from figures.compat import CourseNotFound
-from courseware.models import StudentModule
+from lms.djangoapps.courseware.models import StudentModule
 from figures.sites import get_course_enrollments_for_site, get_student_modules_for_site
 from figures.pipeline.site_monthly_metrics import fill_month
 from figures.models import EnrollmentData, LearnerCourseGradeMetrics
