@@ -24,6 +24,8 @@ from figures.sites import (
 from figures.pipeline.site_monthly_metrics import fill_month
 from edly_features_app.models import EdlyMultiSiteAccess
 from edx_django_utils.db.read_replica import read_replica_or_default
+from eox_tenant.receivers_helpers import get_tenant_config_by_domain
+from eox_tenant.constants import LMS_CONFIG_COLUMN
 
 logger = logging.getLogger(__name__)
 
@@ -90,11 +92,12 @@ def backfill_course_activity_date(site):
     Backfill historical "course_activity_date" for learners who performed course activity in the past.
     """
     student_ids = StudentModule.objects.values_list('student__id', flat=True).distinct()
+    _, external_key = get_tenant_config_by_domain(site.domain, LMS_CONFIG_COLUMN)   
     for student_id in student_ids:
         student_activity = StudentModule.objects.filter(student__id=student_id).order_by('-modified').first()
         EdlyMultiSiteAccess.objects.filter(
             user__id=student_activity.student_id,
-            sub_org__lms_site=site,
+            tenant__tenant_config__external_key=external_key,
         ).update(course_activity_date=student_activity.modified)
 
 
