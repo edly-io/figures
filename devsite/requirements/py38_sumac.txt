@@ -35,6 +35,7 @@ edx-when==1.2.3
 django-crum==0.7.6
 edx-toggles==2.1.0
 fpdf==1.7.2
+edx-proctoring==5.2.0
 
 ## Devsite
 django-debug-toolbar==2.2
