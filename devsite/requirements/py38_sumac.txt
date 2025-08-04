@@ -12,7 +12,7 @@ django-filter==2.3.0
 django-environ==0.4.5
 django-celery-results==2.6.0
 mako==1.0.2
-jsonfield==2.1.1
+jsonfield==3.1.0
 
 ## Open edX package dependencies
 
