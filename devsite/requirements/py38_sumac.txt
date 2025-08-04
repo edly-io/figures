@@ -64,3 +64,10 @@ social-auth-core==3.3.3
 -e git+https://github.com/edx/codejail.git@4127fc4bd5775cc72aee8d7f0a70e31405e22439#egg=codejail
 
 mock==4.0.2
+
+celery>=4.0
+six==1.15.0
+pyparsing==2.4.7
+
+lazy==1.4
+event-tracking==0.3.2
