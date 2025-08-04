@@ -3,7 +3,7 @@
 Django==4.2.20         # security‑patched version for Sumac release :contentReference[oaicite:4]{index=4}
 
 djangorestframework==3.9.4
-django-countries==5.5
+django-countries>=7.3,<8
 django-webpack-loader==0.7.0
 django-model-utils==4.0.0
 django-filter==2.3.0
