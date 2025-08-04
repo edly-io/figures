@@ -71,3 +71,10 @@ pyparsing==2.4.7
 
 lazy==1.4
 event-tracking==0.3.2
+
+# Faker is used to seed mock data in devsite
+Faker==4.1.0
+python-dateutil==2.7.3
+path.py==12.4.0
+
+pytz==2020.1
