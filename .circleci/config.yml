@@ -11,7 +11,7 @@ jobs:
     steps: # steps that comprise the `build` job
       - checkout # check out source code to working directory
       - restore_cache:
-          key: figures-test-deps-{{ checksum "devsite/requirements/py35_juniper.txt" }}
+          key: figures-test-deps-{{ checksum "devsite/requirements/py38_sumac.txt" }}
       - run:
           name: "Install python requirements"
           command: |
@@ -19,16 +19,16 @@ jobs:
             sudo pip install virtualenv
             virtualenv venv
             . venv/bin/activate
-            pip install -r devsite/requirements/py35_juniper.txt
+            pip install -r devsite/requirements/py38_sumac.txt
       - save_cache:
-          key: figures-test-deps-{{ checksum "devsite/requirements/py35_juniper.txt" }}
+          key: figures-test-deps-{{ checksum "devsite/requirements/py38_sumac.txt" }}
           paths:
             - "venv"
       - run:
           name: "Run Tests"
           command: |
             . venv/bin/activate
-            make juniper.pytest
+            make sumac.pytest
       - store_test_results:
           path: test-results
       - store_artifacts:

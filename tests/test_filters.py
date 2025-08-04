@@ -126,7 +126,7 @@ class CourseEnrollmentFilterTest(TestCase):
 
     def test_get_all_course_enrollments(self):
         f = CourseEnrollmentFilter(queryset=CourseEnrollment.objects.all())
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.course_enrollments],
             lambda o: o.id,
@@ -148,7 +148,7 @@ class CourseEnrollmentFilterTest(TestCase):
             queryset=CourseEnrollment.objects.all(),
             name='course_id',
             value=str(course_id))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             res,
             [o.id for o in expected_results],
             lambda o: o.id,
@@ -163,7 +163,7 @@ class CourseEnrollmentFilterTest(TestCase):
             queryset=CourseEnrollment.objects.all(),
             name='user_username',
             value=str(username))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             response,
             [o.id for o in expected_results],
             lambda o: o.id,
@@ -179,7 +179,7 @@ class CourseEnrollmentFilterTest(TestCase):
             name='user__profile__name',
             value=str(fullname))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             response,
             [o.id for o in expected_results],
             lambda o: o.id,
@@ -201,7 +201,7 @@ class CourseOverviewFilterTest(TestCase):
 
     def test_get_all_courses(self):
         f = CourseOverviewFilter(queryset=CourseOverview.objects.all())
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.course_overviews],
             lambda o: o.id,
@@ -210,7 +210,7 @@ class CourseOverviewFilterTest(TestCase):
     def test_filter_exact_org(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(org='Alpha'))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.course_overviews if o.org == 'Alpha'],
             lambda o: o.id,
@@ -220,7 +220,7 @@ class CourseOverviewFilterTest(TestCase):
     def test_filter_exact_number(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number='A001'))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.course_overviews if o.number == 'A001'],
             lambda o: o.id,
@@ -230,7 +230,7 @@ class CourseOverviewFilterTest(TestCase):
     def test_filter_number_contains(self):
         f = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(number__contains='001'))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.course_overviews if '001' in o.number],
             lambda o: o.id,
@@ -242,7 +242,7 @@ class CourseOverviewFilterTest(TestCase):
         filter_resp = CourseOverviewFilter(
             queryset=CourseOverview.objects.filter(id=course_id))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             filter_resp.qs,
             [overview.id for overview in expected_results if course_id == overview.id],
             lambda overview: overview.id,
@@ -272,7 +272,7 @@ class CourseDailyMetricsFilterTest(TestCase):
         f = CourseDailyMetricsFilter(
             queryset=CourseDailyMetrics.objects.filter(date_for=the_date))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.models if o.date_for == the_date],
             lambda o: o.id, ordered=False)
@@ -304,7 +304,7 @@ class SiteDailyMetricsFilterTest(TestCase):
         f = SiteDailyMetricsFilter(
             queryset=SiteDailyMetrics.objects.filter(date_for=the_date))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.site_daily_metrics if o.date_for == the_date],
             lambda o: o.id, ordered=False)
@@ -332,7 +332,7 @@ class CourseMauMetricsFilterTest(TestCase):
         f = CourseMauMetricsFilter(
             queryset=CourseMauMetrics.objects.filter(date_for=the_date))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.models if o.date_for == the_date],
             lambda o: o.id, ordered=False)
@@ -364,7 +364,7 @@ class SiteMauMetricsFilterTest(TestCase):
         f = SiteMauMetricsFilter(
             queryset=SiteMauMetrics.objects.filter(date_for=the_date))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.models if o.date_for == the_date],
             lambda o: o.id, ordered=False)
@@ -445,7 +445,7 @@ class SiteFilterSetTest(TestCase):
 
         f = SiteFilterSet(
             queryset=Site.objects.filter())
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.sites],
             lambda o: o.id,
@@ -455,7 +455,7 @@ class SiteFilterSetTest(TestCase):
         filter_term = 'ALpHA'
         f = SiteFilterSet(
             queryset=Site.objects.filter(domain__icontains=filter_term))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.sites if filter_term.lower() in o.domain.lower()],
             lambda o: o.id, ordered=False)
@@ -464,7 +464,7 @@ class SiteFilterSetTest(TestCase):
         filter_term = 'BRaVO'
         f = SiteFilterSet(
             queryset=Site.objects.filter(name__icontains=filter_term))
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.sites if filter_term.lower() in o.name.lower()],
             lambda o: o.id, ordered=False)
@@ -501,7 +501,7 @@ class UserFilterSetTest(TestCase):
 
     def test_get_all_users(self):
         f = UserFilterSet(queryset=self.User.objects.all())
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             f.qs,
             [o.id for o in self.users],
             lambda o: o.id,
@@ -513,7 +513,7 @@ class UserFilterSetTest(TestCase):
             name='user_ids',
             value='{},{}'.format(self.users[0].id, self.users[1].id))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             res,
             [o.id for o in self.users[:2]],
             lambda o: o.id, ordered=False)
@@ -524,7 +524,7 @@ class UserFilterSetTest(TestCase):
             name='course_id',
             value=six.text_type(self.course_overview.id))
 
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             res,
             [o.id for o in self.users[:2]],
             lambda o: o.id, ordered=False)

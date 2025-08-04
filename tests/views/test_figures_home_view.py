@@ -17,7 +17,7 @@ try:
     from django.urls import reverse
 except ImportError:
     # Django <1.9
-    from django.core.urlresolvers import reverse
+    from django.urls import reverse
 
 
 import pytest

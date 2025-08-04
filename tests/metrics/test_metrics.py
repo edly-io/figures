@@ -45,7 +45,6 @@ from dateutil.rrule import rrule, DAILY
 import pytest
 
 from django.contrib.sites.models import Site
-from django.utils.timezone import utc
 
 # from openedx.features.edly.models import EdlyUserProfile, EdlySubOrganization
 from openedx.features.edly.tests.factories import EdlySubOrganizationFactory
@@ -252,7 +251,7 @@ class TestGetMonthlySiteMetrics(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.today = datetime.datetime(2018, 1, 6, tzinfo=utc)
+        self.today = datetime.datetime(2018, 1, 6, tzinfo=datetime.timezone.utc)
         self.site_daily_metrics = None
         self.expected_keys = (
             'monthly_active_users',

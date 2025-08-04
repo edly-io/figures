@@ -61,6 +61,9 @@ ginkgo.tox:  ## Run tox just for the Ginkgo environment
 juniper.pytest:  ## Run Pytest for the Juniper environment
 	OPENEDX_RELEASE=JUNIPER pytest -c pytest-juniper.ini
 
+sumac.pytest:  ## Run Pytest for the Juniper environment
+	OPENEDX_RELEASE=SUMAC pytest -c pytest-sumac.ini
+
 ### Devsite Docker targets
 
 devsite.docker.prep: ## state needed to run devsite docker

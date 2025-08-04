@@ -11,7 +11,7 @@ import environ
 import environ
 import sys
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from figures.settings.lms_production import (
     update_celerybeat_schedule,
     # TODO: https://appsembler.atlassian.net/browse/RED-673
@@ -35,7 +35,7 @@ def root(*args):
 
 
 env = environ.Env(
-    OPENEDX_RELEASE=(str, 'JUNIPER'),
+    OPENEDX_RELEASE=(str, 'SUMAC'),
 )
 
 environ.Env.read_env()
@@ -91,7 +91,6 @@ INSTALLED_APPS = [
     'openedx.core.djangoapps.site_configuration',
     'openedx.core.djangoapps.video_pipeline',
     'openedx.features.edly',
-    'organizations'
     'student',
     'track',
     'eventtracking.django.apps.EventTrackingConfig',
@@ -105,7 +104,7 @@ INSTALLED_APPS = [
     'edly_panel_app',
 ]
 
-if OPENEDX_RELEASE != 'GINGKO':
+if OPENEDX_RELEASE not in ['GINGKO', 'SUMAC']:
     INSTALLED_APPS.append('djcelery')
 
     # We need this in order for figures.tasks unit tests to not fail with:

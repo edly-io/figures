@@ -2,16 +2,16 @@
 """
 
 from __future__ import absolute_import
-from django.conf.urls import include, url
+from django.urls import include, path, re_path
 from django.contrib import admin
 from django.conf import settings
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    url(r'^$', TemplateView.as_view(template_name='homepage.html'), name='homepage'),
-    url(r'^admin/', admin.site.urls),
-    url(r'^accounts/', include('django.contrib.auth.urls')),
-    url(r'^figures/', include(('figures.urls', 'figures'), namespace='figures')),
+    path('', TemplateView.as_view(template_name='homepage.html'), name='homepage'),
+    re_path(r'^admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')),
+    path('figures/', include(('figures.urls', 'figures'), namespace='figures')),
 ]
 
 if settings.ENABLE_OPENAPI_DOCS:
@@ -31,13 +31,13 @@ if settings.ENABLE_OPENAPI_DOCS:
        permission_classes=[permissions.AllowAny],
     )
     urlpatterns += [
-        url(r'^api-docs(?P<format>\.json|\.yaml)$',
+        re_path(r'^api-docs(?P<format>\.json|\.yaml)$',
             schema_view.without_ui(cache_timeout=0),
             name='schema-json'),
-        url(r'^api-docs/$',
+        path('api-docs/',
             schema_view.with_ui('swagger', cache_timeout=0),
             name='schema-swagger-ui'),
-        url(r'^redoc/$',
+        path('redoc/',
             schema_view.with_ui('redoc', cache_timeout=0),
             name='schema-redoc'),
     ]
@@ -46,5 +46,5 @@ if settings.ENABLE_OPENAPI_DOCS:
 if settings.DEBUG:
     import debug_toolbar
     urlpatterns += [
-        url(r'^__debug__/', include(debug_toolbar.urls)),
+        path('__debug__/', include(debug_toolbar.urls)),
     ]
