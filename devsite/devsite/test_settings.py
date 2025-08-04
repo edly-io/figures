@@ -104,7 +104,7 @@ INSTALLED_APPS = [
     'edly_panel_app',
 ]
 
-if OPENEDX_RELEASE != 'GINGKO':
+if OPENEDX_RELEASE not in ['GINGKO', 'SUMAC']:
     INSTALLED_APPS.append('djcelery')
 
     # We need this in order for figures.tasks unit tests to not fail with:
