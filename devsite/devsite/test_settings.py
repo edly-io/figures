@@ -11,7 +11,7 @@ import environ
 import environ
 import sys
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from figures.settings.lms_production import (
     update_celerybeat_schedule,
     # TODO: https://appsembler.atlassian.net/browse/RED-673
