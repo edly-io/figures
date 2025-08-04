@@ -4,7 +4,7 @@ Django==4.2.20         # security‑patched version for Sumac release :contentRe
 
 django-oauth-toolkit>=2.4.0,<2.5  # required in Sumac for `oauth2_provider`
 
-djangorestframework==3.9.4
+djangorestframework==3.16.0
 django-countries>=7.3,<8
 django-webpack-loader==3.2.1
 django-model-utils==5.0.0
