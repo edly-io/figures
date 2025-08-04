@@ -10,7 +10,7 @@ django-webpack-loader==0.7.0
 django-model-utils==4.0.0
 django-filter==2.3.0
 django-environ==0.4.5
-django-celery==3.3.1
+django-celery-results==2.6.0
 mako==1.0.2
 jsonfield==2.1.1
 
