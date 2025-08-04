@@ -79,4 +79,4 @@ Faker==4.1.0
 python-dateutil==2.7.3
 path.py==12.4.0
 
-pytz==2020.1
+pytz==2025.2
