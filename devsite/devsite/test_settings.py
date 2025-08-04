@@ -35,7 +35,7 @@ def root(*args):
 
 
 env = environ.Env(
-    OPENEDX_RELEASE=(str, 'JUNIPER'),
+    OPENEDX_RELEASE=(str, 'SUMAC'),
 )
 
 environ.Env.read_env()
@@ -91,7 +91,6 @@ INSTALLED_APPS = [
     'openedx.core.djangoapps.site_configuration',
     'openedx.core.djangoapps.video_pipeline',
     'openedx.features.edly',
-    'organizations'
     'student',
     'track',
     'eventtracking.django.apps.EventTrackingConfig',
