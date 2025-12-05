@@ -12,6 +12,7 @@ from celery.utils.log import get_task_logger
 from completion.models import BlockCompletion
 from django.contrib.sites.models import Site
 from django.utils.timezone import utc
+from edly_features_app.utils import get_active_tenant_lms_sites
 import six
 from edx_django_utils.db.read_replica import read_replica_or_default
 
@@ -205,10 +206,9 @@ def populate_daily_metrics(site_id=None, date_for=None, force_update=False):
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
 
-    lms_sites = EdlySubOrganization.objects.using(
-        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
+    lms_sites = get_active_tenant_lms_sites()
     sites_count = len(lms_sites)
-    for i, site in enumerate(Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites)):
+    for i, site in enumerate(lms_sites):
         try:
             courses = figures.sites.get_courses_for_site(site)
         except Exception:  # pylint: disable=broad-except
@@ -393,7 +393,6 @@ def run_figures_monthly_metrics():
     TODO: only run for active sites. Requires knowing which sites we can skip
     """
     logger.info('Starting figures.tasks.run_figures_monthly_metrics...')
-    lms_sites = EdlySubOrganization.objects.using(
-        read_replica_or_default()).filter(is_active=True).values_list('lms_site')
-    for site in Site.objects.using(read_replica_or_default()).filter(id__in=lms_sites):
+    lms_sites = get_active_tenant_lms_sites()
+    for site in lms_sites:
         populate_monthly_metrics_for_site.delay(site_id=site.id)
