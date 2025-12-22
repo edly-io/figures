@@ -250,6 +250,15 @@ class CourseOverviewFilter(django_filters.FilterSet):
     number_contains = char_filter(field_name='display_number_with_default',
                                   lookup_expr='icontains')
 
+    course_id = char_method_filter(method='filter_course_id')
+
+    def filter_course_id(self, queryset, name, value):  # pylint: disable=unused-argument
+        """
+        Filter by Course ID
+        """
+        course_key = CourseKey.from_string(value.replace(' ', '+'))
+        return queryset.filter(id=course_key).using(read_replica_or_default())
+
     class Meta:
         model = CourseOverview
         fields = ['display_name', 'org', 'number', 'number_contains', ]

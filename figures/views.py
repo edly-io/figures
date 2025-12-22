@@ -176,7 +176,7 @@ class CourseOverviewViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CourseOverviewSerializer
     pagination_class = FiguresLimitOffsetPagination
     filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseOverviewFilter
+    filterset_class = CourseOverviewFilter
     lookup_value_regex = settings.COURSE_ID_PATTERN
 
     def get_queryset(self):
@@ -228,7 +228,7 @@ class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = UserIndexSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     def get_queryset(self):
         site = figures.sites.get_requested_site(self.request)
@@ -241,7 +241,7 @@ class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresPageLevelPagination
     serializer_class = CourseEnrollmentSerializer
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter, )
-    filter_class = CourseEnrollmentFilter
+    filterset_class = CourseEnrollmentFilter
     search_fields = ['user__profile__name', 'user__username', 'user__email']
     ordering_fields = ['user__profile__name', 'user__username', 'user__email', 'user__date_joined', 'user__last_login']
 
@@ -266,7 +266,7 @@ class CourseDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = CourseDailyMetricsSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseDailyMetricsFilter
+    filterset_class = CourseDailyMetricsFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -280,7 +280,7 @@ class SiteDailyMetricsViewSet(CommonAuthMixin, viewsets.ModelViewSet):
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = SiteDailyMetricsSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = SiteDailyMetricsFilter
+    filterset_class = SiteDailyMetricsFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -441,7 +441,7 @@ class GeneralCourseDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresPageLevelPagination
     serializer_class = GeneralCourseDataSerializer
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    filter_class = CourseOverviewFilter
+    filterset_class = CourseOverviewFilter
     search_fields = ['display_name', 'id']
     ordering_fields = ['display_name', 'self_paced', 'date_joined']
 
@@ -525,7 +525,7 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresKiloPagination
     serializer_class = CourseDetailsSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseOverviewFilter
+    filterset_class = CourseOverviewFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -575,7 +575,7 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresKiloPagination
     serializer_class = GeneralUserDataSerializer
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
     search_fields = ['username', 'email', 'profile__name']
     ordering_fields = ['username', 'email', 'profile__name', 'is_active', 'date_joined']
 
@@ -589,7 +589,7 @@ class LearnerDetailsPDFViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = get_user_model()
     serializer_class = LearnerDetailsSerializer
     ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined']
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -644,7 +644,7 @@ class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend, CustomLearnerSearchFilter, NullsLastOrderingFilter, )
     search_fields = ['profile__name', 'username', 'email']
     ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined', 'last_login', ]
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     def paginate_queryset(self, queryset, view=None):
         """
@@ -696,7 +696,7 @@ class LearnerDetailsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend, CustomLearnerSearchFilter, NullsLastOrderingFilter, )
     search_fields = ['profile__name', 'username', 'email']
     ordering_fields = ['profile__name', 'username', 'email', 'is_active', 'date_joined', 'last_login', ]
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     def paginate_queryset(self, queryset, view=None):
         """
@@ -752,7 +752,7 @@ class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
 
     # TODO: Improve this filter
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     search_fields = ['username', 'email', 'profile__name']
     ordering_fields = ['username', 'email', 'profile__name', 'is_active', 'date_joined']
@@ -826,7 +826,7 @@ class LearnerMetricsViewSetV2(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = LearnerMetricsSerializerV2
     filter_backends = (SearchFilter, DjangoFilterBackend, OrderingFilter)
-    filter_class = UserFilterSet
+    filterset_class = UserFilterSet
 
     search_fields = ['username', 'email', 'profile__name']
     ordering_fields = [
@@ -883,7 +883,7 @@ class EnrollmentMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend, )
     # Assess updating to "EnrollmentFilterSet" to filter on list of courses and
     # or users, so we can use it to build a filterable table of users, courses
-    filter_class = EnrollmentMetricsFilter
+    filterset_class = EnrollmentMetricsFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -1257,7 +1257,7 @@ class CourseMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = CourseMauMetrics
     serializer_class = CourseMauMetricsSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseMauMetricsFilter
+    filterset_class = CourseMauMetricsFilter
     lookup_value_regex = settings.COURSE_ID_PATTERN
 
     def get_queryset(self):
@@ -1271,7 +1271,7 @@ class SiteMauMetricsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
     model = SiteMauMetrics
     serializer_class = SiteMauMetricsSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = SiteMauMetricsFilter
+    filterset_class = SiteMauMetricsFilter
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
@@ -1288,7 +1288,7 @@ class SiteViewSet(StaffUserOnDefaultSiteAuthMixin, viewsets.ReadOnlyModelViewSet
     pagination_class = FiguresLimitOffsetPagination
     serializer_class = SiteSerializer
     filter_backends = (DjangoFilterBackend, )
-    filter_class = SiteFilterSet
+    filterset_class = SiteFilterSet
 
     def get_queryset(self):
         return figures.sites.get_sites()
