@@ -1026,7 +1026,7 @@ class LearnerMetricsListSerializer(serializers.ListSerializer):
         self.course_keys = kwargs['context'].get('course_keys')
 
         if not self.course_keys:
-            self.course_keys = figures.sites.get_course_keys_for_site(self.site)
+            self.course_keys = figures.sites.get_course_keys_for_current_site(self.site)
 
         super(LearnerMetricsListSerializer, self).__init__(
             instance=instance, data=data, **kwargs)

@@ -14,7 +14,7 @@ from django.db.models import Count, Q
 from django.db.models.functions import ExtractDay, ExtractMonth, ExtractYear
 from figures.models import CourseMauMetrics, SiteMauMetrics
 from figures.sites import (
-    get_course_keys_for_site,
+    get_course_keys_for_current_site,
     get_student_modules_for_site,
     get_student_modules_for_course_in_site,
 )
@@ -251,7 +251,7 @@ def store_mau_metrics(site, overwrite=False):
                                                          data=dict(mau=site_mau.count()),
                                                          overwrite=overwrite)
     course_mau_objects = []
-    for course_key in get_course_keys_for_site(site):
+    for course_key in get_course_keys_for_current_site(site):
         course_student_modules = student_modules.filter(
             course_id=course_key).using(read_replica_or_default())
         course_mau = get_mau_from_student_modules(

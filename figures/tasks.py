@@ -359,7 +359,7 @@ def populate_mau_metrics_for_site(site_id, month_for=None, force_update=False):
     site = Site.objects.get(id=site_id)
     msg = 'Starting figures'
     logger.info(msg)
-    for course_key in figures.sites.get_course_keys_for_site(site):
+    for course_key in figures.sites.get_course_keys_for_current_site(site):
         populate_course_mau(site_id=site_id,
                             course_id=str(course_key),
                             month_for=month_for,
