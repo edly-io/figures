@@ -9,10 +9,13 @@ from __future__ import absolute_import
 
 from textwrap import dedent
 
+import datetime
 from dateutil.rrule import rrule, DAILY
+from pytz import utc
 
 from django.core.management.base import BaseCommand, CommandError
 
+from edly_features_app.utils import get_active_tenant_lms_sites
 from figures.helpers import as_date
 from figures.sites import Site
 from figures.pipeline.backfill import backfill_daily_metrics_for_site_and_date
@@ -56,6 +59,16 @@ class Command(BaseCommand):
             filter_arg = dict(domain=identifier)
         return Site.objects.get(**filter_arg)
 
+    def get_sites(self, options):
+        """Return list of Site objects to process
+        
+        If site is specified, return that site. Otherwise return all active tenant sites.
+        """
+        if options.get('site'):
+            return [self.get_site(options)]
+        else:
+            return list(get_active_tenant_lms_sites())
+
     def get_dates(self, options):
         """Return a list of dates
         """
@@ -63,8 +76,8 @@ class Command(BaseCommand):
             raise CommandError(
                 'Select either "--date" or "--date-range" option, but not both')
         if not options['date'] and not options['date_range']:
-            raise CommandError(
-                'You need to select one of "--date" or "--date-range" parameters')
+            date_for = datetime.datetime.utcnow().replace(tzinfo=utc).date()
+            return [date_for]
         if options['date']:
             return [as_date(options['date'])]
         else:
@@ -75,10 +88,10 @@ class Command(BaseCommand):
                                               until=dates[1])]
 
     def add_arguments(self, parser):
-        parser.add_argument('site', help='Site domain or id')
+        parser.add_argument('site', nargs='?', default=None, help='Site domain or id (optional, processes all active tenant sites if not specified)')
 
-        parser.add_argument('--date', help='Run backfill for a single date')
-        parser.add_argument('--date-range', nargs=2,
+        parser.add_argument('--date', default=None, help='Run backfill for a single date')
+        parser.add_argument('--date-range', nargs=2, default=None,
                             help='Run backfill from a start date to an end date')
 
         # by default we process the SDM. If we do not want to, set this flag
@@ -90,18 +103,20 @@ class Command(BaseCommand):
                             help='altnerate path to output log files')
 
     def handle(self, *args, **options):
-        site = self.get_site(options)
+        sites = self.get_sites(options)
         dates = self.get_dates(options)
         backfill_options = ['skip_sdm', 'force_update', 'logdir']
         extra_args = dict((key, options[key]) for key in backfill_options)
         # import pdb; pdb.set_trace()
 
-        for date_for in dates:
-            print('Generating daily metrics for date: {}'.format(date_for.isoformat()))
-            results = self.do_backfill(site=site,
-                                       date_for=date_for,
-                                       **extra_args)
-            print('Finished date {}. Processed {} courses'.format(
-                date_for.isoformat(), results['courses_processed']))
-            print('CDM processing time: {}, SDM processing time: {}'.format(
-                results['cdms_elapsed'], results['sdm_elapsed']))
+        for site in sites:
+            print('Processing site: {}'.format(site.domain))
+            for date_for in dates:
+                print('Generating daily metrics for date: {}'.format(date_for.isoformat()))
+                results = self.do_backfill(site=site,
+                                           date_for=date_for,
+                                           **extra_args)
+                print('Finished date {}. Processed {} courses'.format(
+                    date_for.isoformat(), results['courses_processed']))
+                print('CDM processing time: {}, SDM processing time: {}'.format(
+                    results['cdms_elapsed'], results['sdm_elapsed']))

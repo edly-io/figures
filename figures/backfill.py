@@ -52,7 +52,7 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
                                   overwrite=overwrite)
         backfilled.append(dict(obj=obj, created=created, dt=dt))
 
-    backfill_learners_course_data_for_site(site)
+    backfill_learners_course_data_for_site(site.domain)
 
     return backfilled
 
