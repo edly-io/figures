@@ -791,7 +791,7 @@ class LearnerMetricsViewSetV1(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
           this view
         """
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        course_keys = figures.sites.get_course_keys_for_site(site)
+        course_keys = figures.sites.get_course_keys_for_current_site(site)
         try:
             param_course_keys = self.query_param_course_keys()
         except InvalidKeyError:
@@ -976,7 +976,7 @@ class CourseMonthlyMetricsViewSet(CommonAuthMixin, viewsets.ViewSet):
         TODO: Add paginagation
         """
         site = django.contrib.sites.shortcuts.get_current_site(request)
-        course_keys = figures.sites.get_course_keys_for_site(site)
+        course_keys = figures.sites.get_course_keys_for_current_site(site)
         date_for = datetime.utcnow().date()
         month_for = '{}/{}'.format(date_for.month, date_for.year)
         data = []

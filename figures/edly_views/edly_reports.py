@@ -79,7 +79,7 @@ class InsightSummaryCSV(APIView):
 
     @staticmethod
     def _get_courses_stats(site, order_by):
-        course_ids = figures.sites.get_course_keys_for_site(site)
+        course_ids = figures.sites.get_course_keys_for_current_site(site)
         queryset = CourseDailyMetrics.objects.filter(
             course_id__in=course_ids, date_for=datetime.utcnow()).using(read_replica_or_default())
 
