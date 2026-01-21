@@ -3,8 +3,7 @@ This module provides MAU metrics retrieval functionality
 """
 
 from __future__ import absolute_import
-from datetime import datetime, timedelta
-from django.utils.timezone import utc
+from datetime import datetime, timedelta, timezone
 
 
 from calendar import month_abbr
@@ -193,7 +192,7 @@ def mau_1g_for_month_as_of_day(sm_queryset, date_for):
         # Therefore we have to get records within a range
         start_date = datetime(year=date_for.year,
                               month=date_for.month,
-                              day=1).replace(tzinfo=utc)
+                              day=1).replace(tzinfo=timezone.utc)
         # We do this in case 'date_for' is at the end of the month and get
         # the 'day_after' as midnight of the next day so we can use '__lt'. If
         # we simply used '__lte', then we exclude any events that happened on
@@ -203,7 +202,7 @@ def mau_1g_for_month_as_of_day(sm_queryset, date_for):
         day_after_temp = date_for + timedelta(days=1)
         day_after = datetime(year=day_after_temp.year,
                              month=day_after_temp.month,
-                             day=day_after_temp.day).replace(tzinfo=utc)
+                             day=day_after_temp.day).replace(tzinfo=timezone.utc)
 
         # We don't use 'dict(modified__range=[start_date, date_for])' because
         # doing "__lt" for 0:00 hour tne next day means we don't have to worry

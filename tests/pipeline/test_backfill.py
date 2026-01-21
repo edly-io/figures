@@ -9,7 +9,7 @@ from six.moves import range
 from six.moves import zip
 
 from django.db import connection
-from django.utils.timezone import utc
+from datetime import timezone
 
 from figures.pipeline.backfill import backfill_monthly_metrics_for_site
 from figures.models import SiteMonthlyMetrics
@@ -40,7 +40,7 @@ def backfill_test_data(db):
     months_back = 6
     sm_per_month = [10+i for i in range(months_back+1)]
     site = SiteFactory()
-    now = datetime.utcnow().replace(tzinfo=utc)
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
 
     first_month = now - relativedelta(months=months_back)
     last_month = now - relativedelta(months=1)

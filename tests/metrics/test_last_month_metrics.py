@@ -4,7 +4,7 @@ from dateutil.rrule import rrule, DAILY
 import pytest
 
 from django.contrib.sites.models import Site
-from django.utils.timezone import utc
+from datetime import timezone
 
 from figures.metrics import (
     get_last_month_site_metrics

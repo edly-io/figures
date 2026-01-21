@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 import mock
 import pytest
 
-from django.utils.timezone import utc
+from datetime import timezone
 from figures.compat import CourseEnrollment, StudentModule
 
 from figures.helpers import is_multisite
@@ -157,7 +157,7 @@ class TestCollectMetricsForEnrollment(object):
             self.org = OrganizationFactory()
 
         previous_month = self.today + relativedelta(months=-1)
-        self.datetime_1 = datetime(previous_month.year, previous_month.month, previous_month.day, tzinfo=utc)
+        self.datetime_1 = datetime(previous_month.year, previous_month.month, previous_month.day, tzinfo=timezone.utc)
         self.datetime_2 = self.datetime_1 + relativedelta(months=1)  # future of date_1
         self.course_overview = CourseOverviewFactory()
         self.course_enrollment = CourseEnrollmentFactory(course_id=self.course_overview.id)
@@ -401,7 +401,7 @@ class TestAddEnrollmentMetricsRecord(object):
     def setup(self, db):
         self.site = SiteFactory()
         self.course_enrollment = CourseEnrollmentFactory()
-        self.date_for = datetime.utcnow().replace(tzinfo=utc).date()
+        self.date_for = datetime.utcnow().replace(tzinfo=timezone.utc).date()
 
     def test_happy_path(self):
         """Basic creation check

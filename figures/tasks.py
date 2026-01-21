@@ -11,7 +11,7 @@ from celery.app import shared_task
 from celery.utils.log import get_task_logger
 from completion.models import BlockCompletion
 from django.contrib.sites.models import Site
-from django.utils.timezone import utc
+from datetime import timezone
 from edly_features_app.utils import get_active_tenant_lms_sites
 import six
 from edx_django_utils.db.read_replica import read_replica_or_default
@@ -201,7 +201,7 @@ def populate_daily_metrics(site_id=None, date_for=None, force_update=False):
     if date_for:
         date_for = as_date(date_for)
     else:
-        date_for = datetime.datetime.utcnow().replace(tzinfo=utc).date()
+        date_for = datetime.datetime.utcnow().replace(tzinfo=timezone.utc).date()
 
     logger.info('Starting task "figures.populate_daily_metrics" for date "{}"'.format(
         date_for))
@@ -291,7 +291,7 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
     if date_for:
         date_for = as_date(date_for)
     else:
-        date_for = datetime.datetime.utcnow().replace(tzinfo=utc).date()
+        date_for = datetime.datetime.utcnow().replace(tzinfo=timezone.utc).date()
     date_for = date_for.strftime("%Y-%m-%d")
     logger.info(
         'Starting task "figures.experimental_populate_daily_metrics" for date "{}"'.format(

@@ -55,6 +55,7 @@ from __future__ import absolute_import
 import calendar
 import csv
 import datetime
+from datetime import timezone
 from dateutil import parser
 from io import StringIO
 import logging
@@ -64,7 +65,6 @@ from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.staticfiles import finders
-from django.utils.timezone import utc
 from django.template.loader import get_template
 from fpdf import FPDF
 from rest_framework import status
@@ -159,10 +159,10 @@ def as_datetime(val):
             year=val.year,
             month=val.month,
             day=val.day,
-        ).replace(tzinfo=utc)
+        ).replace(tzinfo=timezone.utc)
 
     elif isinstance(val, six.string_types):  # noqa: F821
-        return dateutil_parse(val).replace(tzinfo=utc)
+        return dateutil_parse(val).replace(tzinfo=timezone.utc)
     else:
         raise TypeError(
             'value of type "{}" cannot be converted to a datetime object'.format(

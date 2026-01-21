@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import calendar
 import datetime
-from django.utils.timezone import utc
+from datetime import timezone
 
 import pytest
 
@@ -82,14 +82,14 @@ class TestDateTimeHelper(object):
     def test_get_now_from_str(self):
         format = '%Y-%m-%d %H:%M:%S'
         a_datetime_str = self.now.strftime(format)
-        expected = dateutil_parse(a_datetime_str).replace(tzinfo=utc)
+        expected = dateutil_parse(a_datetime_str).replace(tzinfo=timezone.utc)
         assert isinstance(a_datetime_str, str)
         assert as_datetime(a_datetime_str) == expected
 
     def test_get_now_from_unicode(self):
         format = '%Y-%m-%d %H:%M:%S'
         a_datetime_str = six.text_type(self.now.strftime(format))
-        expected = dateutil_parse(a_datetime_str).replace(tzinfo=utc)
+        expected = dateutil_parse(a_datetime_str).replace(tzinfo=timezone.utc)
         assert isinstance(a_datetime_str, six.text_type)
         assert as_datetime(a_datetime_str) == expected
 
@@ -106,7 +106,7 @@ class TestDateTimeHelper(object):
             minute=0,
             second=0,
             microsecond=0,
-            ).replace(tzinfo=utc)
+            ).replace(tzinfo=timezone.utc)
         assert as_datetime(a_date) == expected
 
     def test_get_now_from_invalid_type(self):
@@ -222,9 +222,9 @@ def test_first_last_days_for_month():
 
 
 def test_import_from_path_working():
-    utc_tz_path = 'django.utils.timezone:utc'
+    utc_tz_path = 'datetime.timezone:utc'
     imported_utc = import_from_path(utc_tz_path)
-    assert imported_utc is utc, 'Should import the utc variable correctly'
+    assert imported_utc is timezone.utc, 'Should import the utc variable correctly'
 
 
 def test_import_from_path_failing():

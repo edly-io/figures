@@ -11,7 +11,7 @@ from dateutil.rrule import rrule, MONTHLY
 from dateutil.relativedelta import relativedelta
 
 from django.conf import settings
-from django.utils.timezone import utc
+from datetime import timezone
 
 from figures.compat import CourseNotFound
 from figures.course import Course
@@ -68,8 +68,8 @@ def backfill_monthly_metrics_for_site(site, overwrite=False, use_raw_sql=False):
     start_month = datetime(year=first_created.year,
                            month=first_created.month,
                            day=1,
-                           tzinfo=utc)
-    last_month = datetime.utcnow().replace(tzinfo=utc) - relativedelta(months=1)
+                           tzinfo=timezone.utc)
+    last_month = datetime.utcnow().replace(tzinfo=timezone.utc) - relativedelta(months=1)
     backfilled = []
     for dt in rrule(freq=MONTHLY, dtstart=start_month, until=last_month):
         obj, created = fill_month(site=site,

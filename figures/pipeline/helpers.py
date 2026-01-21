@@ -4,8 +4,7 @@ The code in this module is intended specifically to run in Figures pipeline
 without consideration of running elsewhere, such as Figures API calls.
 """
 
-from datetime import datetime
-from django.utils.timezone import utc
+from datetime import datetime, timezone
 from figures.helpers import as_date, prev_day
 
 
@@ -36,7 +35,7 @@ def pipeline_date_for_rule(date_for):
     We may rework this as a decorator or as part of core functionality in a
     base class from which daily metrics classes can derive.
     """
-    today = datetime.utcnow().replace(tzinfo=utc).date()
+    today = datetime.utcnow().replace(tzinfo=timezone.utc).date()
     if not date_for:
         date_for = prev_day(today)
     else:

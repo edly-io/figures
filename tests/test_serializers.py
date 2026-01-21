@@ -12,7 +12,7 @@ import pytest
 
 from django.contrib.sites.models import Site
 from django.db import models
-from django.utils.timezone import utc
+from datetime import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIRequestFactory
 
@@ -502,7 +502,7 @@ class TestGeneralUserDataSerializer(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        self.a_datetime = datetime.datetime(2018, 2, 2, tzinfo=utc)
+        self.a_datetime = datetime.datetime(2018, 2, 2, tzinfo=timezone.utc)
         self.user_attributes = {
             'username': 'alpha_one',
             'email': 'alpha_one@example.com',
@@ -555,7 +555,7 @@ class TestLearnerCourseDetailsSerializer(object):
     @pytest.fixture(autouse=True)
     def setup(self, db):
         self.site = SiteFactory()
-        self.certificate_date = datetime.datetime(2018, 4, 1, tzinfo=utc)
+        self.certificate_date = datetime.datetime(2018, 4, 1, tzinfo=timezone.utc)
         self.course_enrollment = CourseEnrollmentFactory(
             )
         self.generated_certificate = GeneratedCertificateFactory(

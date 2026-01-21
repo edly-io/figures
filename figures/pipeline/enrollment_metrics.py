@@ -52,7 +52,7 @@ from decimal import Decimal
 import logging
 import time
 
-from django.utils.timezone import utc
+from datetime import timezone
 from django.db.models.functions import Coalesce
 from django.db.models import Sum, Case, When, IntegerField
 
@@ -96,7 +96,7 @@ def bulk_calculate_course_progress_data(course_id, date_for=None):
     """
     progress_percentages = []
     if not date_for:
-        date_for = datetime.utcnow().replace(tzinfo=utc).date()
+        date_for = datetime.utcnow().replace(tzinfo=timezone.utc).date()
 
     site = get_site_for_course(course_id)
     if not site:

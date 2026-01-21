@@ -3,10 +3,9 @@
 """
 
 from __future__ import absolute_import
-from datetime import datetime
+from datetime import datetime, timezone
 from django.db import connection
 from django.db.models import IntegerField
-from django.utils.timezone import utc
 from dateutil.relativedelta import relativedelta
 
 from figures.compat import RELEASE_LINE
@@ -53,5 +52,5 @@ def fill_last_month(site, overwrite=False):
     """Convenience function to fill previous month's site monthly metrics
     """
     # Maybe we want to make 'last_month' a 'figures.helpers' method
-    last_month = datetime.utcnow().replace(tzinfo=utc) - relativedelta(months=1)
+    last_month = datetime.utcnow().replace(tzinfo=timezone.utc) - relativedelta(months=1)
     return fill_month(site=site, month_for=last_month, overwrite=overwrite)
