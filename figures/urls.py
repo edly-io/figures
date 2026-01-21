@@ -123,7 +123,6 @@ router.register(
     views.EnrollmentMetricsViewSet,
     basename='enrollment-metrics')
 
-
 router.register(
     r'learner-metrics-v1',
     views.LearnerMetricsViewSetV1,
@@ -133,28 +132,6 @@ router.register(
     r'learner-metrics',
     views.LearnerMetricsViewSetV2,
     basename='learner-metrics')
-
-router.register(
-    r'learner-metrics-v1',
-    views.LearnerMetricsViewSetV1,
-    basename='learner-metrics-v1')
-
-router.register(
-    r'learner-metrics',
-    views.LearnerMetricsViewSetV2,
-    basename='learner-metrics')
-
-router.register(
-    r'learner-metrics-v1',
-    views.LearnerMetricsViewSetV1,
-    basename='learner-metrics-v1')
-
-router.register(
-    r'learner-metrics',
-    views.LearnerMetricsViewSetV2,
-    basename='learner-metrics')
-
-users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
 
 users_detail_pdf = views.LearnerDetailsPDFViewSet.as_view({'get': 'list'})
 
