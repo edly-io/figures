@@ -7,7 +7,7 @@ from dateutil.parser import parse as dateutil_parse
 from dateutil.rrule import rrule, DAILY
 from packaging import version
 
-from django.utils.timezone import utc
+from datetime import timezone
 
 from opaque_keys.edx.keys import CourseKey
 from organizations.models import Organization
@@ -92,4 +92,4 @@ def as_datetime_utc(datetime_string):
     enforce one type as string and the other as datetime, or do conversions.
     Basically, we might be making testing more complicated
     """
-    return dateutil_parse(datetime_string).replace(tzinfo=utc)
+    return dateutil_parse(datetime_string).replace(tzinfo=timezone.utc)

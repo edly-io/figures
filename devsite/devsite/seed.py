@@ -16,7 +16,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.db.utils import IntegrityError
-from django.utils.timezone import utc
+from datetime import timezone
 
 from figures.compat import StudentModule
 
@@ -54,7 +54,7 @@ if is_multisite():
 
 
 FAKE = faker.Faker()
-LAST_DAY = days_from(datetime.datetime.now(), -2).replace(tzinfo=utc)
+LAST_DAY = days_from(datetime.datetime.now(), -2).replace(tzinfo=timezone.utc)
 
 
 DAYS_BACK = settings.DEVSITE_SEED['DAYS_BACK']
@@ -118,11 +118,11 @@ def seed_course_overviews(data=None):
                 org=rec['org'],
                 display_org_with_default=rec['org'],
                 number=rec['number'],
-                created=as_datetime(rec['created']).replace(tzinfo=utc),
-                start=as_datetime(rec['enrollment_start']).replace(tzinfo=utc),
-                end=as_datetime(rec['enrollment_end']).replace(tzinfo=utc),
-                enrollment_start=as_datetime(rec['enrollment_start']).replace(tzinfo=utc),
-                enrollment_end=as_datetime(rec['enrollment_end']).replace(tzinfo=utc),
+                created=as_datetime(rec['created']).replace(tzinfo=timezone.utc),
+                start=as_datetime(rec['enrollment_start']).replace(tzinfo=timezone.utc),
+                end=as_datetime(rec['enrollment_end']).replace(tzinfo=timezone.utc),
+                enrollment_start=as_datetime(rec['enrollment_start']).replace(tzinfo=timezone.utc),
+                enrollment_end=as_datetime(rec['enrollment_end']).replace(tzinfo=timezone.utc),
             )
         if RELEASE_LINE != 'ginkgo':
             defaults['version'] = CourseOverview.VERSION
@@ -155,7 +155,7 @@ def seed_users(data=None):
             user.is_staff = rec.get('is_staff', False)
             user.is_superuser = rec.get('is_superuser', False)
             user.date_joined = as_datetime(
-                FAKE.date_between(first_date, LAST_DAY)).replace(tzinfo=utc)
+                FAKE.date_between(first_date, LAST_DAY)).replace(tzinfo=timezone.utc)
             user.save()
             created_users.append(user)
             if profile_rec:
@@ -183,7 +183,7 @@ def seed_course_enrollments_for_course(course_id, users, max_days_back):
         CourseEnrollment.objects.update_or_create(
             course_id=course_id,
             user=user,
-            created=as_datetime(enroll_date(max_days_back)).replace(tzinfo=utc),
+            created=as_datetime(enroll_date(max_days_back)).replace(tzinfo=timezone.utc),
             )
 
 
@@ -286,7 +286,7 @@ def seed_course_completions():
                 user=ce.user,
                 course_id=co.id,
                 created_date=as_datetime(FAKE.date_between(
-                    ce.created, LAST_DAY)).replace(tzinfo=utc),
+                    ce.created, LAST_DAY)).replace(tzinfo=timezone.utc),
             )
 
 

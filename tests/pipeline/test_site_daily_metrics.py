@@ -15,7 +15,7 @@ import pytest
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.utils.timezone import utc
+from datetime import timezone
 
 from figures.compat import StudentModule
 
@@ -44,8 +44,8 @@ if organizations_support_sites():
     from tests.factories import UserOrganizationMappingFactory
 
 
-DEFAULT_START_DATE = datetime.datetime(2018, 1, 1, 0, 0, tzinfo=utc)
-DEFAULT_END_DATE = datetime.datetime(2018, 3, 1, 0, 0, tzinfo=utc)
+DEFAULT_START_DATE = datetime.datetime(2018, 1, 1, 0, 0, tzinfo=timezone.utc)
+DEFAULT_END_DATE = datetime.datetime(2018, 3, 1, 0, 0, tzinfo=timezone.utc)
 
 # Course Daily Metrics data
 CDM_INPUT_TEST_DATA = [

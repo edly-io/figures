@@ -4,7 +4,7 @@ from datetime import datetime
 from freezegun import freeze_time
 import pytest
 
-from django.utils.timezone import utc
+from datetime import timezone
 from figures.compat import StudentModule
 
 from figures.helpers import as_datetime, as_date

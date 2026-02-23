@@ -9,8 +9,8 @@ Uses Factory Boy: https://factoryboy.readthedocs.io/en/latest/
 
 from __future__ import absolute_import
 import datetime
+from datetime import timezone
 from dateutil.relativedelta import relativedelta
-from django.utils.timezone import utc
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -222,7 +222,7 @@ class GeneratedCertificateFactory(DjangoModelFactory):
     )
     course_id = factory.Sequence(lambda n: COURSE_ID_STR_TEMPLATE.format(n))
     created_date = factory.Sequence(lambda n:
-        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc))
+        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc))
 
 
 class StudentModuleFactory(DjangoModelFactory):
@@ -266,7 +266,7 @@ if OPENEDX_RELEASE == GINKGO:
         course_id = factory.SelfAttribute('course_overview.id')
         course_overview = factory.SubFactory(CourseOverviewFactory)
         created = factory.Sequence(lambda n:
-            (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc))
+            (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc))
 
 else:
 
@@ -277,7 +277,7 @@ else:
         user = factory.SubFactory(UserFactory)
 
         created = factory.Sequence(lambda n:
-            (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc))
+            (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc))
 
 
         @classmethod
@@ -328,7 +328,7 @@ class CourseDailyMetricsFactory(DjangoModelFactory):
         model = CourseDailyMetrics
     site = factory.SubFactory(SiteFactory)
     date_for = factory.Sequence(lambda n:
-        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc).date())
+        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc).date())
     course_id = factory.Sequence(lambda n:
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
     enrollment_count = factory.Sequence(lambda n: n)
@@ -349,10 +349,10 @@ class EnrollmentDataFactory(DjangoModelFactory):
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
     date_for = factory.Sequence(lambda n:
         (datetime.datetime(2018, 1, 1) + datetime.timedelta(
-            days=n)).replace(tzinfo=utc).date())
+            days=n)).replace(tzinfo=timezone.utc).date())
     date_enrolled = factory.Sequence(lambda n:
         (datetime.datetime(2018, 1, 1) + datetime.timedelta(
-            days=n)).replace(tzinfo=utc).date())
+            days=n)).replace(tzinfo=timezone.utc).date())
     is_enrolled = True
     is_completed = False
     progress_percent = 0.0
@@ -380,7 +380,7 @@ class LearnerCourseGradeMetricsFactory(DjangoModelFactory):
         model = LearnerCourseGradeMetrics
     site = factory.SubFactory(SiteFactory)
     date_for = factory.Sequence(lambda n:
-        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc).date())
+        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc).date())
     user = factory.SubFactory(UserFactory)
     course_id = factory.Sequence(lambda n:
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
@@ -409,7 +409,7 @@ class SiteDailyMetricsFactory(DjangoModelFactory):
         model = SiteDailyMetrics
     site = factory.SubFactory(SiteFactory)
     date_for = factory.Sequence(lambda n:
-        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=utc).date())
+        (datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(tzinfo=timezone.utc).date())
     cumulative_active_user_count = factory.Sequence(lambda n: n)
     total_user_count = factory.Sequence(lambda n: n)
     course_count = factory.Sequence(lambda n: n)
@@ -434,7 +434,7 @@ class CourseMauMetricsFactory(DjangoModelFactory):
     site = factory.SubFactory(SiteFactory)
     date_for = factory.Sequence(lambda n: (
         datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(
-            tzinfo=utc).date())
+            tzinfo=timezone.utc).date())
     course_id = factory.Sequence(lambda n:
         'course-v1:StarFleetAcademy+SFA{}+2161'.format(n))
     mau = factory.Sequence(lambda n: n*10)
@@ -447,7 +447,7 @@ class SiteMauMetricsFactory(DjangoModelFactory):
     site = factory.SubFactory(SiteFactory)
     date_for = factory.Sequence(lambda n: (
         datetime.datetime(2018, 1, 1) + datetime.timedelta(days=n)).replace(
-            tzinfo=utc).date())
+            tzinfo=timezone.utc).date())
     mau = factory.Sequence(lambda n: n*10)
 
 

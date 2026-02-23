@@ -5,11 +5,9 @@ Initially developed to support API performance improvements
 
 from __future__ import absolute_import
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil.rrule import rrule, MONTHLY
 from dateutil.relativedelta import relativedelta
-
-from django.utils.timezone import utc
 
 from figures.compat import CourseNotFound
 from lms.djangoapps.courseware.models import StudentModule
@@ -42,8 +40,8 @@ def backfill_monthly_metrics_for_site(site, overwrite=False):
     start_month = datetime(year=first_created.year,
                            month=first_created.month,
                            day=1,
-                           tzinfo=utc)
-    last_month = datetime.utcnow().replace(tzinfo=utc) - relativedelta(months=1)
+                           tzinfo=timezone.utc)
+    last_month = datetime.utcnow().replace(tzinfo=timezone.utc) - relativedelta(months=1)
     backfilled = []
     for dt in rrule(freq=MONTHLY, dtstart=start_month, until=last_month):
         obj, created = fill_month(site=site,

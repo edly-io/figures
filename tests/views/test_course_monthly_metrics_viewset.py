@@ -6,7 +6,7 @@ from faker import Faker
 import pytest
 
 import django.contrib.sites.shortcuts
-from django.utils.timezone import utc
+from datetime import timezone
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -50,7 +50,7 @@ def generate_date_series(months_back=6, count=20):
     start_date = '-{months_back}M'.format(months_back=months_back)
     date_series = [fake.date_time_between(start_date=start_date,
                                           end_date='now',
-                                          tzinfo=utc) for i in range(count)]
+                                          tzinfo=timezone.utc) for i in range(count)]
     date_series.sort()
     return date_series
 

@@ -5,7 +5,7 @@ First
 from __future__ import absolute_import
 import pytest
 
-from django.utils.timezone import utc
+from datetime import timezone
 from faker import Faker
 
 from figures.helpers import days_from
@@ -34,7 +34,7 @@ class TestGetCoursesEnrolledOnOrBefore(object):
         # Try for any datetime with `fake.date_time()` as the code we test here
         # should be agnostic to "any when". If it turns up to fail, then we
         # need to inspect the code as to why
-        self.date_for = fake.date_time(tzinfo=utc)
+        self.date_for = fake.date_time(tzinfo=timezone.utc)
         self.site_course_ids = 'figures.pipeline.site_daily_metrics.site_course_ids',
 
     def test_with_no_courses(self, monkeypatch):

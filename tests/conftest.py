@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import pytest
-from django.utils.timezone import utc
 from six.moves import range
 from tests.helpers import organizations_support_sites
 
@@ -37,8 +36,8 @@ def sm_test_data(db):
     date_today = date.today()
     year_for = date_today.year
     month_for = date_today.month
-    created_date = datetime(year_for, month_for, 1).replace(tzinfo=utc)
-    modified_date = datetime(year_for, month_for, 10).replace(tzinfo=utc)
+    created_date = datetime(year_for, month_for, 1).replace(tzinfo=timezone.utc)
+    modified_date = datetime(year_for, month_for, 10).replace(tzinfo=timezone.utc)
     course_overviews = [CourseOverviewFactory() for i in range(3)]
     site = SiteFactory()
     org = OrganizationFactory()

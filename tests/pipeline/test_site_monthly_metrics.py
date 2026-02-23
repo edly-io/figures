@@ -6,7 +6,7 @@ This is initial test coverage
 from __future__ import absolute_import
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from django.utils.timezone import utc
+from datetime import timezone
 from freezegun import freeze_time
 import pytest
 
