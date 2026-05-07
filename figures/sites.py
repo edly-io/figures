@@ -28,7 +28,7 @@ from edly_features_app.models import (
     EdlyMultiSiteAccess
 )  # pylint: disable=import-error
 from figures.compat import CourseEnrollment, GeneratedCertificate, StudentModule
-from figures.helpers import as_course_key, is_multisite, import_from_path
+from figures.helpers import as_course_key, is_multisite, import_from_path, get_external_key_for_site
 import figures.helpers
 from edx_django_utils.db.read_replica import read_replica_or_default
 from eox_tenant.models import TenantConfig
@@ -275,7 +275,7 @@ def get_user_ids_for_sites(tenant_external_keys):
 
 def get_user_ids_for_site(site):
     if figures.helpers.is_multisite():
-        tenant_external_key = site.domain.split('.')[0]
+        tenant_external_key = get_external_key_for_site(site)
         edly_access_users = EdlyMultiSiteAccess.objects.filter(
             tenant__tenant_config__external_key=tenant_external_key
         ).using(read_replica_or_default()).exclude(
@@ -291,7 +291,7 @@ def get_user_ids_for_site(site):
 
 
 def get_edly_users_for_site(site):
-    tenant_external_key = site.domain.split('.')[0]
+    tenant_external_key = get_external_key_for_site(site)
     if figures.helpers.is_multisite():
         user_ids = get_user_model().objects.select_related(
             'profile',
@@ -329,7 +329,7 @@ def get_users_for_site(site):
 
 
 def get_course_enrollments_for_site(site):
-    tenent_keys = [site.domain.split('.')[0]]
+    tenent_keys = [get_external_key_for_site(site)]
     course_keys = get_course_keys_for_site(tenent_keys)
     return CourseEnrollment.objects.filter(
         course_id__in=course_keys,
