@@ -73,6 +73,8 @@ from rest_framework.response import Response
 from dateutil.parser import parse as dateutil_parse
 from dateutil.relativedelta import relativedelta
 from eox_tenant.edxapp_wrapper.site_configuration_module import get_configuration_helpers
+from eox_tenant.models import TenantConfig
+from eox_tenant.constants import LMS_CONFIG_COLUMN
 
 from opaque_keys.edx.keys import CourseKey
 import six
@@ -1000,15 +1002,13 @@ def get_course_block_name(course_block_structure, block):
     ))
 
 
-def get_tenant_external_key(request):
+def get_external_key_for_site(site):
     """
-    Get the external keys for the current tenant from the request.
+    Resolve TenantConfig external_key for the given site.
+    Falls back to first subdomain if TenantConfig lookup fails.
     """
-    site = get_current_site(request)
-    tenent_keys = request.GET.get('sub_org', '')
-    tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
-    return tenent_keys
-
+    _, external_key = TenantConfig.get_configs_for_domain(site.domain, LMS_CONFIG_COLUMN)
+    return external_key if external_key else site.domain.split('.')[0]
 
 def get_tenant_external_keys(request):
     """
@@ -1016,7 +1016,7 @@ def get_tenant_external_keys(request):
     """
     site = get_current_site(request)
     tenent_keys = request.GET.get('sub_org', '')
-    tenent_keys = [site.domain.split('.')[0]] if not tenent_keys else tenent_keys.split(',')
+    tenent_keys = [get_external_key_for_site(site)] if not tenent_keys else tenent_keys.split(',')
     return tenent_keys
 
 

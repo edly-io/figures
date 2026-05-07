@@ -36,7 +36,7 @@ from figures.compat import (RELEASE_LINE,
                             CourseEnrollment,
                             CourseOverview,
                             GeneratedCertificate)
-from figures.helpers import as_course_key, get_date
+from figures.helpers import as_course_key, get_date, get_external_key_for_site
 from figures.metrics import (
     get_course_enrolled_users_for_time_period,
     get_course_average_progress_for_time_period,
@@ -844,9 +844,9 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
                 return None
             site = self.context['site']
 
-        external_key = site.domain.split('.')[0]
+        external_key = get_external_key_for_site(site)
         edly_access_user = user.edly_multisite_user.get(
-            tenant__tenant_config__external_key=external_key 
+            tenant__tenant_config__external_key=external_key
         )
         return edly_access_user.course_activity_date
     
