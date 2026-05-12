@@ -233,6 +233,7 @@ class InsightLearnersCSV(APIView):
         Prepare raw data for learner insights
         """
         site_obj = Site.objects.get(id=site)
+        context['site'] = site_obj
         context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
             site_obj
         )
