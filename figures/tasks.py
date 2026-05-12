@@ -9,22 +9,16 @@ import time
 from celery import chord
 from celery.app import shared_task
 from celery.utils.log import get_task_logger
-from completion.models import BlockCompletion
 from django.contrib.sites.models import Site
 from datetime import timezone
+from edly_features_app.tasks import update_student_course_progress_for_course
 from edly_features_app.utils import get_active_tenant_lms_sites
 import six
 from edx_django_utils.db.read_replica import read_replica_or_default
 
-from edly_panel_app.api.v1.helpers import get_block_types_and_keys
-from lms.djangoapps.course_api.blocks.transformers.blocks_api import BlocksAPITransformer
-from openedx.core.djangoapps.content.block_structure.api import get_course_in_cache
-from openedx.core.djangoapps.content.block_structure.transformers import BlockStructureTransformers
-# from openedx.features.edly.models import EdlySubOrganization, StudentCourseProgress
-
 from figures.backfill import backfill_enrollment_data_for_site
 from figures.compat import CourseEnrollment, CourseOverview
-from figures.helpers import as_course_key, as_date, get_course_block_name
+from figures.helpers import as_course_key, as_date
 from figures.log import log_exec_time
 from figures.models import PipelineError
 from figures.helpers import as_course_key, as_date, is_past_date, is_multisite
@@ -119,61 +113,13 @@ def update_enrollment_data(site_id, **_kwargs):
 @shared_task
 def update_learners_progress_for_course(course):
     """
-    This updates all learners' progress for the course.
+    Recompute ``StudentCourseProgress`` rows for every active enrollment
+    in the given course.
+
+    Delegates to ``edly_features_app.tasks.update_student_course_progress_for_course``
+    where the SCP model and traversal logic live.
     """
-    course_enrollments = CourseEnrollment.objects.filter(course=course)
-    course_structure = get_course_in_cache(course._location.course_key)
-    complete_course_structure = course_structure.copy()
-    block_types, course_block_keys = get_block_types_and_keys(course_structure)
-    transformers = BlockStructureTransformers()
-    transformers += [
-        BlocksAPITransformer(
-            block_types_to_count=block_types,
-            requested_student_view_data=set([]),
-            depth=0,
-        )
-    ]
-
-    transformers.transform(course_structure)
-
-    for enrollment in course_enrollments:
-        completions = BlockCompletion.objects.filter(
-            user=enrollment.user,
-            context_key=enrollment.course_id,
-            block_key__in=course_block_keys,
-        )
-
-        if not completions:
-            continue
-
-        farthest_completed_block = None
-        completion_block_ids = [completion.block_key.block_id for completion in completions]
-        for course_block_key in complete_course_structure.topological_traversal():
-            if course_block_key.block_id in completion_block_ids:
-                farthest_completed_block = course_block_key
-
-        if not farthest_completed_block:
-            continue
-
-        completion_date = None
-        for completion in completions:
-            if completion.block_key.block_id == farthest_completed_block.block_id:
-                completion_date = completion.created
-
-        unit = complete_course_structure.get_parents(farthest_completed_block)[0]
-        subsection = complete_course_structure.get_parents(unit)[0]
-        section = complete_course_structure.get_parents(subsection)[0]
-        StudentCourseProgress.objects.update_or_create(
-            student=enrollment.user,
-            course_id=course._location.course_key,
-            defaults=dict(
-                completed_block=get_course_block_name(complete_course_structure, farthest_completed_block),
-                completed_unit=get_course_block_name(complete_course_structure, unit),
-                completed_subsection=get_course_block_name(complete_course_structure, subsection),
-                completed_section=get_course_block_name(complete_course_structure, section),
-                completion_date=completion_date,
-            )
-        )
+    update_student_course_progress_for_course(str(course.id))
 
 
 @shared_task
