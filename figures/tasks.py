@@ -14,21 +14,18 @@ from datetime import timezone
 from edly_features_app.tasks import update_student_course_progress_for_course
 from edly_features_app.utils import get_active_tenant_lms_sites
 import six
-from edx_django_utils.db.read_replica import read_replica_or_default
 
 from figures.backfill import backfill_enrollment_data_for_site
 from figures.compat import CourseEnrollment, CourseOverview
 from figures.helpers import as_course_key, as_date
 from figures.log import log_exec_time
 from figures.models import PipelineError
-from figures.helpers import as_course_key, as_date, is_past_date, is_multisite
-from figures.sites import default_site, get_sites, get_sites_by_id, site_course_ids
+from figures.sites import default_site
 import figures.sites
 from figures.pipeline.backfill import backfill_enrollment_data_for_site
 from figures.pipeline.course_daily_metrics import CourseDailyMetricsLoader
 from figures.pipeline.site_daily_metrics import SiteDailyMetricsLoader
 from figures.pipeline.mau_pipeline import collect_course_mau
-from figures.pipeline.helpers import DateForCannotBeFutureError
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
 from figures.pipeline.logger import log_error_to_db
 from edx_django_utils.db.read_replica import read_replica_or_default
@@ -111,15 +108,13 @@ def update_enrollment_data(site_id, **_kwargs):
 
 
 @shared_task
-def update_learners_progress_for_course(course):
-    """
-    Recompute ``StudentCourseProgress`` rows for every active enrollment
-    in the given course.
+def update_learners_progress_for_course(course_id):
+    """Recompute StudentCourseProgress rows for every active enrollment in a course.
 
     Delegates to ``edly_features_app.tasks.update_student_course_progress_for_course``
     where the SCP model and traversal logic live.
     """
-    update_student_course_progress_for_course(str(course.id))
+    update_student_course_progress_for_course.delay(str(course_id))
 
 
 @shared_task
@@ -169,7 +164,7 @@ def populate_daily_metrics(site_id=None, date_for=None, force_update=False):
                     course_id=course.id,
                     date_for=date_for,
                     force_update=force_update)
-                update_learners_progress_for_course(course)
+                update_learners_progress_for_course.delay(str(course.id))
             except Exception as e:  # pylint: disable=broad-except
                 logger.exception('figures.tasks.populate_daily_metrics failed')
                 # Always capture CDM load exceptions to the Figures pipeline
