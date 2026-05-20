@@ -763,7 +763,7 @@ def send_insights_learner_report(raw_data, recipient_email, username, report_typ
             len([course for course in learner['courses'] if course['progress_data']['course_completed']]),
             (learner.get('date_joined') or 'N/A').split('T')[0],
             (learner.get('last_login') or 'N/A').split('T')[0],
-            (learner.get('course_activity_date') or 'N/A').split(' ')[0]
+            str(learner.get('course_activity_date') or 'N/A').split(' ')[0]
         ])
 
     csv_report_writer.writerow([''])
@@ -837,7 +837,7 @@ def get_farthest_complete_course_block(scp_objects, course_key=None, user=None):
         scp = course_progress.first()
         return [scp.completed_section, scp.completed_subsection, scp.completed_unit, scp.completed_block, scp.completion_date]
 
-    return []
+    return ['N/A', 'N/A', 'N/A', 'N/A', 'N/A']
 
 
 def send_learner_report(learners_data, scp_objects, recipient_email, username, report_type, site_configs):
@@ -865,7 +865,7 @@ def send_learner_report(learners_data, scp_objects, recipient_email, username, r
     csv_report_writer.writerow(['Last Login', last_login])
     course_activity = learners_data.get('course_activity_date')
     csv_report_writer.writerow([
-        'Last Course Activity', course_activity.split(' ')[0] if course_activity else 'N/A'
+        'Last Course Activity', str(course_activity).split(' ')[0] if course_activity else 'N/A'
     ])
     csv_report_writer.writerow([''])
     csv_report_writer.writerow([

@@ -8,13 +8,13 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.http.request import HttpRequest
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from edly_features_app.models import StudentCourseProgress
 from edly_panel_app.api.v1.views import (
     GetMonthlyActiveUsers, GetMonthlyCourseCompletions
 )
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.djangoapps.site_configuration.helpers import get_current_site_configuration
 from openedx.core.lib.api.authentication import OAuth2Authentication
-# from openedx.features.edly.models import StudentCourseProgress
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import NotFound
@@ -233,6 +233,7 @@ class InsightLearnersCSV(APIView):
         Prepare raw data for learner insights
         """
         site_obj = Site.objects.get(id=site)
+        context['site'] = site_obj
         context['course_enrollments'] = figures.sites.get_course_enrollments_for_site(
             site_obj
         )
@@ -378,7 +379,9 @@ class InsightCoursesCSV(APIView):
         course_enrollments = InsightCoursesCSV._get_course_enrollments(fake_req)
         course_enrollments = InsightCoursesCSV._get_serialized_enrollments(course_enrollments)
 
-        scp_objects = StudentCourseProgress.objects.filter(course_id=course_id)
+        scp_objects = StudentCourseProgress.objects.filter(
+            course_id=CourseKey.from_string(course_id.replace(' ', '+'))
+        )
         course_maus = InsightCoursesCSV._get_courses_maus(site, course_id)
         figures.helpers.send_insights_course_detail_report(
             course_overview, course_details, course_maus, course_enrollments,
