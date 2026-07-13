@@ -238,6 +238,30 @@ class TestCourseDailyMetricsPipelineFunctions(object):
         )
         assert actual == expected
 
+    def test_get_days_to_complete_skips_orphan_grade(self):
+        """A passing grade with no matching CourseEnrollment (e.g. a
+        retired/deleted user or a data gap) should be skipped instead of
+        raising an AttributeError on `None.created`.
+        """
+        orphan_user = UserFactory(
+            edly_multisite_user__sub_org=self.edly_sub_organization
+        )
+        PersistentCourseGrade.objects.create(
+            user_id=orphan_user.id,
+            course_id=self.course_overview.id,
+            percent_grade=80.5,
+            passed_timestamp=as_datetime(self.today),
+        )
+
+        expected = dict(days=self.cert_days_to_complete)
+        actual = pipeline_cdm.get_days_to_complete(
+            site=self.site,
+            course_id=self.course_overview.id,
+            date_for=self.today + datetime.timedelta(
+                days=1 + max(self.cert_days_to_complete))
+        )
+        assert actual == expected
+
     def test_calc_average_days_to_complete(self):
         actual = pipeline_cdm.calc_average_days_to_complete(
             self.cert_days_to_complete)
