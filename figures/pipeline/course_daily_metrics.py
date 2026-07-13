@@ -247,6 +247,10 @@ def get_days_to_complete(site, course_id, date_for):
             course_id=as_course_key(course_id),
             user__id=grade.get('user_id')
         ).using(read_replica_or_default()).first()
+        if course_enrollment is None:
+            # Grade with no matching enrollment (e.g. retired/deleted user or a
+            # data gap) -- can't compute days-to-complete, skip it.
+            continue
         days.append((grade.get('passed_timestamp') - course_enrollment.created).days)
 
     return dict(days=days)
