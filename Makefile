@@ -43,6 +43,7 @@ pip.install:   ## Install Appsembler Hawthorn requirements for devsite
 
 
 python.build:   python.build.clean  ## Build Python package
+	pip install --upgrade build
 	python -m build
 
 

@@ -56,7 +56,7 @@ zip-safe = false
 # module docstring recommended.
 [tool.setuptools.packages.find]
 include = ["figures", "figures.*"]
-exclude = ["*tests"]
+exclude = ["tests*"]
 
 [tool.setuptools.package-data]
 # The built frontend bundle and Django templates must ship inside the wheel;
