@@ -1,0 +1,64 @@
+# pyproject.toml configuration for Figures.
+# This enables modern PEP 517/518 builds so that pip 25.1+ no longer falls back
+# to the deprecated legacy `setup.py bdist_wheel` mechanism.
+
+[build-system]
+requires = [
+    "setuptools>=77",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Figures"
+version = "0.4.dev7"
+description = "Reporting and data retrieval for Open edX"
+readme = {file = "docs/readme-pypi.rst", content-type = "text/x-rst"}
+requires-python = ">=3.11"
+# PEP 639: SPDX expression + license file, rather than the now-deprecated
+# `License ::` trove classifier or `license = {file = ...}` table.
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Appsembler", email = "opensources@appsembler.com"},
+]
+keywords = ["Python", "edx"]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dependencies = [
+    "sqlparse >= 0.2.2",  # This is the requirement specified by Django 2.2+
+    "fpdf == 1.7.2",
+]
+urls = {Homepage = "https://github.com/appsembler/figures"}
+
+[project.entry-points."lms.djangoapp"]
+figures = "figures.apps:FiguresConfig"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+# Explicit package list is required: `figures` and `tests` are both top-level
+# packages, so setuptools flat-layout auto-discovery would fail with
+# "Multiple top-level packages discovered". This also keeps the top-level
+# `tests` package out of the built distributions, as the old setup.py
+# module docstring recommended.
+[tool.setuptools.packages.find]
+include = ["figures", "figures.*"]
+exclude = ["*tests"]
+
+[tool.setuptools.package-data]
+# The built frontend bundle and Django templates must ship inside the wheel;
+# MANIFEST.in on its own mainly affects sdists.
+figures = ["webpack-stats.json", "static/**/*", "templates/**/*"]
