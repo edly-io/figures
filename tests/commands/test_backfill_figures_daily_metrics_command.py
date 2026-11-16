@@ -9,7 +9,7 @@ except ImportError:
     # for Python 2.7
     import mock
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 
 from figures.helpers import as_date
 
@@ -91,3 +91,26 @@ class TestBackfillDailyMetricsCommand(object):
                          str(getattr(self.site, site_identifier)),
                          **cmd_kwargs)
             mock_func.assert_has_calls(expected_calls)
+
+    def test_failing_site_does_not_stop_next_site(self):
+        """A site that raises is reported at the end but later sites still run
+        """
+        sites = [mock.Mock(domain='bad.example.com'), mock.Mock(domain='good.example.com')]
+        with mock.patch(self.CMD_FULL_PATH + '.get_active_tenant_lms_sites', return_value=sites), \
+                mock.patch(self.MOCK_PATH,
+                           side_effect=[AssertionError('Multiple orgs found'), self.mock_ret_val]) as mock_func:
+            with pytest.raises(CommandError) as excinfo:
+                call_command(self.MANAGEMENT_COMMAND, date='2021-03-15')
+        assert [call.args[0] for call in mock_func.call_args_list] == sites
+        assert 'bad.example.com' in str(excinfo.value)
+        assert 'good.example.com' not in str(excinfo.value)
+        assert 'failed for 1 site(s)' in str(excinfo.value)
+
+    def test_all_sites_succeed(self):
+        """No error is raised when every site succeeds
+        """
+        sites = [mock.Mock(domain='a.example.com'), mock.Mock(domain='b.example.com')]
+        with mock.patch(self.CMD_FULL_PATH + '.get_active_tenant_lms_sites', return_value=sites), \
+                mock.patch(self.MOCK_PATH, return_value=self.mock_ret_val) as mock_func:
+            call_command(self.MANAGEMENT_COMMAND, date='2021-03-15')
+        assert mock_func.call_count == 2

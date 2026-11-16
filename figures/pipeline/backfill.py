@@ -231,6 +231,7 @@ def backfill_daily_metrics_for_site_and_date(site,
     logger.info('\nEND: backfill courses. date_for:{}, elapsed: {}\n'.format(
         date_for_str, cdms_elapsed))
 
+    sdm_elapsed = 0
     if process_sdm:
         # TODO: if the SDM already exists, report it. This means the admin
         # can decide to manually force update, which is usually what we

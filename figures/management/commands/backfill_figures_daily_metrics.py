@@ -15,6 +15,7 @@ from dateutil.rrule import rrule, DAILY
 from pytz import utc
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import close_old_connections
 
 from edly_features_app.utils import get_active_tenant_lms_sites
 from figures.helpers import as_date
@@ -126,9 +127,9 @@ class Command(BaseCommand):
                     print('CDM processing time: {}, SDM processing time: {}'.format(
                         results['cdms_elapsed'], results['sdm_elapsed']))
             except Exception:  # pylint: disable=broad-except
-                # EDLYCUSTOM: one failing site must not block the remaining sites
-                logger.exception('FIGURES:FAIL backfill_figures_daily_metrics site[{}]={}'.format(
-                    site.id, site.domain))
+                logger.exception('FIGURES:FAIL backfill_figures_daily_metrics site[%s]=%s',
+                                 site.id, site.domain)
+                close_old_connections()
                 failed_sites.append(site.domain)
 
         if failed_sites:
