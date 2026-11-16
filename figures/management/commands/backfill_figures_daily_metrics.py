@@ -10,15 +10,19 @@ from __future__ import absolute_import
 from textwrap import dedent
 
 import datetime
+import logging
 from dateutil.rrule import rrule, DAILY
 from pytz import utc
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import close_old_connections
 
 from edly_features_app.utils import get_active_tenant_lms_sites
 from figures.helpers import as_date
 from figures.sites import Site
 from figures.pipeline.backfill import backfill_daily_metrics_for_site_and_date
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -109,14 +113,25 @@ class Command(BaseCommand):
         extra_args = dict((key, options[key]) for key in backfill_options)
         # import pdb; pdb.set_trace()
 
+        failed_sites = []
         for site in sites:
             print('Processing site: {}'.format(site.domain))
-            for date_for in dates:
-                print('Generating daily metrics for date: {}'.format(date_for.isoformat()))
-                results = self.do_backfill(site=site,
-                                           date_for=date_for,
-                                           **extra_args)
-                print('Finished date {}. Processed {} courses'.format(
-                    date_for.isoformat(), results['courses_processed']))
-                print('CDM processing time: {}, SDM processing time: {}'.format(
-                    results['cdms_elapsed'], results['sdm_elapsed']))
+            try:
+                for date_for in dates:
+                    print('Generating daily metrics for date: {}'.format(date_for.isoformat()))
+                    results = self.do_backfill(site=site,
+                                               date_for=date_for,
+                                               **extra_args)
+                    print('Finished date {}. Processed {} courses'.format(
+                        date_for.isoformat(), results['courses_processed']))
+                    print('CDM processing time: {}, SDM processing time: {}'.format(
+                        results['cdms_elapsed'], results['sdm_elapsed']))
+            except Exception:  # pylint: disable=broad-except
+                logger.exception('FIGURES:FAIL backfill_figures_daily_metrics site[%s]=%s',
+                                 site.id, site.domain)
+                close_old_connections()
+                failed_sites.append(site.domain)
+
+        if failed_sites:
+            raise CommandError('Figures daily metrics failed for {} site(s): {}'.format(
+                len(failed_sites), ', '.join(failed_sites)))
